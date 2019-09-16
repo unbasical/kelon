@@ -1,0 +1,29 @@
+# Assign all Resources to a specific datasource
+postgres:
+  # Resource-Pools represent all nouns of the REST-API
+  resource_pools:
+    - users
+    - followers
+    - apps
+    - readers
+    - right
+    - tags
+
+  # Resource-Pool-Groups help to absorb fuzzy REST-API namings
+  resource_pool_groups:
+    appRights:                        # Name
+      resources:                      # List of contained resource pools
+        - readers
+        - right
+
+  # Resource-Links link Resource-Pools or Resource-Pool-Groups to Entities in Datastores
+  resource_links:
+    appRights: app_rights             # <Resource-Pool / Resource-Pool-Group>: Entity
+
+  # Join-Paths apply custom linking of API-Paths to Join-Paths in the target datasource
+  join_paths:
+    apps.tag:                         # Unique Resource-Paths
+      - apps                          # Array representing the Join-Path in datastore (!!! ORDER IMPORTANT !!!)
+      - app_rights
+      - users
+      - tags
