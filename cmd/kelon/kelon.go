@@ -23,7 +23,7 @@ var (
 	// Flags
 	datastorePath = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
 	apiPath       = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
-	proxyUrl      = app.Flag("proxy-url", "URL which is used to proxy OPA's Data-Api.").Default("/v1/data/authz/allow").Envar("PROXY_URL").URL()
+	pathPrefix    = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-Api.").Default("/v1/data").Envar("PATH_PREFIX").String()
 	port          = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Int32()
 )
 
@@ -33,8 +33,14 @@ type AppConfig struct {
 
 var appConf = AppConfig{}
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	if _, err := fmt.Fprintf(w, "Hi there, kelon responding to %s!", r.URL.Path[1:]); err != nil {
+func handleGet(w http.ResponseWriter, r *http.Request) {
+	if _, err := fmt.Fprintf(w, "Hi there, you executed a GET request to OPA's Data-API via kelon: %s!", r.URL.Path[1:]); err != nil {
+		log.Fatal("Unable to respond to HTTP request")
+	}
+}
+
+func handlePost(w http.ResponseWriter, r *http.Request) {
+	if _, err := fmt.Fprintf(w, "Hi there, you executed a POST request to OPA's Data-API via kelon: %s!", r.URL.Path[1:]); err != nil {
 		log.Fatal("Unable to respond to HTTP request")
 	}
 }
@@ -69,9 +75,10 @@ func onConfigLoaded(config *configs.Config, err error) {
 	}
 
 	// Create Server and Route Handlers
-	log.Printf("Serving OPA's Data-Api at: http://localhost:%d%s\n", *port, (*proxyUrl).String())
+	log.Printf("Serving OPA's Data-Api at: http://localhost:%d%s\n", *port, *pathPrefix)
 	r := mux.NewRouter()
-	r.HandleFunc((*proxyUrl).String(), handler)
+	r.PathPrefix(*pathPrefix).HandlerFunc(handleGet).Methods("GET")
+	r.PathPrefix(*pathPrefix).HandlerFunc(handlePost).Methods("POST")
 
 	server := &http.Server{
 		Handler:      r,

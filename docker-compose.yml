@@ -1,0 +1,12 @@
+version: '3'
+services:
+  kelon:
+    build: .
+    ports:
+      - "8181:8181"
+    volumes:
+      - ./configs/testdata/api.yml:/app/api.yml
+      - ./configs/testdata/datastore.yml:/app/datastore.yml
+    environment:
+      - DATASTORE_CONF=/app/datastore.yml
+      - API_CONF=/app/api.yml
