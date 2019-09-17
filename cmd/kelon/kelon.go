@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/Foundato/kelon/configs"
+	"github.com/Foundato/kelon/internal/pkg/watcher"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
 	"os"
@@ -22,11 +23,11 @@ type AppConfig struct {
 	debug bool
 }
 
+var appConf = AppConfig{}
+
 func main() {
 	app.HelpFlag.Short('h')
 	app.Version("0.1.0")
-
-	appConf := AppConfig{}
 
 	// Parse args
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
@@ -38,18 +39,17 @@ func main() {
 
 	// Run app
 	println("Kelon starting...")
-	runApp(appConf)
-}
 
-func runApp(appConf AppConfig) {
-	config, err := configs.FileConfigLoader{
+	// Init config loader
+	configLoader := configs.FileConfigLoader{
 		DatastoreConfigPath: *datastorePath,
 		ApiConfigPath:       *apiPath,
-	}.Load()
-
-	if appConf.debug {
-		println("Started in debug-mode")
 	}
+	// Start app after config is present
+	watcher.DefaultConfigWatcher{Loader: configLoader}.Watch(onConfigLoaded)
+}
+
+func onConfigLoaded(config *configs.Config, err error) {
 	if err != nil {
 		log.Fatalln("Unable to parse configuration: ", err.Error())
 	}
