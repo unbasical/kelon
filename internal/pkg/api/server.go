@@ -2,73 +2,87 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/Foundato/kelon/configs"
+	"github.com/Foundato/kelon/internal/pkg/opa"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 )
 
-type RestProxy struct {
-	PathPrefix string
-	Port       int32
-	Config     *configs.AppConfig
-	router     *mux.Router
+type ServerConfig struct {
+	Compiler opa.PolicyCompiler
+	opa.CompilerConfig
 }
 
-func NewRestProxy(pathPrefix string, port int32, conf *configs.AppConfig) *RestProxy {
-	proxy := new(RestProxy)
+type ClientProxy interface {
+	Configure(appConf *configs.AppConfig, serverConf *ServerConfig) ClientProxy
+	Start() error
+	Stop(deadline time.Duration) error
+}
 
-	proxy.PathPrefix = pathPrefix
-	proxy.Port = port
-	proxy.Config = conf
-	proxy.router = mux.NewRouter()
+type restProxy struct {
+	pathPrefix string
+	port       int32
+	configured bool
+	appConf    *configs.AppConfig
+	config     *ServerConfig
+	router     *mux.Router
+	server     *http.Server
+}
 
+func NewRestProxy(pathPrefix string, port int32) ClientProxy {
+	return &restProxy{
+		pathPrefix: pathPrefix,
+		port:       port,
+		configured: false,
+		appConf:    nil,
+		config:     nil,
+		router:     mux.NewRouter(),
+	}
+}
+
+func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *ServerConfig) ClientProxy {
+	proxy.appConf = appConf
+	proxy.config = serverConf
+	proxy.configured = true
 	return proxy
 }
 
-func (proxy RestProxy) Start() {
-	// Create Server and Route Handlers
-	proxy.router.PathPrefix(proxy.PathPrefix).HandlerFunc(proxy.handleGet).Methods("GET")
-	proxy.router.PathPrefix(proxy.PathPrefix).HandlerFunc(proxy.handlePost).Methods("POST")
+func (proxy *restProxy) Start() error {
+	if !proxy.configured {
+		return errors.New("Rest proxy was not configured! Please call Configure(). ")
+	}
 
-	server := &http.Server{
+	// Create Server and Route Handlers
+	proxy.router.PathPrefix(proxy.pathPrefix).HandlerFunc(proxy.handleGet).Methods("GET")
+	proxy.router.PathPrefix(proxy.pathPrefix).HandlerFunc(proxy.handlePost).Methods("POST")
+
+	proxy.server = &http.Server{
 		Handler:      proxy.router,
-		Addr:         fmt.Sprintf(":%d", proxy.Port),
+		Addr:         fmt.Sprintf(":%d", proxy.port),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 
 	// Start Server
 	go func() {
-		log.Println("Starting Server")
-		if err := server.ListenAndServe(); err != nil {
+		log.Printf("Starting server at: http://localhost:%d%s\n", proxy.port, proxy.pathPrefix)
+		if err := proxy.server.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
 	}()
-
-	// Wait for shutdown
-	gracefulShutdown(server)
+	return nil
 }
 
-func gracefulShutdown(server *http.Server) {
-	interruptChan := make(chan os.Signal, 1)
-	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
-	// Block until we receive our signal.
-	<-interruptChan
-
-	// Create a deadline to wait for.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+func (proxy *restProxy) Stop(deadline time.Duration) error {
+	log.Printf("Stopping server at: http://localhost:%d%s\n", proxy.port, proxy.pathPrefix)
+	ctx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalln("Error while shutting down server: ", err.Error())
+	if err := proxy.server.Shutdown(ctx); err != nil {
+		return fmt.Errorf("Error while shutting down server: %s ", err.Error())
 	}
-
-	log.Println("Shutting down...")
-	os.Exit(0)
+	return nil
 }

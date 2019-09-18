@@ -8,9 +8,7 @@ import (
 
 type AppConfig struct {
 	ExternalConfig
-	Debug         bool
-	RequestMapper string
-	Datastore     string
+	Debug bool
 }
 
 type ExternalConfig struct {
