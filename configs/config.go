@@ -6,13 +6,20 @@ import (
 	"io/ioutil"
 )
 
-type Config struct {
+type AppConfig struct {
+	ExternalConfig
+	Debug         bool
+	RequestMapper string
+	Datastore     string
+}
+
+type ExternalConfig struct {
 	Data *DatastoreConfig
 	Api  map[string]*ApiConfig
 }
 
 type ConfigLoader interface {
-	Load() (*Config, error)
+	Load() (*ExternalConfig, error)
 }
 
 type ByteConfigLoader struct {
@@ -20,7 +27,7 @@ type ByteConfigLoader struct {
 	ApiConfigBytes       []byte
 }
 
-func (l ByteConfigLoader) Load() (*Config, error) {
+func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 	if l.DatastoreConfigBytes == nil {
 		return nil, errors.New("DatastoreConfigBytes must not be nil!")
 	}
@@ -28,7 +35,7 @@ func (l ByteConfigLoader) Load() (*Config, error) {
 		return nil, errors.New("ApiConfigBytes must not be nil!")
 	}
 
-	result := new(Config)
+	result := new(ExternalConfig)
 
 	// Load datastore config
 	result.Data = new(DatastoreConfig)
@@ -50,7 +57,7 @@ type FileConfigLoader struct {
 	ApiConfigPath       string
 }
 
-func (l FileConfigLoader) Load() (*Config, error) {
+func (l FileConfigLoader) Load() (*ExternalConfig, error) {
 	if l.DatastoreConfigPath == "" {
 		return nil, errors.New("DatastoreConfigPath must not be empty!")
 	}
