@@ -13,12 +13,12 @@ import (
 )
 
 type ServerConfig struct {
-	Compiler opa.PolicyCompiler
+	Compiler *opa.PolicyCompiler
 	opa.CompilerConfig
 }
 
 type ClientProxy interface {
-	Configure(appConf *configs.AppConfig, serverConf *ServerConfig) ClientProxy
+	Configure(appConf *configs.AppConfig, serverConf *ServerConfig) error
 	Start() error
 	Stop(deadline time.Duration) error
 }
@@ -44,16 +44,27 @@ func NewRestProxy(pathPrefix string, port int32) ClientProxy {
 	}
 }
 
-func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *ServerConfig) ClientProxy {
+func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *ServerConfig) error {
+	// Configure subcomponents
+	if serverConf.Compiler == nil {
+		return errors.New("RestProxy: Compiler not configured! ")
+	}
+	compiler := *serverConf.Compiler
+	if err := compiler.Configure(appConf, &serverConf.CompilerConfig); err != nil {
+		return err
+	}
+
+	// Assign variables
 	proxy.appConf = appConf
 	proxy.config = serverConf
 	proxy.configured = true
-	return proxy
+	log.Println("Configured RestProxy")
+	return nil
 }
 
 func (proxy *restProxy) Start() error {
 	if !proxy.configured {
-		return errors.New("Rest proxy was not configured! Please call Configure(). ")
+		return errors.New("RestProxy was not configured! Please call Configure(). ")
 	}
 
 	// Create Server and Route Handlers
