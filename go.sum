@@ -1,0 +1,8 @@
+github.com/Foundato/kelon v0.0.0-20190915161309-d72f6d87bb16 h1:twh9G9dBEtMAxcV8stVoPJjekLtdIEx3ehYuztewg+Q=
+github.com/Foundato/kelon-config v0.0.0-20190915174305-92d18c4b3159 h1:bgIcYcdAe6dx6ZDPR8XebGfSLtZhOUPcwTBhOGt8ZHY=
+github.com/google/go-cmp v0.3.1 h1:Xye71clBPdm5HgqGwUkwhbynsUJZhDbS20FvLhQ2izg=
+github.com/google/go-cmp v0.3.1/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/yaml.v3 v3.0.0-20190905181640-827449938966 h1:B0J02caTR6tpSJozBJyiAzT6CtBzjclw4pgm9gg8Ys0=
+gopkg.in/yaml.v3 v3.0.0-20190905181640-827449938966/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
