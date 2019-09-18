@@ -81,6 +81,7 @@ func onConfigLoaded(loadedConf *configs.ExternalConfig, err error) {
 		CompilerConfig: opa.CompilerConfig{
 			PathProcessor: &parser,
 			PathProcessorConfig: request.PathProcessorConfig{
+				Prefix:     *pathPrefix,
 				PathMapper: &mapper,
 			},
 			Translator: &translator,

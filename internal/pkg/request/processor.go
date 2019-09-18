@@ -6,17 +6,21 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strings"
 )
 
 type PathProcessorConfig struct {
+	Prefix     string
 	PathMapper *PathMapper
 }
 
 type PathProcessor interface {
 	Configure(appConf *configs.AppConfig, processorConf *PathProcessorConfig) error
-	Process(input interface{}) ([]string, error)
+	// Process input and return (mappedPath, datastore, error)
+	Process(input interface{}) ([]string, string, error)
 }
 
+// TODO app processor that handles input passed via data api
 type urlProcessor struct {
 	appConf    *configs.AppConfig
 	config     *PathProcessorConfig
@@ -48,12 +52,12 @@ func (processor *urlProcessor) Configure(appConf *configs.AppConfig, processorCo
 	return nil
 }
 
-func (processor urlProcessor) Process(input interface{}) ([]string, error) {
+func (processor urlProcessor) Process(input interface{}) ([]string, string, error) {
 	if !processor.configured {
-		return nil, errors.New("UrlProcessor was not configured! Please call Configure(). ")
+		return nil, "", errors.New("UrlProcessor was not configured! Please call Configure(). ")
 	}
 	if input == nil {
-		return nil, errors.New("UrlProcessor: Nil is no valid input for Process(). ")
+		return nil, "", errors.New("UrlProcessor: Nil is no valid input for Process(). ")
 	}
 
 	// Check type and handle request
@@ -61,11 +65,24 @@ func (processor urlProcessor) Process(input interface{}) ([]string, error) {
 	case *http.Request:
 		return processor.handleInput(input.(*http.Request))
 	default:
-		return nil, errors.New("UrlProcessor: Input of Process() was not of type http.Request! Type was: " + reflect.TypeOf(input).String())
+		return nil, "", errors.New("UrlProcessor: Input of Process() was not of type http.Request! Type was: " + reflect.TypeOf(input).String())
 	}
 }
 
-func (processor urlProcessor) handleInput(request *http.Request) ([]string, error) {
-	// TODO implement Request-parsing
-	return []string{}, nil
+func (processor urlProcessor) handleInput(request *http.Request) ([]string, string, error) {
+	// Parse base path
+	var path []string
+	basePath := strings.ReplaceAll(request.URL.Path, processor.config.Prefix, "")
+	base := strings.Fields(strings.ReplaceAll(strings.ToLower(basePath), "/", " "))
+	path = append(path, base...)
+
+	// Append query parameter keys (also Resources)
+	queries := request.URL.Query()
+	for queryName := range queries {
+		path = append(path, strings.ToLower(queryName))
+	}
+
+	// Map path and return
+	mapper := *processor.config.PathMapper
+	return mapper.Map(path)
 }

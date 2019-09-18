@@ -2,13 +2,15 @@ package request
 
 import (
 	"errors"
+	"fmt"
 	"github.com/Foundato/kelon/configs"
 	"log"
 )
 
 type PathMapper interface {
 	Configure(appConf *configs.AppConfig) error
-	Map(path []string) ([]string, error)
+	// Find datastore for mapped path and return (mappedPath, datastore, error)
+	Map(path []string) ([]string, string, error)
 }
 
 type pathMapper struct {
@@ -33,11 +35,39 @@ func (mapper *pathMapper) Configure(appConf *configs.AppConfig) error {
 	return nil
 }
 
-func (mapper pathMapper) Map(path []string) ([]string, error) {
+func (mapper pathMapper) Map(path []string) ([]string, string, error) {
 	if !mapper.configured {
-		return nil, errors.New("PathMapper was not configured! Please call Configure(). ")
+		return nil, "", errors.New("PathMapper was not configured! Please call Configure(). ")
+	}
+	if path == nil || len(path) == 0 {
+		return nil, "", errors.New("PathMapper: Argument path mustn't be nil or empty! ")
 	}
 
-	// TODO implement Path-mapping
-	return []string{}, nil
+	// Search for custom mapping
+	if match, matchDatastore, err := mapper.appConf.FindEntityMapping(path); err == nil && match != nil {
+		return match, matchDatastore, nil
+	} else if err == nil {
+		// Otherwise just map entities
+		possibleDatastores, _ := mapper.appConf.FindStoresContainingEntities(path)
+		if len(possibleDatastores) == 1 {
+			return mapEntities(path, possibleDatastores[0], mapper.appConf)
+		} else {
+			// More then one or zero datastores were found
+			return nil, "", errors.New(fmt.Sprintf("PathMapper: Input path is ambiguous! Found %d possible datastores!", len(possibleDatastores)))
+		}
+	} else {
+		return nil, "", err
+	}
+}
+
+func mapEntities(resources []string, datastore string, config *configs.AppConfig) ([]string, string, error) {
+	var mappedEntities []string
+	for _, res := range resources {
+		if mapped, err := config.MapResource(datastore, res); err == nil {
+			mappedEntities = append(mappedEntities, mapped)
+		} else {
+			return nil, "", err
+		}
+	}
+	return mappedEntities, datastore, nil
 }

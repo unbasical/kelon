@@ -68,13 +68,13 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	}
 
 	processor := *compiler.config.PathProcessor
-	mappedPath, err := processor.Process(request)
+	mappedPath, datastore, err := processor.Process(request)
 	if err != nil {
 		log.Println("PolicyCompiler: Error during path processing: " + err.Error())
 		return false, nil
 	}
 
-	fmt.Printf("%v\n", mappedPath)
+	fmt.Printf("%s -> %v\n", datastore, mappedPath)
 	// TODO implement OPA-compiler
 	return true, nil
 }
