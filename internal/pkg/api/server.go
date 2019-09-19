@@ -2,11 +2,11 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/opa"
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 	"log"
 	"net/http"
 	"time"
@@ -93,7 +93,7 @@ func (proxy *restProxy) Stop(deadline time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()
 	if err := proxy.server.Shutdown(ctx); err != nil {
-		return fmt.Errorf("Error while shutting down server: %s ", err.Error())
+		return errors.Wrap(err, "Error while shutting down server")
 	}
 	return nil
 }

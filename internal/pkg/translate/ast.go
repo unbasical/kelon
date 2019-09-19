@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/data"
+	"github.com/open-policy-agent/opa/rego"
 	"log"
 )
 
@@ -13,7 +14,7 @@ type AstTranslatorConfig struct {
 
 type AstTranslator interface {
 	Configure(appConf *configs.AppConfig, transConf *AstTranslatorConfig) error
-	Process(ast *interface{}) (*interface{}, error)
+	Process(ast *rego.PartialQueries) (*[]interface{}, error)
 }
 
 type astTranslator struct {
@@ -48,13 +49,13 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *Ast
 	return nil
 }
 
-func (trans astTranslator) Process(ast *interface{}) (*interface{}, error) {
+func (trans astTranslator) Process(ast *rego.PartialQueries) (*[]interface{}, error) {
 	if !trans.configured {
 		return nil, errors.New("AstTranslator was not configured! Please call Configure(). ")
 	}
 
 	// TODO implement AST-translation
-	var stub interface{}
-	stub = "I am a Stub!"
+	var stub []interface{}
+	stub = append(stub, "Stub")
 	return &stub, nil
 }

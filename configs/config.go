@@ -29,10 +29,10 @@ type ByteConfigLoader struct {
 
 func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 	if l.DatastoreConfigBytes == nil {
-		return nil, errors.New("DatastoreConfigBytes must not be nil!")
+		return nil, errors.New("DatastoreConfigBytes must not be nil! ")
 	}
 	if l.ApiConfigBytes == nil {
-		return nil, errors.New("ApiConfigBytes must not be nil!")
+		return nil, errors.New("ApiConfigBytes must not be nil! ")
 	}
 
 	result := new(ExternalConfig)
@@ -59,10 +59,10 @@ type FileConfigLoader struct {
 
 func (l FileConfigLoader) Load() (*ExternalConfig, error) {
 	if l.DatastoreConfigPath == "" {
-		return nil, errors.New("DatastoreConfigPath must not be empty!")
+		return nil, errors.New("DatastoreConfigPath must not be empty! ")
 	}
 	if l.ApiConfigPath == "" {
-		return nil, errors.New("ApiConfigPath must not be empty!")
+		return nil, errors.New("ApiConfigPath must not be empty! ")
 	}
 
 	// Load data from file
@@ -113,16 +113,16 @@ func (conf *AppConfig) FindStoresContainingEntities(entities []string) ([]string
 	return matchingDatastores, nil
 }
 
-func (conf *AppConfig) MapResource(datasource string, resource string) (string, error) {
-	if datasource == "" || resource == "" {
+func (conf *AppConfig) MapResource(datastore string, resource string) (string, error) {
+	if datastore == "" || resource == "" {
 		return "", errors.New("AppConfig: Empty string is not an valid argument for MapResource()! ")
 	}
-	if _, ok := conf.Api[datasource]; !ok {
+	if _, ok := conf.Api[datastore]; !ok {
 		return "", errors.New("AppConfig: Datastore provided in MapResource() is not contained in api-config! ")
 	}
 
 	// First: map grouped resources
-	for groupName, group := range conf.Api[datasource].ResourcePoolGroups {
+	for groupName, group := range conf.Api[datastore].ResourcePoolGroups {
 		for _, resourceName := range group.Resources {
 			if resourceName == resource {
 				resource = groupName
@@ -131,7 +131,7 @@ func (conf *AppConfig) MapResource(datasource string, resource string) (string, 
 	}
 
 	// Then map resource via link if available
-	for resourceName, entityName := range conf.Api[datasource].ResourceLinks {
+	for resourceName, entityName := range conf.Api[datastore].ResourceLinks {
 		if resourceName == resource {
 			return entityName, nil
 		}

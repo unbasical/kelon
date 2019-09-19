@@ -1,26 +1,29 @@
 package request
 
 import (
-	"errors"
 	"github.com/Foundato/kelon/configs"
+	"github.com/pkg/errors"
 	"log"
-	"net/http"
+	"net/url"
 	"reflect"
 	"strings"
 )
 
 type PathProcessorConfig struct {
-	Prefix     string
 	PathMapper *PathMapper
+}
+
+type PathProcessorOutput struct {
+	Datastore string
+	Entities  []string
+	Resources map[string]interface{}
 }
 
 type PathProcessor interface {
 	Configure(appConf *configs.AppConfig, processorConf *PathProcessorConfig) error
-	// Process input and return (mappedPath, datastore, error)
-	Process(input interface{}) ([]string, string, error)
+	Process(input interface{}) (*PathProcessorOutput, error)
 }
 
-// TODO app processor that handles input passed via data api
 type urlProcessor struct {
 	appConf    *configs.AppConfig
 	config     *PathProcessorConfig
@@ -52,37 +55,48 @@ func (processor *urlProcessor) Configure(appConf *configs.AppConfig, processorCo
 	return nil
 }
 
-func (processor urlProcessor) Process(input interface{}) ([]string, string, error) {
+func (processor urlProcessor) Process(input interface{}) (*PathProcessorOutput, error) {
 	if !processor.configured {
-		return nil, "", errors.New("UrlProcessor was not configured! Please call Configure(). ")
+		return nil, errors.New("UrlProcessor was not configured! Please call Configure(). ")
 	}
 	if input == nil {
-		return nil, "", errors.New("UrlProcessor: Nil is no valid input for Process(). ")
+		return nil, errors.New("UrlProcessor: Nil is no valid input for Process(). ")
 	}
 
 	// Check type and handle request
 	switch input.(type) {
-	case *http.Request:
-		return processor.handleInput(input.(*http.Request))
+	case *url.URL:
+		return processor.handleInput(input.(*url.URL))
 	default:
-		return nil, "", errors.New("UrlProcessor: Input of Process() was not of type http.Request! Type was: " + reflect.TypeOf(input).String())
+		return nil, errors.New("UrlProcessor: Input of Process() was not of type http.Request! Type was: " + reflect.TypeOf(input).String())
 	}
 }
 
-func (processor urlProcessor) handleInput(request *http.Request) ([]string, string, error) {
+func (processor urlProcessor) handleInput(inputURL *url.URL) (*PathProcessorOutput, error) {
 	// Parse base path
 	var path []string
-	basePath := strings.ReplaceAll(request.URL.Path, processor.config.Prefix, "")
-	base := strings.Fields(strings.ReplaceAll(strings.ToLower(basePath), "/", " "))
-	path = append(path, base...)
+	pathFields := strings.Fields(strings.ReplaceAll(strings.ToLower(inputURL.Path), "/", " "))
+	path = append(path, pathFields...)
 
-	// Append query parameter keys (also Resources)
-	queries := request.URL.Query()
+	// Process query parameters
+	resources := make(map[string]interface{})
+	queries := inputURL.Query()
 	for queryName := range queries {
+		// Append query parameter keys (also Resources)
 		path = append(path, strings.ToLower(queryName))
+		// Build resources which are passed to OPA as part of the input object
+		resources[queryName] = queries.Get(queryName)
 	}
 
 	// Map path and return
-	mapper := *processor.config.PathMapper
-	return mapper.Map(path)
+	mapped, ds, err := (*processor.config.PathMapper).Map(path)
+	if err != nil {
+		return nil, errors.Wrap(err, "UrlProcessor: Error during path mapping.")
+	}
+	output := PathProcessorOutput{
+		Datastore: ds,
+		Entities:  mapped,
+		Resources: resources,
+	}
+	return &output, nil
 }

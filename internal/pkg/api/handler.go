@@ -1,18 +1,40 @@
 package api
 
 import (
-	"fmt"
+	"encoding/json"
+	"github.com/Foundato/kelon/internal/pkg/request"
+	"github.com/pkg/errors"
 	"log"
 	"net/http"
 	"strings"
 )
 
+type apiError struct {
+	Error struct {
+		Code    string `json:"code"`
+		Message string `json:"message,omitempty"`
+	} `json:"error"`
+}
+
+type apiResponse struct {
+	Result bool `json:"result"`
+}
+
+const (
+	apiCodeNotFound      = "not_found"
+	apiCodeInternalError = "internal_error"
+)
+
 func (proxy restProxy) handleGet(w http.ResponseWriter, r *http.Request) {
 	// Map query parameter "input" to request body
 	body := ""
-	if keys, ok := r.URL.Query()["input"]; ok && len(keys) == 1 {
+	query := r.URL.Query()
+	if keys, ok := query["input"]; ok && len(keys) == 1 {
 		// Assign body
 		body = keys[0]
+		// Remove input query param
+		query.Del("input")
+		r.URL.RawQuery = query.Encode()
 	} else {
 		log.Println("RestProxy: Received GET request without input: " + r.URL.String())
 	}
@@ -29,20 +51,39 @@ func (proxy restProxy) handlePost(w http.ResponseWriter, r *http.Request) {
 	// Compile
 	compiler := *proxy.config.Compiler
 	if decision, err := compiler.Process(r); err == nil {
-		// Map response
-		var response string
+		// Send decision to client
 		switch decision {
 		case true:
-			response = "ALLOWED"
+			writeJSON(w, http.StatusOK, apiResponse{Result: true})
 		case false:
-			response = "DENIED"
-		}
-
-		// Respond to calling client
-		if _, err := fmt.Fprint(w, response); err != nil {
-			log.Fatal("Unable to respond to HTTP request")
+			writeJSON(w, http.StatusOK, apiResponse{Result: false})
 		}
 	} else {
-		log.Fatal("RestProxy: Unable to compile request: ", err.Error())
+		// Handle error returned by compiler
+		log.Printf("RestProxy: Unable to compile request: %s", err.Error())
+		switch errors.Cause(err).(type) {
+		case *request.PathNotFoundError:
+			writeError(w, http.StatusNotFound, apiCodeNotFound, err)
+		default:
+			writeError(w, http.StatusInternalServerError, apiCodeInternalError, err)
+		}
+	}
+}
+
+func writeError(w http.ResponseWriter, status int, code string, err error) {
+	var resp apiError
+	resp.Error.Code = code
+	if err != nil {
+		resp.Error.Message = errors.Cause(err).Error()
+	}
+	writeJSON(w, status, resp)
+}
+
+func writeJSON(w http.ResponseWriter, status int, x interface{}) {
+	bs, _ := json.Marshal(x)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if _, err := w.Write(bs); err != nil {
+		log.Fatalln("RestProxy: Unable to send response!")
 	}
 }

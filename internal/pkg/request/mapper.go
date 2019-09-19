@@ -7,6 +7,15 @@ import (
 	"log"
 )
 
+type PathNotFoundError struct {
+	MatchingDatastores []string
+	Path               []string
+}
+
+func (e *PathNotFoundError) Error() string {
+	return fmt.Sprintf("Path %v is ambiguous! Found %d possible datastores!", e.Path, len(e.MatchingDatastores))
+}
+
 type PathMapper interface {
 	Configure(appConf *configs.AppConfig) error
 	// Find datastore for mapped path and return (mappedPath, datastore, error)
@@ -53,7 +62,7 @@ func (mapper pathMapper) Map(path []string) ([]string, string, error) {
 			return mapEntities(path, possibleDatastores[0], mapper.appConf)
 		} else {
 			// More then one or zero datastores were found
-			return nil, "", errors.New(fmt.Sprintf("PathMapper: Input path is ambiguous! Found %d possible datastores!", len(possibleDatastores)))
+			return nil, "", &PathNotFoundError{MatchingDatastores: possibleDatastores, Path: path}
 		}
 	} else {
 		return nil, "", err

@@ -25,7 +25,9 @@ var (
 	// Flags
 	datastorePath = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
 	apiPath       = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
-	pathPrefix    = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-Api.").Default("/v1/data").Envar("PATH_PREFIX").String()
+	opaPath       = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
+	regoPaths     = app.Flag("local-regos", "List of paths to rego files which should be used by OPA.").Short('r').Envar("REGO_PATHS").ExistingFiles()
+	pathPrefix    = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-Api.").Default("/v1").Envar("PATH_PREFIX").String()
 	port          = app.Flag("port", "port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Int32()
 )
 
@@ -79,9 +81,11 @@ func onConfigLoaded(loadedConf *configs.ExternalConfig, err error) {
 	serverConf := api.ServerConfig{
 		Compiler: &compiler,
 		CompilerConfig: opa.CompilerConfig{
+			Prefix:        pathPrefix,
+			OpaConfigPath: opaPath,
+			RegoPaths:     regoPaths,
 			PathProcessor: &parser,
 			PathProcessorConfig: request.PathProcessorConfig{
-				Prefix:     *pathPrefix,
 				PathMapper: &mapper,
 			},
 			Translator: &translator,
