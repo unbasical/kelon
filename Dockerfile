@@ -1,25 +1,16 @@
 # build stage
 FROM golang as builder
-
-ENV GO111MODULE=on
-
-WORKDIR /app
-
-COPY go.mod .
-COPY go.sum .
-
+# Add dependencies
+WORKDIR /go/src/app
+ADD . /go/src/app
+# Build app
 RUN go mod download
-
-COPY . .
-
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/kelon github.com/Foundato/kelon/cmd/kelon
+RUN go build -o /go/bin/app github.com/Foundato/kelon/cmd/kelon
 
 # final stage
-FROM scratch
-
+FROM gcr.io/distroless/base
 ARG PORT=8181
 
-COPY --from=builder /app/kelon /app/
-
+COPY --from=builder /go/bin/app /
 EXPOSE $PORT
-ENTRYPOINT ["/app/kelon", "start"]
+ENTRYPOINT ["/app", "start"]

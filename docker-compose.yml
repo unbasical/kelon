@@ -5,8 +5,9 @@ services:
     ports:
       - "8181:8181"
     volumes:
-      - ./configs/testdata/api.yml:/app/api.yml
-      - ./configs/testdata/datastore.yml:/app/datastore.yml
+      - ./examples/config/:/conf
     environment:
-      - DATASTORE_CONF=/app/datastore.yml
-      - API_CONF=/app/api.yml
+      - DATASTORE_CONF=/conf/datastore.yml
+      - API_CONF=/conf/api.yml
+      - OPA_CONF=/conf/opa.yml
+      - REGO_PATHS=/conf/example.rego
