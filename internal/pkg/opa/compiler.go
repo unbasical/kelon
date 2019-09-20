@@ -85,9 +85,7 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "PolicyCompiler: Error during policy compilation")
 	}
-
-	// If there are no queries, we are done
-	if len(queries.Queries) == 0 {
+	if done := anyQuerySucceeded(queries); done {
 		return true, nil
 	}
 
@@ -101,6 +99,21 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	return result != nil && len(*result) > 0, nil
 }
 
+func anyQuerySucceeded(queries *rego.PartialQueries) bool {
+	// If there are no queries, we are done
+	if len(queries.Queries) == 0 {
+		return true
+	}
+	// Or if there is one query which succeeded
+	for _, q := range queries.Queries {
+		if len(q) == 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (compiler policyCompiler) processPath(requestBody map[string]interface{}) (*request.PathProcessorOutput, error) {
 	inputURL, err := extractUrlFromRequestBody(requestBody)
 	if err != nil {
@@ -111,7 +124,7 @@ func (compiler policyCompiler) processPath(requestBody map[string]interface{}) (
 		return nil, err
 	}
 	if compiler.appConfig.Debug {
-		log.Printf("Datastore [%s] -> Entities: %v\n", output.Datastore, output.Entities)
+		log.Printf("Datastore [%s] -> entities: %v\n", output.Datastore, output.Entities)
 	}
 	return output, nil
 }
@@ -176,6 +189,9 @@ func extractOpaInput(output *request.PathProcessorOutput, requestBody *map[strin
 	for key, value := range *requestBody {
 		input[key] = value
 	}
+
+	// Add parsed input without query params
+	input["path"] = output.Path
 	return input
 }
 

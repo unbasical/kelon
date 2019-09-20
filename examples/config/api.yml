@@ -15,6 +15,12 @@ postgres:
       resources:                      # List of contained resource pools
         - readers
         - right
+    tags:
+      resources:
+        - tag
+    users:
+      resources:
+        - user
 
   # Resource-Links link Resource-Pools or Resource-Pool-Groups to Entities in Datastores
   resource_links:
@@ -22,8 +28,16 @@ postgres:
 
   # Join-Paths apply custom linking of API-Paths to Join-Paths in the target datastore
   join_paths:
-    apps.tag:                         # Unique Resource-Paths
+    apps.tag:                        # Unique Resource-Paths
+      - apps                          # Array representing the Join-Path in datastore (!!! ORDER IMPORTANT !!!)
+      - app_tags
+      - tags
+    apps.user:                        # Unique Resource-Paths
       - apps                          # Array representing the Join-Path in datastore (!!! ORDER IMPORTANT !!!)
       - app_rights
       - users
-      - tags
+
+  packages:
+    apps:
+      - apps.tags
+      - apps

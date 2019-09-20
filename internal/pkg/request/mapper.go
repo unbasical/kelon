@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Foundato/kelon/configs"
 	"log"
+	"unicode"
 )
 
 type PathNotFoundError struct {
@@ -52,6 +53,9 @@ func (mapper pathMapper) Map(path []string) ([]string, string, error) {
 		return nil, "", errors.New("PathMapper: Argument path mustn't be nil or empty! ")
 	}
 
+	// Clean path
+	path = removeNonEntities(path)
+
 	// Search for custom mapping
 	if match, matchDatastore, err := mapper.appConf.FindEntityMapping(path); err == nil && match != nil {
 		return match, matchDatastore, nil
@@ -69,6 +73,16 @@ func (mapper pathMapper) Map(path []string) ([]string, string, error) {
 	}
 }
 
+func removeNonEntities(path []string) []string {
+	var newPath []string
+	for _, entry := range path {
+		if !isInt(entry) {
+			newPath = append(newPath, entry)
+		}
+	}
+	return newPath
+}
+
 func mapEntities(resources []string, datastore string, config *configs.AppConfig) ([]string, string, error) {
 	var mappedEntities []string
 	for _, res := range resources {
@@ -79,4 +93,13 @@ func mapEntities(resources []string, datastore string, config *configs.AppConfig
 		}
 	}
 	return mappedEntities, datastore, nil
+}
+
+func isInt(s string) bool {
+	for _, c := range s {
+		if !unicode.IsDigit(c) {
+			return false
+		}
+	}
+	return true
 }

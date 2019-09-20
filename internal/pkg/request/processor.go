@@ -16,6 +16,7 @@ type PathProcessorConfig struct {
 type PathProcessorOutput struct {
 	Datastore string
 	Entities  []string
+	Path      []string
 	Resources map[string]interface{}
 }
 
@@ -88,6 +89,10 @@ func (processor urlProcessor) handleInput(inputURL *url.URL) (*PathProcessorOutp
 		resources[queryName] = queries.Get(queryName)
 	}
 
+	if processor.appConf.Debug {
+		log.Printf("PathProcessor: Resource-Join is: %+v\n", path)
+	}
+
 	// Map path and return
 	mapped, ds, err := (*processor.config.PathMapper).Map(path)
 	if err != nil {
@@ -96,6 +101,7 @@ func (processor urlProcessor) handleInput(inputURL *url.URL) (*PathProcessorOutp
 	output := PathProcessorOutput{
 		Datastore: ds,
 		Entities:  mapped,
+		Path:      pathFields,
 		Resources: resources,
 	}
 	return &output, nil
