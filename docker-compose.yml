@@ -2,6 +2,9 @@ version: '3'
 services:
   kelon:
     build: .
+    restart: always
+    depends_on:
+      - db
     ports:
       - "8181:8181"
     volumes:
@@ -11,3 +14,22 @@ services:
       - API_CONF=/conf/api.yml
       - OPA_CONF=/conf/opa.yml
       - REGO_PATHS=/conf/example.rego
+
+  db:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: 'appstore'
+      MYSQL_USER: 'You'
+      MYSQL_PASSWORD: 'SuperSecure'
+      MYSQL_ROOT_PASSWORD: 'root-beats-everything'
+    ports:
+      - '3306:3306'
+    volumes:
+      - ./examples/init:/docker-entrypoint-initdb.d
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080

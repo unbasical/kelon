@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/Foundato/kelon/configs"
 	"github.com/pkg/errors"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/url"
 	"reflect"
 	"regexp"
@@ -74,7 +74,7 @@ func (mapper *pathMapper) Configure(appConf *configs.AppConfig) error {
 		return errors.Wrap(err, "PathMapper: Error while parsing config")
 	}
 	mapper.configured = true
-	log.Println("Configured PathMapper")
+	log.Infoln("Configured PathMapper")
 	return nil
 }
 
@@ -121,10 +121,7 @@ func (mapper pathMapper) handleInput(input *pathMapperInput) (*MapperOutput, err
 				OtherMatch: matches[1].mapping.Path,
 			}
 		}
-
-		if mapper.appConf.Debug {
-			log.Printf("Found matching API-Mapping [%s]", matches[0].matcher.String())
-		}
+		log.Debugf("Found matching API-Mapping [%s]\n", matches[0].matcher.String())
 
 		// Match found
 		return &MapperOutput{

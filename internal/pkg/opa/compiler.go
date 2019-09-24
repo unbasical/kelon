@@ -9,7 +9,7 @@ import (
 	"github.com/Foundato/kelon/internal/pkg/translate"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/pkg/errors"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"net/url"
 	"strings"
@@ -60,7 +60,7 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 	compiler.appConfig = appConf
 	compiler.config = compConf
 	compiler.configured = true
-	log.Println("Configured PolicyCompiler")
+	log.Infoln("Configured PolicyCompiler")
 	return nil
 }
 
@@ -97,7 +97,7 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	}
 
 	// If we receive something from the datastore, the query was successful
-	return result != nil && len(*result) > 0, nil
+	return result, nil
 }
 
 func anyQuerySucceeded(queries *rego.PartialQueries) bool {
@@ -138,9 +138,7 @@ func (compiler policyCompiler) processPath(requestBody map[string]interface{}) (
 	if err != nil {
 		return nil, err
 	}
-	if compiler.appConfig.Debug {
-		log.Printf("Mapped request [%s] to: Datastore [%s] Package: [%s]\n", inputURL, output.Datastore, output.Package)
-	}
+	log.Debugf("Mapped request [%s] to: Datastores [%s] Package: [%s]\n", inputURL, output.Datastore, output.Package)
 	return output, nil
 }
 
@@ -153,10 +151,10 @@ func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, requestB
 	// Compile clientRequest and return answer
 	queries, err := compiler.engine.PartialEvaluate(clientRequest.Context(), input, query, opts...)
 	if err == nil {
-		if compiler.appConfig.Debug {
-			log.Printf("OPA's Partial Evaluation with input: \n%+v\nReturned queries:\n", input)
+		if log.IsLevelEnabled(log.DebugLevel) {
+			log.Debugf("=======> OPA's Partial Evaluation with input: \n%+v\nReturned queries:\n", input)
 			for _, q := range queries.Queries {
-				fmt.Printf("%+v\n", q)
+				log.Debugf("[%+v]\n", q)
 			}
 		}
 		return queries, nil
@@ -186,12 +184,10 @@ func (compiler *policyCompiler) extractOpaOpts(output *request.PathProcessorOutp
 	opts := []func(*rego.Rego){
 		rego.Unknowns(unknowns),
 	}
-
-	if compiler.appConfig.Debug {
-		log.Printf("Sending unknowns %+v\n", unknowns)
-	}
+	log.Debugf("Sending unknowns %+v\n", unknowns)
 
 	if regos := compiler.config.RegoPaths; regos != nil {
+		log.Debugf("Loaded rego: %+v\n", *regos)
 		opts = append(opts, rego.Load(*regos, nil))
 	}
 	return opts

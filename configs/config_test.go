@@ -8,13 +8,13 @@ import (
 
 var wantDatatoreConfig = configs.DatastoreConfig{
 	Datastores: map[string]*configs.Datastore{
-		"postgres": {
-			Type: "postgres",
+		"mysql": {
+			Type: "mysql",
 			Connection: map[string]string{
 				"host":     "localhost",
 				"port":     "5432",
-				"database": "postgres",
-				"user":     "postgres",
+				"database": "mysql",
+				"user":     "mysql",
 				"password": "SuperSecure",
 			},
 			Metadata: map[string]string{
@@ -32,7 +32,7 @@ var wantDatatoreConfig = configs.DatastoreConfig{
 		},
 	},
 	DatastoreSchemas: map[string]map[string]*configs.EntitySchema{
-		"postgres": {
+		"mysql": {
 			"appstore": {
 				Entities: []string{"users", "followers"},
 			},
@@ -44,7 +44,7 @@ var wantApiConfig = &configs.ApiConfig{
 	Mappings: []*configs.DatastoreApiMapping{
 		{
 			Prefix:    "/api",
-			Datastore: "postgres",
+			Datastore: "mysql",
 			Mappings: []*configs.ApiMapping{
 				{
 					Path:    "/.*",
@@ -82,7 +82,7 @@ func TestLoadConfigFromFile(t *testing.T) {
 	// Validate datastore config
 	if have := result.Data; have != nil {
 		if !cmp.Equal(wantDatatoreConfig, *have) {
-			t.Errorf("Datastore config is not as expected! Diff: %s", cmp.Diff(wantDatatoreConfig, *have))
+			t.Errorf("Datastores config is not as expected! Diff: %s", cmp.Diff(wantDatatoreConfig, *have))
 		}
 	} else {
 		t.Error("No datastore configuration present!")

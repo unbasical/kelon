@@ -1,29 +1,22 @@
 # Datastores to connect to
 datastores:
-  pg:
-    type: postgres
+  mysql:
+    type: mysql
     connection:
-      host: "localhost"
-      port: 5432
-      database: postgres
-      user: postgres
+      host: db
+      port: 3306
+      database: appstore
+      user: You
       password: SuperSecure
     metadata:
       default_schema: default
-  local-json:
-    type: file
-    connection:
-      location: ./data/local-data.json
-    metadata:
-      in_memory: true
 
 # Entity-Schemas define the structure of the entities of one schema inside a datastore
 entity_schemas:
-  postgres:                             # Target datastore
+  mysql:                             # Target datastore
     appstore:                           # Target schema
       entities:                         # List of all entities of the schema
         - users
-        - followers
         - app_rights
         - apps
         - app_tags

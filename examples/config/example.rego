@@ -1,51 +1,48 @@
 package applications
 
-# Path: GET /apps/:app_id
-# Users with right 'ADMIN' can access all apps
+# Deny all by default
+allow = false
+
+# Path: GET /api/v1/apps/:app_id
+# Users with right 'OWNER' on app can access it always
 allow = true {
-    some app
-    input.method == "GET"
+    input.method = "GET"
     input.path = ["api", "v1", "apps", appId]
 
-    [app.id, "ADMIN"] = appRights[_]
-    data.pg.apps[app].stars >= 4.3
+    [appId, "OWNER"] = appRights[_]
+}
+
+# Path: GET /api/v1/apps/:app_id
+# All apps with 5 stars are public
+allow = true {
+    some app, appId
+    input.method = "GET"
+    input.path = ["api", "v1", "apps", appId]
+
+    data.mysql.apps[app].stars = 5
     app.id = appId
 }
 
-# Path: GET /apps/:app_id
-# Users with right 'ENGINEER' can access apps with more than 4 stars
+# Path: GET /api/v1/apps/:app_id
+# The first app is public
 allow = true {
-    some app
-    input.method == "GET"
-    input.path = ["api", "v1", "apps", appId]
-
-    data.pg.apps[app].stars >= 4
-    app.id = appId
-}
-
-# Path: GET /apps/:app_id
-# Everybody is allowed to see the first app
-allow = true {
-    some id
-    input.method == "GET"
-    input.path = ["api", "v1", "apps", id]
-    id == 1
+    input.method = "GET"
+    input.path = ["api", "v1", "apps", "1"]
 }
 
 # Path: GET <any>
-# All users that are a friends of Kevin are allow see all apps
+# All users that are a friends of Kevin are allowed see everything
 allow = true {
-    input.method == "GET"
-    input.path = ["api", "v1", "apps"]
+    input.method = "GET"
 
     # Query
-    data.pg.users[user].name == input.user
-    user.friend == "Kevin"
+    data.mysql.users[user].name = input.user
+    user.friend = "Kevin"
 }
 
 appRights[[app, right]] {
-    data.pg.users[u].name == input.user
-    right := data.pg.app_rights[r].right
+    data.mysql.users[u].name = input.user
+    right := data.mysql.app_rights[r].right
     app := r.app_id
-    u.id == r.user_id
+    u.id = r.user_id
 }

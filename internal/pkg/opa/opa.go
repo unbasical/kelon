@@ -96,15 +96,15 @@ func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query st
 			return err
 		}
 
-		opts = append(opts,
+		r := rego.New(append(opts,
 			rego.Metrics(m),
 			rego.Query(query),
 			rego.Input(input),
 			rego.Compiler(opa.manager.GetCompiler()),
 			rego.Store(opa.manager.Store),
-			rego.Transaction(txn))
+			rego.Transaction(txn))...)
 
-		rs, err := rego.New(opts...).Partial(ctx)
+		rs, err := r.Partial(ctx)
 
 		if err != nil {
 			return err

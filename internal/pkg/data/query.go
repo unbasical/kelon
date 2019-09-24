@@ -14,17 +14,14 @@ type Operator struct {
 }
 
 type Constant struct {
-	Value string
+	Value     string
+	IsNumeric bool
+	IsInt     bool
+	IsFloat32 bool
 }
 
 type Entity struct {
 	Value string
-}
-
-type Relation struct {
-	Operator Operator
-	Lhs      Node
-	Rhs      Node
 }
 
 type Attribute struct {
@@ -87,16 +84,6 @@ func (e Entity) Walk(vis func(v Node)) {
 	vis(e)
 }
 
-func (r Relation) String() string {
-	return fmt.Sprintf("rel(%s %s %s)", r.Lhs.String(), r.Operator.String(), r.Rhs.String())
-}
-func (r Relation) Walk(vis func(v Node)) {
-	r.Rhs.Walk(vis)
-	r.Operator.Walk(vis)
-	r.Lhs.Walk(vis)
-	vis(r)
-}
-
 func (a Attribute) String() string {
 	return fmt.Sprintf("att(%s.%s)", a.Entity.String(), a.Name)
 }
@@ -113,10 +100,10 @@ func (c Call) String() string {
 	return fmt.Sprintf("%s(%+v)", c.Operator.String(), operands)
 }
 func (c Call) Walk(vis func(v Node)) {
+	c.Operator.Walk(vis)
 	for _, o := range c.Operands {
 		o.Walk(vis)
 	}
-	c.Operator.Walk(vis)
 	vis(c)
 }
 

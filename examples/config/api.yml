@@ -1,6 +1,6 @@
 apis:
   - path-prefix: /api/v1
-    datastore: pg
+    datastore: mysql
     mappings:
       - path: /apps.*
         package: applications

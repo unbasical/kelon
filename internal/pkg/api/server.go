@@ -7,7 +7,7 @@ import (
 	"github.com/Foundato/kelon/internal/pkg/opa"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 )
@@ -58,7 +58,7 @@ func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *Server
 	proxy.appConf = appConf
 	proxy.config = serverConf
 	proxy.configured = true
-	log.Println("Configured RestProxy")
+	log.Infoln("Configured RestProxy")
 	return nil
 }
 
@@ -80,7 +80,7 @@ func (proxy *restProxy) Start() error {
 
 	// Start Server
 	go func() {
-		log.Printf("Starting server at: http://localhost:%d%s\n", proxy.port, proxy.pathPrefix)
+		log.Infof("Starting server at: http://localhost:%d%s\n", proxy.port, proxy.pathPrefix)
 		if err := proxy.server.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
@@ -89,7 +89,7 @@ func (proxy *restProxy) Start() error {
 }
 
 func (proxy *restProxy) Stop(deadline time.Duration) error {
-	log.Printf("Stopping server at: http://localhost:%d%s\n", proxy.port, proxy.pathPrefix)
+	log.Infof("Stopping server at: http://localhost:%d%s\n", proxy.port, proxy.pathPrefix)
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()
 	if err := proxy.server.Shutdown(ctx); err != nil {

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/Foundato/kelon/internal/pkg/request"
 	"github.com/pkg/errors"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
 )
@@ -36,7 +36,7 @@ func (proxy restProxy) handleGet(w http.ResponseWriter, r *http.Request) {
 		query.Del("input")
 		r.URL.RawQuery = query.Encode()
 	} else {
-		log.Println("RestProxy: Received GET request without input: " + r.URL.String())
+		log.Warnln("RestProxy: Received GET request without input: " + r.URL.String())
 	}
 
 	if trans, err := http.NewRequest("POST", r.URL.String(), strings.NewReader(body)); err == nil {
@@ -60,7 +60,7 @@ func (proxy restProxy) handlePost(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Handle error returned by compiler
-		log.Printf("RestProxy: Unable to compile request: %s", err.Error())
+		log.Errorf("RestProxy: Unable to compile request: %s", err.Error())
 		switch errors.Cause(err).(type) {
 		case *request.PathAmbiguousError:
 			writeError(w, http.StatusNotFound, apiCodeNotFound, err)

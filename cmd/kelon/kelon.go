@@ -8,8 +8,8 @@ import (
 	"github.com/Foundato/kelon/internal/pkg/request"
 	"github.com/Foundato/kelon/internal/pkg/translate"
 	"github.com/Foundato/kelon/internal/pkg/watcher"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -40,7 +40,7 @@ var (
 	parser     = request.NewUrlProcessor()
 	mapper     = request.NewPathMapper()
 	translator = translate.NewAstTranslator()
-	datastore  = data.NewPostgresDatastore()
+	datastore  = data.NewMysqlDatastore()
 )
 
 func main() {
@@ -49,12 +49,16 @@ func main() {
 
 	// Process args
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
+
 	case start.FullCommand():
-		config.Debug = false
-		log.Println("Kelon starting...")
+		log.SetOutput(os.Stdout)
+		log.SetLevel(log.InfoLevel)
+		log.Infoln("Kelon starting...")
+
 	case debug.FullCommand():
-		config.Debug = true
-		log.Println("Kelon starting in debug-mode...")
+		log.SetOutput(os.Stdout)
+		log.SetLevel(log.DebugLevel)
+		log.Infoln("Kelon starting in debug-mode...")
 	}
 
 	// Init config loader
@@ -90,7 +94,9 @@ func onConfigLoaded(loadedConf *configs.ExternalConfig, err error) {
 			},
 			Translator: &translator,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
-				Datastore: &datastore,
+				Datastores: map[string]*data.Datastore{
+					"mysql": &datastore,
+				},
 			},
 		},
 	}
@@ -114,7 +120,7 @@ func stopOnSIGTERM() {
 	// Block until we receive our signal.
 	<-interruptChan
 
-	log.Println("Caught SIGTERM...")
+	log.Infoln("Caught SIGTERM...")
 	if proxy != nil {
 		if err := proxy.Stop(time.Second * 10); err != nil {
 			log.Fatalln(err.Error())

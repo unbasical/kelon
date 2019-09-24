@@ -4,37 +4,46 @@ import (
 	"fmt"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type AstPreprocessor struct {
-	tableNames []map[string]string
-	tableVars  map[string][]*ast.Term
+	tableNames        map[string]string
+	tableVars         map[string][]*ast.Term
+	expectedDatastore string
 }
 
 func (processor *AstPreprocessor) Process(queries []ast.Body, datastore string) ([]ast.Body, error) {
-	var result []ast.Body
-	for _, q := range queries {
-		processor.tableNames = append(processor.tableNames, make(map[string]string))
-		processor.tableVars = make(map[string][]*ast.Term)
-		if trans, err := processor.transform(q, datastore); err == nil {
-			if body, ok := trans.(ast.Body); ok {
-				result = append(result, body)
-			} else {
-				return nil, errors.New("Preprocessor: Processing went not es expected! Wrong type was returned after AST-transformation. ")
-			}
-		} else {
-			return nil, errors.Wrap(err, "Preprocessor: ")
-		}
-	}
+	var transformedQueries []ast.Body
+	processor.expectedDatastore = fmt.Sprintf("\"%s\"", datastore)
 
-	return result, nil
+	for _, q := range queries {
+		log.Debugf("================= PREPROCESS QUERY: %+v\n", q)
+		processor.tableNames = make(map[string]string)
+		processor.tableVars = make(map[string][]*ast.Term)
+
+		var transformedExprs []*ast.Expr
+		for _, expr := range q {
+			// Only transform operands
+			terms := []*ast.Term{ast.NewTerm(expr.Operator())}
+			for _, o := range expr.Operands() {
+				trans, err := processor.transformRefs(o)
+				if err != nil {
+					return nil, errors.Wrapf(err, "Preprocessor: Error while preprocessing Operator [%+v] of expression [%+v]", o, expr)
+				}
+				terms = append(terms, ast.NewTerm(trans.(ast.Value)))
+			}
+			transformedExprs = append(transformedExprs, ast.NewExpr(terms))
+		}
+		transformedQueries = append(transformedQueries, ast.NewBody(transformedExprs...))
+	}
+	return transformedQueries, nil
 }
 
-func (processor *AstPreprocessor) transform(query interface{}, datastore string) (interface{}, error) {
-	expectedDatastore := fmt.Sprintf("\"%s\"", datastore)
+func (processor *AstPreprocessor) transformRefs(value interface{}) (interface{}, error) {
 
 	trans := func(node ast.Ref) (ast.Value, error) {
-		// Skip operands
+		// Skip scalars (TODO: check there is a more elegant way to do this)
 		if len(node) == 1 {
 			return node, nil
 		}
@@ -47,8 +56,8 @@ func (processor *AstPreprocessor) transform(query interface{}, datastore string)
 		}
 
 		// Validate if datastore prefix is present
-		if head == "data" && node[1].String() != expectedDatastore {
-			return nil, errors.Errorf("Invalid reference: expected [data.%s.<table>] but found reference [%s] \n", datastore, node.String())
+		if head == "data" && node[1].String() != processor.expectedDatastore {
+			return nil, errors.Errorf("Invalid reference: expected [data.%s.<table>] but found reference [%s] \n", processor.expectedDatastore, node.String())
 		}
 
 		rowId := node[3].Value
@@ -67,12 +76,11 @@ func (processor *AstPreprocessor) transform(query interface{}, datastore string)
 
 		// Keep track of iterators used for each table. We do not support
 		// self-links currently. Self-links require namespacing in the SQL
-		// query.
-		last := processor.tableNames[len(processor.tableNames)-1]
-		if _, ok := last[tableName]; ok {
+		// value.
+		if _, ok := processor.tableNames[tableName]; ok {
 			return nil, errors.New("invalid reference: self-links not supported")
 		} else {
-			processor.tableNames[len(processor.tableNames)-1][tableName] = rowId.String()
+			processor.tableNames[tableName] = rowId.String()
 		}
 
 		// Rewrite ref to remove iterator var. E.g., "data.<datastore>.foo[x].bar" =>
@@ -80,5 +88,5 @@ func (processor *AstPreprocessor) transform(query interface{}, datastore string)
 		return ast.Ref{}.Concat(append(prefix, node[4:]...)), nil
 	}
 
-	return ast.TransformRefs(query, trans)
+	return ast.TransformRefs(value, trans)
 }

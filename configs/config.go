@@ -8,7 +8,6 @@ import (
 
 type AppConfig struct {
 	ExternalConfig
-	Debug bool
 }
 
 type ExternalConfig struct {
@@ -23,6 +22,10 @@ type ConfigLoader interface {
 type ByteConfigLoader struct {
 	DatastoreConfigBytes []byte
 	ApiConfigBytes       []byte
+}
+
+func (a AppConfig) OnDebug(do func() (int, error)) {
+	_, _ = do()
 }
 
 func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
