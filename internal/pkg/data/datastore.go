@@ -67,8 +67,6 @@ func (ds postgres) Execute(query *Node) (*[]interface{}, error) {
 }
 
 func (ds postgres) translate(query *Node) (string, error) {
-	fmt.Printf("Datastore -> Processing: %s\n", (*query).String())
-
 	var sql stack
 	var selects stack
 	var entities stack
@@ -140,12 +138,12 @@ func (ds postgres) translate(query *Node) (string, error) {
 		}
 	})
 
-	// TODO Execute query in database
-	println("EXECUTING STATEMENT ==================")
-	for _, s := range sql {
-		println(s)
+	if ds.appConf.Debug {
+		log.Printf("EXECUTING STATEMENT: ==================\n%s\nEND ==================", strings.Join(sql, "\n"))
 	}
-	println("END ==================")
+
+	// TODO Execute query in database
+
 	return "", nil
 }
 

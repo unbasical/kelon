@@ -2,10 +2,8 @@ package configs
 
 import (
 	"errors"
-	"github.com/Foundato/kelon/internal/pkg/util"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
-	"strings"
 )
 
 type AppConfig struct {
@@ -15,7 +13,7 @@ type AppConfig struct {
 
 type ExternalConfig struct {
 	Data *DatastoreConfig
-	Api  map[string]*ApiConfig
+	Api  *ApiConfig
 }
 
 type ConfigLoader interface {
@@ -44,7 +42,7 @@ func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 	}
 
 	// Load API config
-	result.Api = make(map[string]*ApiConfig)
+	result.Api = new(ApiConfig)
 	if err := yaml.Unmarshal(l.ApiConfigBytes, result.Api); err != nil {
 		return nil, errors.New("Unable to parse api config: " + err.Error())
 	}
@@ -78,65 +76,4 @@ func (l FileConfigLoader) Load() (*ExternalConfig, error) {
 	} else {
 		return nil, ioError
 	}
-}
-
-// Find datastore for mapped path and return (mappedPath, datastore, error)
-func (conf *AppConfig) FindEntityMapping(path []string) ([]string, string, error) {
-	if path == nil || len(path) == 0 {
-		return nil, "", errors.New("AppConfig: Argument path of method FindEntityMapping() mustn't be nil or empty! ")
-	}
-
-	searchJoin := strings.ToLower(strings.Join(path, "."))
-	for datastore, val := range conf.Api {
-		for resourceJoin, entityJoin := range val.JoinPaths {
-			if searchJoin == strings.ToLower(resourceJoin) {
-				return entityJoin, datastore, nil
-			}
-		}
-	}
-
-	return nil, "", nil
-}
-
-func (conf *AppConfig) FindStoresContainingEntities(entities []string) ([]string, error) {
-	if entities == nil || len(entities) == 0 {
-		return nil, errors.New("AppConfig: Argument entities of method FindStoresContainingEntities() mustn't be nil or empty! ")
-	}
-
-	var matchingDatastores []string
-	for datastore, apiConfig := range conf.Api {
-		if util.AllContained(apiConfig.ResourcePools, entities) {
-			matchingDatastores = append(matchingDatastores, datastore)
-		}
-	}
-
-	return matchingDatastores, nil
-}
-
-func (conf *AppConfig) MapResource(datastore string, resource string) (string, error) {
-	if datastore == "" || resource == "" {
-		return "", errors.New("AppConfig: Empty string is not an valid argument for MapResource()! ")
-	}
-	if _, ok := conf.Api[datastore]; !ok {
-		return "", errors.New("AppConfig: Datastore provided in MapResource() is not contained in api-config! ")
-	}
-
-	// First: map grouped resources
-	for groupName, group := range conf.Api[datastore].ResourcePoolGroups {
-		for _, resourceName := range group.Resources {
-			if resourceName == resource {
-				resource = groupName
-			}
-		}
-	}
-
-	// Then map resource via link if available
-	for resourceName, entityName := range conf.Api[datastore].ResourceLinks {
-		if resourceName == resource {
-			return entityName, nil
-		}
-	}
-
-	// Or return resource again if no links are available
-	return resource, nil
 }

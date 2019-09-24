@@ -1,31 +1,61 @@
 package request
 
 import (
-	"errors"
 	"fmt"
 	"github.com/Foundato/kelon/configs"
+	"github.com/pkg/errors"
 	"log"
-	"unicode"
+	"net/url"
+	"reflect"
+	"regexp"
+	"sort"
+	"strings"
 )
 
+type PathAmbiguousError struct {
+	RequestUrl string
+	FirstMatch string
+	OtherMatch string
+}
+
 type PathNotFoundError struct {
-	MatchingDatastores []string
-	Path               []string
+	RequestUrl string
+}
+
+type MapperOutput struct {
+	Datastore string
+	Package   string
+}
+
+func (e *PathAmbiguousError) Error() string {
+	return fmt.Sprintf("Path-mapping [%s] is ambiguous! Mapping [%s] also matches incoming path [%s]!", e.RequestUrl, e.FirstMatch, e.OtherMatch)
 }
 
 func (e *PathNotFoundError) Error() string {
-	return fmt.Sprintf("Path %v is ambiguous! Found %d possible datastores!", e.Path, len(e.MatchingDatastores))
+	return fmt.Sprintf("PathMapper: There is no mapping which matches path [%s]!", e.RequestUrl)
 }
 
 type PathMapper interface {
 	Configure(appConf *configs.AppConfig) error
-	// Find datastore for mapped path and return (mappedPath, datastore, error)
-	Map(path []string) ([]string, string, error)
+	Map(interface{}) (*MapperOutput, error)
+}
+
+type pathMapperInput struct {
+	Method string
+	Url    *url.URL
 }
 
 type pathMapper struct {
 	appConf    *configs.AppConfig
+	mappings   []*compiledMapping
 	configured bool
+}
+
+type compiledMapping struct {
+	matcher    *regexp.Regexp
+	mapping    *configs.ApiMapping
+	importance int
+	datastore  string
 }
 
 func NewPathMapper() PathMapper {
@@ -40,66 +70,111 @@ func (mapper *pathMapper) Configure(appConf *configs.AppConfig) error {
 		return errors.New("PathMapper: AppConfig not configured! ")
 	}
 	mapper.appConf = appConf
+	if err := mapper.generateMappings(); err != nil {
+		return errors.Wrap(err, "PathMapper: Error while parsing config")
+	}
 	mapper.configured = true
 	log.Println("Configured PathMapper")
 	return nil
 }
 
-func (mapper pathMapper) Map(path []string) ([]string, string, error) {
+func (mapper pathMapper) Map(input interface{}) (*MapperOutput, error) {
 	if !mapper.configured {
-		return nil, "", errors.New("PathMapper was not configured! Please call Configure(). ")
-	}
-	if path == nil || len(path) == 0 {
-		return nil, "", errors.New("PathMapper: Argument path mustn't be nil or empty! ")
+		return nil, errors.New("PathMapper was not configured! Please call Configure(). ")
 	}
 
-	// Clean path
-	path = removeNonEntities(path)
-
-	// Search for custom mapping
-	if match, matchDatastore, err := mapper.appConf.FindEntityMapping(path); err == nil && match != nil {
-		return match, matchDatastore, nil
-	} else if err == nil {
-		// Otherwise just map entities
-		possibleDatastores, _ := mapper.appConf.FindStoresContainingEntities(path)
-		if len(possibleDatastores) == 1 {
-			return mapEntities(path, possibleDatastores[0], mapper.appConf)
-		} else {
-			// More then one or zero datastores were found
-			return nil, "", &PathNotFoundError{MatchingDatastores: possibleDatastores, Path: path}
+	// Check type and handle request
+	switch in := input.(type) {
+	case *pathMapperInput:
+		if in.Url == nil {
+			return nil, errors.New("PathMapper: Argument URL mustn't be nil! ")
 		}
+		if len(in.Method) == 0 {
+			return nil, errors.New("PathMapper: Argument Method mustn't be empty! ")
+		}
+		return mapper.handleInput(in)
+	default:
+		return nil, errors.New("PathMapper: Input of Process() was not of type *request.pathMapperInput! Type was: " + reflect.TypeOf(input).String())
+	}
+}
+
+func (mapper pathMapper) handleInput(input *pathMapperInput) (*MapperOutput, error) {
+	var matches []*compiledMapping
+	request := fmt.Sprintf("%s-%s", input.Method, input.Url.Path)
+	for _, mapping := range mapper.mappings {
+		if mapping.matcher.MatchString(request) {
+			matches = append(matches, mapping)
+		}
+	}
+
+	// Sort by importance descending
+	if len(matches) > 0 {
+		sort.Slice(matches, func(i, j int) bool {
+			return matches[i].importance > matches[j].importance
+		})
+
+		// Throw error if ambiguous paths are matched
+		if len(matches) > 1 && matches[0].importance == matches[1].importance {
+			return nil, &PathAmbiguousError{
+				RequestUrl: request,
+				FirstMatch: matches[0].mapping.Path,
+				OtherMatch: matches[1].mapping.Path,
+			}
+		}
+
+		if mapper.appConf.Debug {
+			log.Printf("Found matching API-Mapping [%s]", matches[0].matcher.String())
+		}
+
+		// Match found
+		return &MapperOutput{
+			Datastore: matches[0].datastore,
+			Package:   matches[0].mapping.Package,
+		}, nil
 	} else {
-		return nil, "", err
+		// No matches at all
+		return nil, &PathNotFoundError{
+			RequestUrl: request,
+		}
 	}
 }
 
-func removeNonEntities(path []string) []string {
-	var newPath []string
-	for _, entry := range path {
-		if !isInt(entry) {
-			newPath = append(newPath, entry)
-		}
-	}
-	return newPath
-}
+func (mapper *pathMapper) generateMappings() error {
+	for _, dsMapping := range mapper.appConf.Api.Mappings {
 
-func mapEntities(resources []string, datastore string, config *configs.AppConfig) ([]string, string, error) {
-	var mappedEntities []string
-	for _, res := range resources {
-		if mapped, err := config.MapResource(datastore, res); err == nil {
-			mappedEntities = append(mappedEntities, mapped)
-		} else {
-			return nil, "", err
-		}
-	}
-	return mappedEntities, datastore, nil
-}
+		pathPrefix := dsMapping.Prefix
+		for _, mapping := range dsMapping.Mappings {
 
-func isInt(s string) bool {
-	for _, c := range s {
-		if !unicode.IsDigit(c) {
-			return false
+			endpointsRegex := "[(GET)|(POST)|(PUT)|(DELETE)|(PATCH)]"
+			endpointsCount := 0
+			if mapping.Methods != nil && len(mapping.Methods) > 0 {
+				endpointsCount = len(mapping.Methods)
+				anchoredMappings := make([]string, endpointsCount)
+				for i, method := range mapping.Methods {
+					anchoredMappings[i] = fmt.Sprintf("(%s)", method)
+				}
+				endpointsRegex = strings.ToUpper(fmt.Sprintf("[%s]", strings.Join(anchoredMappings, "|")))
+			}
+
+			queriesRegex := ""
+			queriesCount := 0
+			if mapping.Queries != nil && len(mapping.Queries) > 0 {
+				queriesRegex = fmt.Sprintf("?%s=.*?", strings.Join(mapping.Queries, "=.*?"))
+				queriesCount = len(mapping.Queries)
+			}
+
+			regex, err := regexp.Compile(fmt.Sprintf("%s-%s%s%s", endpointsRegex, pathPrefix, mapping.Path, queriesRegex))
+			if err != nil {
+				return errors.Wrap(err, "PathMapper: Error during parsing config")
+			}
+
+			mapper.mappings = append(mapper.mappings, &compiledMapping{
+				matcher:    regex,
+				mapping:    mapping,
+				importance: len(pathPrefix) + len(mapping.Path) + queriesCount + endpointsCount,
+				datastore:  dsMapping.Datastore,
+			})
 		}
 	}
-	return true
+	return nil
 }

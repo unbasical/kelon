@@ -81,25 +81,16 @@ func (opa *OPA) Start(ctx context.Context) error {
 	return opa.manager.Start(ctx)
 }
 
-var revisionPath = storage.MustParsePath("/system/bundle/manifest/revision")
-
 // Bool returns a boolean policy decision.
 func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query string, opts ...func(*rego.Rego)) (*rego.PartialQueries, error) {
 
 	m := metrics.New()
 	var decisionID string
-	var revision string
 	var partialResult *rego.PartialQueries
 
 	err := storage.Txn(ctx, opa.manager.Store, storage.TransactionParams{}, func(txn storage.Transaction) error {
 
 		var err error
-
-		revision, err = getRevision(ctx, opa.manager.Store, txn)
-		if err != nil {
-			return err
-		}
-
 		decisionID, err = uuid4()
 		if err != nil {
 			return err
@@ -128,14 +119,8 @@ func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query st
 		record := &server.Info{
 			DecisionID: decisionID,
 			Timestamp:  time.Now(),
-			Query:      query,
-			Input:      &input,
 			Error:      err,
 			Metrics:    m,
-		}
-		if err == nil {
-			var x interface{} = partialResult
-			record.Results = &x
 		}
 
 		if err := logger.Log(ctx, record); err != nil {
@@ -155,19 +140,4 @@ func uuid4() (string, error) {
 	bs[8] = bs[8]&^0xc0 | 0x80
 	bs[6] = bs[6]&^0xf0 | 0x40
 	return fmt.Sprintf("%x-%x-%x-%x-%x", bs[0:4], bs[4:6], bs[6:8], bs[8:10], bs[10:]), nil
-}
-
-func getRevision(ctx context.Context, store storage.Store, txn storage.Transaction) (string, error) {
-	value, err := store.Read(ctx, txn, revisionPath)
-	if err != nil {
-		if storage.IsNotFound(err) {
-			return "", nil
-		}
-		return "", err
-	}
-	revision, ok := value.(string)
-	if !ok {
-		return "", fmt.Errorf("bad revision")
-	}
-	return revision, nil
 }

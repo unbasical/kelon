@@ -1,9 +1,12 @@
 package translate
 
 import (
+	"fmt"
 	"github.com/Foundato/kelon/internal/pkg/data"
 	"github.com/open-policy-agent/opa/ast"
 	"log"
+	"strconv"
+	"strings"
 )
 
 type AstProcessor struct {
@@ -110,19 +113,19 @@ func (p *AstProcessor) translateTerm(term *ast.Term) bool {
 		p.operands.AppendToTop(data.Constant{Value: v.String()})
 		return true
 	case ast.String:
-		p.operands.AppendToTop(data.Constant{Value: v.String()})
+		p.operands.AppendToTop(data.Constant{Value: tryCastToNumericString(v.String())})
 		return true
 	case ast.Number:
-		p.operands.AppendToTop(data.Constant{Value: v.String()})
+		p.operands.AppendToTop(data.Constant{Value: tryCastToNumericString(v.String())})
 		return true
 	case ast.Ref:
 		if len(v) == 3 {
-			entity := data.Entity{Value: v[1].Value.String()}
+			entity := data.Entity{Value: normalizeString(v[1].Value.String())}
 			if p.fromEntity == nil {
 				p.fromEntity = &entity
 			}
 			p.entities[entity.Value] = nil
-			attribute := data.Attribute{Entity: entity, Name: v[2].Value.String()}
+			attribute := data.Attribute{Entity: entity, Name: normalizeString(v[2].Value.String())}
 			p.operands.AppendToTop(attribute)
 			return true
 		}
@@ -171,4 +174,18 @@ func (s stack) Pop() (stack, []data.Node) {
 	} else {
 		panic("Stack is empty!")
 	}
+}
+
+func tryCastToNumericString(value string) string {
+	if num, err := strconv.Atoi(value); err != nil {
+		return fmt.Sprintf("%d", num)
+	}
+	if num, err := strconv.ParseFloat(value, 32); err != nil {
+		return fmt.Sprintf("%f", num)
+	}
+	return value
+}
+
+func normalizeString(value string) string {
+	return strings.ReplaceAll(value, "\"", "")
 }

@@ -1,29 +1,20 @@
-# Assign all Resources to a specific Datastore
-        postgres:
-          # Resource-Pools represent all nouns of the REST-API
-          resource_pools:
-            - users
-            - followers
-            - apps
-            - readers
-            - right
-            - tags
-
-          # Resource-Pool-Groups help to absorb fuzzy REST-API namings
-          resource_pool_groups:
-            appRights:                        # Name
-              resources:                      # List of contained resource pools
-                - readers
-                - right
-
-          # Resource-Links link Resource-Pools or Resource-Pool-Groups to Entities in Datastores
-          resource_links:
-            appRights: app_rights             # <Resource-Pool / Resource-Pool-Group>: Entity
-
-          # Join-Paths apply custom linking of API-Paths to Join-Paths in the target Datastore
-          join_paths:
-            apps.tag:                         # Unique Resource-Paths
-              - apps                          # Array representing the Join-Path in Datastore (!!! ORDER IMPORTANT !!!)
-              - app_rights
-              - users
-              - tags
+apis:
+  # All api-mappings for datastore postgres
+  - path-prefix: /api
+    datastore: postgres
+    mappings:
+      # Match all requests (If methods are provided, all are matched)
+      - path: /.*
+        package: default
+      # Create article
+      - path: /articles
+        package: articles
+        methods:
+          - POST
+      # Get articles by author
+      - path: /articles
+        package: articles
+        methods:
+          - GET
+        queries:
+          - author

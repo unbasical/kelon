@@ -24,9 +24,3 @@ entity_schemas:
       entities:                         # List of all entities of the schema
         - users
         - followers
-      links:                            # Link an entity's column to a set of other entities
-        users:                          # Table users
-          - column: id                  # Column id
-            link:
-              followers:                # Has foreign key constraint on table: [followers], column: [user_id]
-                column: user_id         # Resulting join would be: SELECT * FROM <schema>.users u

@@ -6,18 +6,8 @@ type Datastore struct {
 	Metadata   map[string]string
 }
 
-type EntityLink struct {
-	Column string
-	Link   map[string]*EntityLinkTarget
-}
-
-type EntityLinkTarget struct {
-	Column string
-}
-
 type EntitySchema struct {
 	Entities []string
-	Links    map[string]*[]EntityLink
 }
 
 type DatastoreConfig struct {

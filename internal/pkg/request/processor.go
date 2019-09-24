@@ -15,9 +15,9 @@ type PathProcessorConfig struct {
 
 type PathProcessorOutput struct {
 	Datastore string
-	Entities  []string
+	Package   string
 	Path      []string
-	Resources map[string]interface{}
+	Queries   map[string]interface{}
 }
 
 type PathProcessor interface {
@@ -29,6 +29,11 @@ type urlProcessor struct {
 	appConf    *configs.AppConfig
 	config     *PathProcessorConfig
 	configured bool
+}
+
+type UrlProcessorInput struct {
+	Method string
+	Url    *url.URL
 }
 
 func NewUrlProcessor() PathProcessor {
@@ -65,44 +70,42 @@ func (processor urlProcessor) Process(input interface{}) (*PathProcessorOutput, 
 	}
 
 	// Check type and handle request
-	switch input.(type) {
-	case *url.URL:
-		return processor.handleInput(input.(*url.URL))
+	switch in := input.(type) {
+	case *UrlProcessorInput:
+		return processor.handleInput(in)
 	default:
-		return nil, errors.New("UrlProcessor: Input of Process() was not of type http.Request! Type was: " + reflect.TypeOf(input).String())
+		return nil, errors.New("UrlProcessor: Input of Process() was not of type *request.UrlProcessorInput! Type was: " + reflect.TypeOf(input).String())
 	}
 }
 
-func (processor urlProcessor) handleInput(inputURL *url.URL) (*PathProcessorOutput, error) {
+func (processor urlProcessor) handleInput(input *UrlProcessorInput) (*PathProcessorOutput, error) {
 	// Parse base path
-	var path []string
-	pathFields := strings.Fields(strings.ReplaceAll(strings.ToLower(inputURL.Path), "/", " "))
-	path = append(path, pathFields...)
-
+	path := strings.Fields(strings.ReplaceAll(strings.ToLower(input.Url.Path), "/", " "))
 	// Process query parameters
-	resources := make(map[string]interface{})
-	queries := inputURL.Query()
-	for queryName := range queries {
-		// Append query parameter keys (also Resources)
-		path = append(path, strings.ToLower(queryName))
-		// Build resources which are passed to OPA as part of the input object
-		resources[queryName] = queries.Get(queryName)
+	queries := make(map[string]interface{})
+	queryParams := input.Url.Query()
+	for queryName := range queryParams {
+		// Build queries which are passed to OPA as part of the input object
+		queries[queryName] = queryParams.Get(queryName)
 	}
 
 	if processor.appConf.Debug {
-		log.Printf("PathProcessor: Resource-Join is: %+v\n", path)
+		log.Printf("PathProcessor: Parsed path %+v with queries %+v\n", path, queries)
 	}
 
 	// Map path and return
-	mapped, ds, err := (*processor.config.PathMapper).Map(path)
+	out, err := (*processor.config.PathMapper).Map(&pathMapperInput{
+		Method: input.Method,
+		Url:    input.Url,
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "UrlProcessor: Error during path mapping.")
 	}
 	output := PathProcessorOutput{
-		Datastore: ds,
-		Entities:  mapped,
-		Path:      pathFields,
-		Resources: resources,
+		Datastore: out.Datastore,
+		Package:   out.Package,
+		Path:      path,
+		Queries:   queries,
 	}
 	return &output, nil
 }

@@ -62,7 +62,7 @@ func (proxy restProxy) handlePost(w http.ResponseWriter, r *http.Request) {
 		// Handle error returned by compiler
 		log.Printf("RestProxy: Unable to compile request: %s", err.Error())
 		switch errors.Cause(err).(type) {
-		case *request.PathNotFoundError:
+		case *request.PathAmbiguousError:
 			writeError(w, http.StatusNotFound, apiCodeNotFound, err)
 		default:
 			writeError(w, http.StatusInternalServerError, apiCodeInternalError, err)

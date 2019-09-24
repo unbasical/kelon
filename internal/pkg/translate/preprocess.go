@@ -1,6 +1,7 @@
 package translate
 
 import (
+	"fmt"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/pkg/errors"
 )
@@ -10,12 +11,12 @@ type AstPreprocessor struct {
 	tableVars  map[string][]*ast.Term
 }
 
-func (processor *AstPreprocessor) Process(queries []ast.Body) ([]ast.Body, error) {
+func (processor *AstPreprocessor) Process(queries []ast.Body, datastore string) ([]ast.Body, error) {
 	var result []ast.Body
 	for _, q := range queries {
 		processor.tableNames = append(processor.tableNames, make(map[string]string))
 		processor.tableVars = make(map[string][]*ast.Term)
-		if trans, err := processor.transform(q); err == nil {
+		if trans, err := processor.transform(q, datastore); err == nil {
 			if body, ok := trans.(ast.Body); ok {
 				result = append(result, body)
 			} else {
@@ -29,7 +30,9 @@ func (processor *AstPreprocessor) Process(queries []ast.Body) ([]ast.Body, error
 	return result, nil
 }
 
-func (processor *AstPreprocessor) transform(query interface{}) (interface{}, error) {
+func (processor *AstPreprocessor) transform(query interface{}, datastore string) (interface{}, error) {
+	expectedDatastore := fmt.Sprintf("\"%s\"", datastore)
+
 	trans := func(node ast.Ref) (ast.Value, error) {
 		// Skip operands
 		if len(node) == 1 {
@@ -43,18 +46,24 @@ func (processor *AstPreprocessor) transform(query interface{}) (interface{}, err
 			return ast.Ref{}.Concat(append(match, node[1:]...)), nil
 		}
 
-		rowId := node[2].Value
+		// Validate if datastore prefix is present
+		if head == "data" && node[1].String() != expectedDatastore {
+			return nil, errors.Errorf("Invalid reference: expected [data.%s.<table>] but found reference [%s] \n", datastore, node.String())
+		}
 
-		// Refs must be of the form data.<table>[<iterator>].<column>.
+		rowId := node[3].Value
+
+		// Refs must be of the form data.<datastore>.<table>[<iterator>].<column>.
 		if _, ok := rowId.(ast.Var); !ok {
 			return nil, errors.Errorf("Invalid reference: row identifier type not supported: %s\n", rowId.String())
 		}
 
-		prefix := node[:2]
+		// Remove datastore from prefix
+		prefix := []*ast.Term{node[0], node[2]}
 
 		// Add mapping so that we can expand refs above.
 		processor.tableVars[rowId.String()] = prefix
-		tableName := node[1].Value.String()
+		tableName := node[2].Value.String()
 
 		// Keep track of iterators used for each table. We do not support
 		// self-links currently. Self-links require namespacing in the SQL
@@ -66,9 +75,9 @@ func (processor *AstPreprocessor) transform(query interface{}) (interface{}, err
 			processor.tableNames[len(processor.tableNames)-1][tableName] = rowId.String()
 		}
 
-		// Rewrite ref to remove iterator var. E.g., "data.foo[x].bar" =>
+		// Rewrite ref to remove iterator var. E.g., "data.<datastore>.foo[x].bar" =>
 		// "data.foo.bar".
-		return ast.Ref{}.Concat(append(prefix, node[3:]...)), nil
+		return ast.Ref{}.Concat(append(prefix, node[4:]...)), nil
 	}
 
 	return ast.TransformRefs(query, trans)

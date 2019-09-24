@@ -16,7 +16,7 @@ type AstTranslatorConfig struct {
 
 type AstTranslator interface {
 	Configure(appConf *configs.AppConfig, transConf *AstTranslatorConfig) error
-	Process(response *rego.PartialQueries) (*[]interface{}, error)
+	Process(response *rego.PartialQueries, datastore string) (*[]interface{}, error)
 }
 
 type astTranslator struct {
@@ -55,12 +55,12 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *Ast
 	return nil
 }
 
-func (trans astTranslator) Process(response *rego.PartialQueries) (*[]interface{}, error) {
+func (trans astTranslator) Process(response *rego.PartialQueries, datastore string) (*[]interface{}, error) {
 	if !trans.configured {
 		return nil, errors.New("AstTranslator was not configured! Please call Configure(). ")
 	}
 
-	tmpAst, preprocessErr := trans.preprocessor.Process(response.Queries)
+	tmpAst, preprocessErr := trans.preprocessor.Process(response.Queries, datastore)
 	if preprocessErr != nil {
 		return nil, errors.Wrap(preprocessErr, "AstTranslator: Error during preprocessing.")
 	}

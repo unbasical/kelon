@@ -1,6 +1,6 @@
 # Datastores to connect to
 datastores:
-  postgres:
+  pg:
     type: postgres
     connection:
       host: "localhost"
@@ -20,7 +20,7 @@ datastores:
 # Entity-Schemas define the structure of the entities of one schema inside a datastore
 entity_schemas:
   postgres:                             # Target datastore
-    appstore:                           # Target schema              
+    appstore:                           # Target schema
       entities:                         # List of all entities of the schema
         - users
         - followers
@@ -28,27 +28,3 @@ entity_schemas:
         - apps
         - app_tags
         - tags
-      links:                            # Link an entity's column to a set of other entities
-        users:                          # Table users
-          - column: id                  # Column id
-            link:                       
-              followers:                # Has foreign key constraint on table: [followers], column: [user_id]
-                column: user_id         # Resulting join would be: SELECT * FROM <schema>.users u
-              app_rights:               #                                JOIN <schema>.followers f ON u.id == f.user_id
-                column: user_id
-              tags:
-                column: creator
-              apps:
-                column: owner
-        apps:
-          - column: id
-            link:
-              app_rights:
-                column: app_id
-              app_tags:
-                column: app_id
-        tags:
-          - column: id
-            link:
-              app_tags:
-                column: tag_id

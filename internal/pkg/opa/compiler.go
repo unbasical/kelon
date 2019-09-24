@@ -3,6 +3,7 @@ package opa
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/request"
 	"github.com/Foundato/kelon/internal/pkg/translate"
@@ -90,7 +91,7 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	}
 
 	// Otherwise translate ast
-	result, err := (*compiler.config.Translator).Process(queries)
+	result, err := (*compiler.config.Translator).Process(queries, output.Datastore)
 	if err != nil {
 		return false, errors.Wrap(err, "PolicyCompiler: Error during ast translation")
 	}
@@ -119,27 +120,44 @@ func (compiler policyCompiler) processPath(requestBody map[string]interface{}) (
 	if err != nil {
 		return nil, err
 	}
-	output, err := (*compiler.config.PathProcessor).Process(inputURL)
+	var method string
+	if sentMethod, ok := requestBody["method"]; ok {
+		if m, ok := sentMethod.(string); ok {
+			method = strings.ToUpper(m)
+		} else {
+			return nil, errors.Errorf("PolicyCompiler: Attribute 'method' of request body was not of type string! Type was %T\n", sentMethod)
+		}
+	} else {
+		return nil, errors.New("PolicyCompiler: Request body didn't contain a 'method'. ")
+	}
+
+	output, err := (*compiler.config.PathProcessor).Process(&request.UrlProcessorInput{
+		Method: method,
+		Url:    inputURL,
+	})
 	if err != nil {
 		return nil, err
 	}
 	if compiler.appConfig.Debug {
-		log.Printf("Datastore [%s] -> entities: %v\n", output.Datastore, output.Entities)
+		log.Printf("Mapped request [%s] to: Datastore [%s] Package: [%s]\n", inputURL, output.Datastore, output.Package)
 	}
 	return output, nil
 }
 
 func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, requestBody *map[string]interface{}, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
 	// Extract parameters for partial evaluation
-	query := compiler.extractOpaQuery(clientRequest)
 	opts := compiler.extractOpaOpts(output)
 	input := extractOpaInput(output, requestBody)
+	query := fmt.Sprintf("data.%s.allow == true", output.Package)
 
 	// Compile clientRequest and return answer
 	queries, err := compiler.engine.PartialEvaluate(clientRequest.Context(), input, query, opts...)
 	if err == nil {
 		if compiler.appConfig.Debug {
-			log.Printf("OPA's Partial Evaluation returned: %+v\n", queries.Queries)
+			log.Printf("OPA's Partial Evaluation with input: \n%+v\nReturned queries:\n", input)
+			for _, q := range queries.Queries {
+				fmt.Printf("%+v\n", q)
+			}
 		}
 		return queries, nil
 	} else {
@@ -164,17 +182,15 @@ func extractUrlFromRequestBody(requestBody map[string]interface{}) (*url.URL, er
 }
 
 func (compiler *policyCompiler) extractOpaOpts(output *request.PathProcessorOutput) []func(*rego.Rego) {
-	var unknowns []string
-	for _, entity := range output.Entities {
-		unknowns = append(unknowns, "data."+entity)
-	}
-	if compiler.appConfig.Debug {
-		log.Printf("Unknowns sent to OPA are: %+v\n", unknowns)
-	}
-
+	unknowns := []string{fmt.Sprintf("data.%s", output.Datastore)}
 	opts := []func(*rego.Rego){
 		rego.Unknowns(unknowns),
 	}
+
+	if compiler.appConfig.Debug {
+		log.Printf("Sending unknowns %+v\n", unknowns)
+	}
+
 	if regos := compiler.config.RegoPaths; regos != nil {
 		opts = append(opts, rego.Load(*regos, nil))
 	}
@@ -183,7 +199,7 @@ func (compiler *policyCompiler) extractOpaOpts(output *request.PathProcessorOutp
 
 func extractOpaInput(output *request.PathProcessorOutput, requestBody *map[string]interface{}) map[string]interface{} {
 	input := map[string]interface{}{
-		"resources": output.Resources,
+		"queries": output.Queries,
 	}
 	// Append custom fields to received body
 	for key, value := range *requestBody {
@@ -193,15 +209,6 @@ func extractOpaInput(output *request.PathProcessorOutput, requestBody *map[strin
 	// Add parsed input without query params
 	input["path"] = output.Path
 	return input
-}
-
-func (compiler *policyCompiler) extractOpaQuery(r *http.Request) string {
-	query := r.URL.Path
-	query = strings.ReplaceAll(query, *compiler.config.Prefix, "")
-	query = strings.ReplaceAll(query, "/", " ")
-	query = strings.Join(strings.Fields(query), ".")
-	query += ".allow == true"
-	return query
 }
 
 func initDependencies(compConf *CompilerConfig, appConf *configs.AppConfig) error {
