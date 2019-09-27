@@ -2,27 +2,17 @@ package translate
 
 import (
 	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/internal/pkg/data"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
-type AstTranslatorConfig struct {
-	Datastores map[string]*data.Datastore
-}
-
-type AstTranslator interface {
-	Configure(appConf *configs.AppConfig, transConf *AstTranslatorConfig) error
-	Process(response *rego.PartialQueries, datastore string) (bool, error)
-}
-
 type astTranslator struct {
 	appConf      *configs.AppConfig
 	config       *AstTranslatorConfig
-	preprocessor *AstPreprocessor
-	processor    *AstProcessor
+	preprocessor *astPreprocessor
+	processor    *astProcessor
 	configured   bool
 }
 
@@ -51,8 +41,8 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *Ast
 	// Assign variables
 	trans.appConf = appConf
 	trans.config = transConf
-	trans.preprocessor = &AstPreprocessor{}
-	trans.processor = &AstProcessor{}
+	trans.preprocessor = &astPreprocessor{}
+	trans.processor = &astProcessor{}
 	trans.configured = true
 	log.Infoln("Configured AstTranslator")
 	return nil

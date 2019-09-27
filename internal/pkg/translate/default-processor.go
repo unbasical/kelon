@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-type AstProcessor struct {
+type astProcessor struct {
 	fromEntity   *data.Entity
 	link         data.Link
 	conjunctions []data.Node
@@ -20,7 +20,7 @@ type AstProcessor struct {
 
 var inset string = "\t\t\t\t\t"
 
-func (p *AstProcessor) Process(queries []ast.Body) (*data.Node, error) {
+func (p *astProcessor) Process(queries []ast.Body) (*data.Node, error) {
 	p.link = data.Link{}
 	p.conjunctions = []data.Node{}
 	p.entities = make(map[string]interface{})
@@ -51,7 +51,7 @@ func (p *AstProcessor) Process(queries []ast.Body) (*data.Node, error) {
 	return &result, nil
 }
 
-func (p *AstProcessor) Visit(v interface{}) ast.Visitor {
+func (p *astProcessor) Visit(v interface{}) ast.Visitor {
 	switch node := v.(type) {
 	case *ast.Body:
 		log.Debugf("Body: -> %+v\n", v)
@@ -68,7 +68,7 @@ func (p *AstProcessor) Visit(v interface{}) ast.Visitor {
 	return p
 }
 
-func (p *AstProcessor) translateQuery(q ast.Body) ast.Visitor {
+func (p *astProcessor) translateQuery(q ast.Body) ast.Visitor {
 	log.Debugf("================= PROCESS QUERY: %+v\n", q)
 	for _, exp := range q {
 		ast.Walk(p, exp)
@@ -84,7 +84,7 @@ func (p *AstProcessor) translateQuery(q ast.Body) ast.Visitor {
 	return p
 }
 
-func (p *AstProcessor) translateExpr(node ast.Expr) ast.Visitor {
+func (p *astProcessor) translateExpr(node ast.Expr) ast.Visitor {
 	if !node.IsCall() {
 		return p
 	}
@@ -125,7 +125,7 @@ func (p *AstProcessor) translateExpr(node ast.Expr) ast.Visitor {
 	return nil
 }
 
-func (p *AstProcessor) translateTerm(node ast.Term) ast.Visitor {
+func (p *astProcessor) translateTerm(node ast.Term) ast.Visitor {
 	switch v := node.Value.(type) {
 	case ast.Boolean:
 		p.operands.AppendToTop(makeConstant(v.String()))
@@ -206,7 +206,7 @@ func normalizeString(value string) string {
 	return strings.ReplaceAll(value, "\"", "")
 }
 
-func (p *AstProcessor) removeAlreadyJoinedEntities() {
+func (p *astProcessor) removeAlreadyJoinedEntities() {
 	delete(p.entities, p.fromEntity.String())
 	for _, e := range p.link.Entities {
 		delete(p.entities, e.Value)
@@ -221,7 +221,7 @@ func keys(input map[string]interface{}) []string {
 	return result
 }
 
-func (p AstProcessor) isAlreadyLinked(entity data.Entity) bool {
+func (p astProcessor) isAlreadyLinked(entity data.Entity) bool {
 	for _, e := range p.link.Entities {
 		if e.Value == entity.Value {
 			return false

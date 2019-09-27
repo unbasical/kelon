@@ -40,7 +40,7 @@ var (
 	parser     = request.NewUrlProcessor()
 	mapper     = request.NewPathMapper()
 	translator = translate.NewAstTranslator()
-	datastore  = data.NewMysqlDatastore()
+	datastore  = data.NewSqlDatastore()
 )
 
 func main() {
@@ -82,9 +82,9 @@ func onConfigLoaded(loadedConf *configs.ExternalConfig, err error) {
 	config.Data = loadedConf.Data
 
 	// Build server config
-	serverConf := api.ServerConfig{
+	serverConf := api.ClientProxyConfig{
 		Compiler: &compiler,
-		CompilerConfig: opa.CompilerConfig{
+		PolicyCompilerConfig: opa.PolicyCompilerConfig{
 			Prefix:        pathPrefix,
 			OpaConfigPath: opaPath,
 			RegoPaths:     regoPaths,

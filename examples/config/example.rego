@@ -40,9 +40,9 @@ allow = true {
     user.friend = "Kevin"
 }
 
-appRights[[app, right]] {
+appRights[[appId, right]] {
     data.mysql.users[u].name = input.user
     right := data.mysql.app_rights[r].right
-    app := r.app_id
+    appId := r.app_id
     u.id = r.user_id
 }

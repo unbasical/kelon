@@ -10,22 +10,17 @@ import (
 	"strconv"
 )
 
-type CallMapper interface {
-	Handles() string
-	Map(args ...string) string
-}
-
-type GenericCallHandler struct {
+type GenericCallOpMapper struct {
 	operator  string
 	argsCount int
 	handler   func(args ...string) (string, error)
 }
 
-func (h GenericCallHandler) Handles() string {
+func (h GenericCallOpMapper) Handles() string {
 	return h.operator
 }
 
-func (h GenericCallHandler) Map(args ...string) string {
+func (h GenericCallOpMapper) Map(args ...string) string {
 	argsLen := len(args)
 	if argsLen < h.argsCount || argsLen > (h.argsCount+1) {
 		log.Fatalf("Call-handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.\n", h.operator, h.argsCount, h.argsCount+1, args)
@@ -44,9 +39,8 @@ func (h GenericCallHandler) Map(args ...string) string {
 	}
 
 	if err != nil {
-		log.Fatalf("Call-handler [%s] failed due to error: %s", err.Error())
+		log.Fatalf("Call-handler [%s] failed due to error: %s", h.operator, err.Error())
 	}
-
 	return result
 }
 
@@ -113,7 +107,7 @@ func (h loadedCallHandler) Map(args ...string) string {
 	}
 }
 
-func LoadDatastoreCallOpsBytes(input []byte) ([]CallMapper, error) {
+func LoadDatastoreCallOpsBytes(input []byte) ([]CallOpMapper, error) {
 	if input == nil {
 		return nil, errors.New("Data must not be nil! ")
 	}
@@ -124,7 +118,7 @@ func LoadDatastoreCallOpsBytes(input []byte) ([]CallMapper, error) {
 		return nil, errors.New("Unable to parse datastore call-operands config: " + err.Error())
 	}
 
-	var result []CallMapper
+	var result []CallOpMapper
 	for _, h := range loadedConf.CallOperands {
 		if err := h.Init(); err != nil {
 			return nil, errors.Wrap(err, "Error while loading call operands")
@@ -135,7 +129,7 @@ func LoadDatastoreCallOpsBytes(input []byte) ([]CallMapper, error) {
 	return result, nil
 }
 
-func LoadDatastoreCallOpsFile(filePath string) ([]CallMapper, error) {
+func LoadDatastoreCallOpsFile(filePath string) ([]CallOpMapper, error) {
 	if filePath == "" {
 		return nil, errors.New("FilePath must not be empty! ")
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/internal/pkg/opa"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -12,23 +11,12 @@ import (
 	"time"
 )
 
-type ServerConfig struct {
-	Compiler *opa.PolicyCompiler
-	opa.CompilerConfig
-}
-
-type ClientProxy interface {
-	Configure(appConf *configs.AppConfig, serverConf *ServerConfig) error
-	Start() error
-	Stop(deadline time.Duration) error
-}
-
 type restProxy struct {
 	pathPrefix string
 	port       int32
 	configured bool
 	appConf    *configs.AppConfig
-	config     *ServerConfig
+	config     *ClientProxyConfig
 	router     *mux.Router
 	server     *http.Server
 }
@@ -44,13 +32,13 @@ func NewRestProxy(pathPrefix string, port int32) ClientProxy {
 	}
 }
 
-func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *ServerConfig) error {
+func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *ClientProxyConfig) error {
 	// Configure subcomponents
 	if serverConf.Compiler == nil {
 		return errors.New("RestProxy: Compiler not configured! ")
 	}
 	compiler := *serverConf.Compiler
-	if err := compiler.Configure(appConf, &serverConf.CompilerConfig); err != nil {
+	if err := compiler.Configure(appConf, &serverConf.PolicyCompilerConfig); err != nil {
 		return err
 	}
 

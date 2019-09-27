@@ -7,13 +7,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type AstPreprocessor struct {
+type astPreprocessor struct {
 	tableNames        map[string]string
 	tableVars         map[string][]*ast.Term
 	expectedDatastore string
 }
 
-func (processor *AstPreprocessor) Process(queries []ast.Body, datastore string) ([]ast.Body, error) {
+func (processor *astPreprocessor) Process(queries []ast.Body, datastore string) ([]ast.Body, error) {
 	var transformedQueries []ast.Body
 	processor.expectedDatastore = fmt.Sprintf("\"%s\"", datastore)
 
@@ -40,7 +40,7 @@ func (processor *AstPreprocessor) Process(queries []ast.Body, datastore string) 
 	return transformedQueries, nil
 }
 
-func (processor *AstPreprocessor) transformRefs(value interface{}) (interface{}, error) {
+func (processor *astPreprocessor) transformRefs(value interface{}) (interface{}, error) {
 
 	trans := func(node ast.Ref) (ast.Value, error) {
 		// Skip scalars (TODO: check there is a more elegant way to do this)

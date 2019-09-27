@@ -1,14 +1,8 @@
 package data
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/internal/pkg/util"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
-	"strings"
 )
 
 type Datastore interface {
@@ -16,297 +10,187 @@ type Datastore interface {
 	Execute(query *Node) (bool, error)
 }
 
-type mysqlDatastore struct {
-	appConf       *configs.AppConfig
-	alias         string
-	conn          map[string]string
-	schemas       map[string]*configs.EntitySchema
-	defaultSchema string
-	dbPool        *sql.DB
-	callOps       map[string]func(args ...string) string
-	configured    bool
+type Node interface {
+	String() string
+	Walk(func(v Node))
 }
 
-var relationOperators = map[string]string{
-	"eq":    "=",
-	"equal": "=",
-	"neq":   "!=",
-	"lt":    "<",
-	"gt":    ">",
-	"lte":   "<=",
-	"gte":   ">=",
+type CallOpMapper interface {
+	Handles() string
+	Map(args ...string) string
 }
 
-var (
-	hostKey          = "host"
-	portKey          = "port"
-	dbKey            = "database"
-	userKey          = "user"
-	pwKey            = "password"
-	defaultSchemaKey = "default_schema"
-)
-
-func NewMysqlDatastore() Datastore {
-	return &mysqlDatastore{
-		appConf:    nil,
-		alias:      "",
-		callOps:    nil,
-		configured: false,
-	}
+type Operator struct {
+	Value string
 }
 
-func (ds *mysqlDatastore) Configure(appConf *configs.AppConfig, alias string) error {
-	if appConf == nil {
-		return errors.New("MySqlDatastore: AppConfig not configured! ")
-	}
-	if alias == "" {
-		return errors.New("MySqlDatastore: Empty alias provided! ")
-	}
-
-	// Validate configuration
-	conf, ok := appConf.Data.Datastores[alias]
-	if !ok {
-		return errors.Errorf("MySqlDatastore: No datastore with alias [%s] configured!", alias)
-	}
-	if strings.ToLower(conf.Type) != "mysql" {
-		return errors.Errorf("MySqlDatastore: Datastore with alias [%s] is not of type mysql! Type is: %s", alias, strings.ToLower(conf.Type))
-	}
-	if err := validateConnection(alias, conf.Connection); err != nil {
-		return err
-	}
-	if schemas, ok := appConf.Data.DatastoreSchemas[alias]; ok {
-		if len(schemas) == 0 {
-			return errors.Errorf("MySqlDatastore: Datastore with alias [%s] has no schemas configured!", alias)
-		}
-	} else {
-		return errors.Errorf("MySqlDatastore: Datastore with alias [%s] has no entity-schema-mapping configured!", alias)
-	}
-
-	// Extract metadata
-	if s, ok := conf.Metadata[defaultSchemaKey]; ok {
-		ds.defaultSchema = s
-	}
-
-	// Init database connection pool
-	connString := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", conf.Connection[userKey], conf.Connection[pwKey], conf.Connection[hostKey], conf.Connection[portKey], conf.Connection[dbKey])
-	db, err := sql.Open("mysql", connString)
-	if err != nil {
-		return errors.Wrap(err, "MySqlDatastore: Error while connecting to database")
-	}
-	if err = db.Ping(); err != nil {
-		return errors.Wrap(err, "MySqlDatastore: Unable to ping database")
-	}
-
-	// Load call handlers
-	handlers, err := LoadDatastoreCallOpsFile(fmt.Sprintf("./call-operands/%s.yml", strings.ToLower(conf.Type)))
-	if err != nil {
-		return errors.Wrap(err, "MySqlDatastore: Unable to load handlers")
-	}
-	ds.callOps = map[string]func(args ...string) string{}
-	for _, handler := range handlers {
-		ds.callOps[handler.Handles()] = handler.Map
-	}
-
-	// Assign values
-	ds.conn = conf.Connection
-	ds.dbPool = db
-	ds.schemas = appConf.Data.DatastoreSchemas[alias]
-	ds.appConf = appConf
-	ds.alias = alias
-	ds.configured = true
-	log.Infoln("Configured MySqlDatastore")
-	return nil
+type Constant struct {
+	Value     string
+	IsNumeric bool
+	IsInt     bool
+	IsFloat32 bool
 }
 
-func (ds mysqlDatastore) Execute(query *Node) (bool, error) {
-	if !ds.configured {
-		return false, errors.New("MySqlDatastore was not configured! Please call Configure(). ")
-	}
-	log.Debugf("TRANSLATING QUERY: ==================\n%+v\n ==================", (*query).String())
-
-	// Translate query to into sql statement
-	statement, err := ds.translate(query)
-	if err != nil {
-		return false, errors.New("MySqlDatastore: Unable to translate Query!")
-	}
-	log.Debugf("EXECUTING STATEMENT: ==================\n%s\n ==================", statement)
-
-	rows, err := ds.dbPool.Query(statement)
-	if err != nil {
-		return false, errors.Wrap(err, "MySqlDatastore: Error while executing statement")
-	}
-	defer func() {
-		if err := rows.Close(); err != nil {
-			panic("Unable to close Result-Set!")
-		}
-	}()
-
-	for rows.Next() {
-		var count int
-		if err := rows.Scan(&count); err != nil {
-			return false, errors.Wrap(err, "MySqlDatastore: Unable to read result")
-		}
-		if count > 0 {
-			log.Infof("Result row with count %d found! -> ALLOWED\n", count)
-			return true, nil
-		}
-	}
-
-	log.Infof("No resulting row with count > 0 found! -> DENIED")
-	return false, nil
+type Entity struct {
+	Value string
 }
 
-func (ds mysqlDatastore) translate(input *Node) (string, error) {
-	var query util.SStack
-	var selects util.SStack
-	var entities util.SStack
-	var relations util.SStack
-	var joins util.SStack
-
-	var operands util.OpStack
-
-	// Walk input
-	(*input).Walk(func(q Node) {
-		switch v := q.(type) {
-		case Union:
-			// Expected stack:  top -> [Queries...]
-			query = query.Push(strings.Join(selects, "\nUNION\n"))
-			selects = selects[:0]
-		case Query:
-			// Expected stack: entities-top -> [singleEntity] relations-top -> [singleCondition]
-			var (
-				entity     string
-				joinClause string
-				condition  string
-			)
-			// Extract entity
-			entities, entity = entities.Pop()
-			// Extract joins
-			for _, j := range joins {
-				joinClause += j
-			}
-			// Extract condition
-			if len(relations) > 0 {
-				condition = relations[0]
-				if len(relations) != 1 {
-					log.Errorf("Error while building Query: Too many relations left to build 1 condition! len(relations) = %d\n", len(relations))
-				}
-			}
-
-			selects = selects.Push(fmt.Sprintf("SELECT count(*) FROM %s%s%s", entity, joinClause, condition))
-			joins = joins[:0]
-			relations = relations[:0]
-		case Link:
-			// Expected stack: entities-top -> [entities] relations-top -> [relations]
-			if len(entities) != len(relations) {
-				log.Errorf("Error while creating Link: Entities and relations are not balanced! Lengths are Entities[%d:%d]Relations\n", len(entities), len(relations))
-			}
-			for i, entity := range entities {
-				joins = joins.Push(fmt.Sprintf("\n\tINNER JOIN %s \n\t\tON %s", entity, strings.Replace(relations[i], "WHERE", "", 1)))
-			}
-			entities = entities[:0]
-			relations = relations[:0]
-		case Condition:
-			// Expected stack: relations-top -> [singleRelation]
-			if len(relations) > 0 {
-				var rel string
-				relations, rel = relations.Pop()
-				relations = relations.Push(fmt.Sprintf("\n\tWHERE \n\t\t%s", rel))
-				log.Debugf("CONDITION: relations |%+v <- TOP\n", relations)
-			}
-		case Disjunction:
-			// Expected stack: relations-top -> [disjunctions ...]
-			if len(relations) > 0 {
-				relations = relations[:0].Push(fmt.Sprintf("(%s)", strings.Join(query, "\n\t\tOR ")))
-				log.Debugf("DISJUNCTION: relations |%+v <- TOP\n", relations)
-			}
-		case Conjunction:
-			// Expected stack: relations-top -> [conjunctions ...]
-			if len(relations) > 0 {
-				relations = relations[:0].Push(fmt.Sprintf("(%s)", strings.Join(relations, "\n\t\tAND ")))
-				log.Debugf("CONJUNCTION: relations |%+v <- TOP\n", relations)
-			}
-		case Attribute:
-			// Expected stack:  top -> [entity, ...]
-			var entity string
-			entities, entity = entities.Pop()
-			operands.AppendToTop(fmt.Sprintf("%s.%s", entity, v.Name))
-		case Call:
-			// Expected stack:  top -> [args..., call-op]
-			var ops []string
-			operands, ops = operands.Pop()
-			op := ops[0]
-
-			// Handle Call
-			var nextRel string
-			if sqlRelOp, ok := relationOperators[op]; ok {
-				// Expected stack:  top -> [rhs, lhs, call-op]
-				log.Debugln("NEW RELATION")
-				nextRel = fmt.Sprintf("%s %s %s", ops[1], sqlRelOp, ops[2])
-			} else if sqlCallOp, ok := ds.callOps[op]; ok {
-				// Expected stack:  top -> [args..., call-op]
-				log.Debugln("NEW FUNCTION CALL")
-				nextRel = sqlCallOp(ops[1:]...)
-			} else {
-				panic(fmt.Sprintf("Datastores: Operator [%s] is not supported!", op))
-			}
-
-			if len(operands) > 0 {
-				// If we are in nested call -> push as operand
-				operands.AppendToTop(nextRel)
-			} else {
-				// We reached root operation -> relation is processed
-				relations = relations.Push(nextRel)
-				log.Debugf("RELATION DONE: relations |%+v <- TOP\n", relations)
-			}
-		case Operator:
-			operands = operands.Push([]string{})
-			operands.AppendToTop(v.String())
-		case Entity:
-			entity := v.String()
-			entities = entities.Push(fmt.Sprintf("%s.%s", ds.findSchemaForEntity(entity), entity))
-		case Constant:
-			operands.AppendToTop(fmt.Sprintf("'%s'", v.String()))
-		default:
-			log.Warnf("Mysql datastore: Unexpected input: %T -> %+v\n", v, v)
-		}
-	})
-
-	return strings.Join(query, "\n"), nil
+type Attribute struct {
+	Entity Entity
+	Name   string
 }
 
-func (ds mysqlDatastore) findSchemaForEntity(search string) string {
-	// Find custom mapping
-	for schema, es := range ds.schemas {
-		for _, entity := range es.Entities {
-			if search == entity {
-				return schema
-			}
-		}
-	}
-
-	// Assign default schema if exists
-	if ds.defaultSchema != "" {
-		return ds.defaultSchema
-	}
-	return ""
+type Call struct {
+	Operator Operator
+	Operands []Node
 }
 
-func validateConnection(alias string, conn map[string]string) error {
-	if _, ok := conn[hostKey]; !ok {
-		return errors.Errorf("MySqlDatastore: Field %s is missing in configured connection with alias %s!", hostKey, alias)
+type Conjunction struct {
+	Clauses []Node
+}
+
+type Disjunction struct {
+	Clauses []Node
+}
+
+type Condition struct {
+	Clause Node
+}
+
+type Link struct {
+	Entities   []Entity
+	Conditions []Node
+}
+
+type Query struct {
+	From      Entity
+	Link      Link
+	Condition Condition
+}
+
+type Union struct {
+	Clauses []Node
+}
+
+// Interface implementations
+
+func (o Operator) String() string {
+	return o.Value
+}
+func (o Operator) Walk(vis func(v Node)) {
+	vis(o)
+}
+
+func (c Constant) String() string {
+	return c.Value
+}
+func (c Constant) Walk(vis func(v Node)) {
+	vis(c)
+}
+
+func (e Entity) String() string {
+	return e.Value
+}
+func (e Entity) Walk(vis func(v Node)) {
+	vis(e)
+}
+
+func (a Attribute) String() string {
+	return fmt.Sprintf("att(%s.%s)", a.Entity.String(), a.Name)
+}
+func (a Attribute) Walk(vis func(v Node)) {
+	a.Entity.Walk(vis)
+	vis(a)
+}
+
+func (c Call) String() string {
+	var operands []string
+	for _, o := range c.Operands {
+		operands = append(operands, o.String())
 	}
-	if _, ok := conn[portKey]; !ok {
-		return errors.Errorf("MySqlDatastore: Field %s is missing in configured connection with alias %s!", portKey, alias)
+	return fmt.Sprintf("%s(%+v)", c.Operator.String(), operands)
+}
+func (c Call) Walk(vis func(v Node)) {
+	c.Operator.Walk(vis)
+	for _, o := range c.Operands {
+		o.Walk(vis)
 	}
-	if _, ok := conn[dbKey]; !ok {
-		return errors.Errorf("MySqlDatastore: Field %s is missing in configured connection with alias %s!", dbKey, alias)
+	vis(c)
+}
+
+func (c Conjunction) String() string {
+	var clauses []string
+	for _, o := range c.Clauses {
+		clauses = append(clauses, o.String())
 	}
-	if _, ok := conn[userKey]; !ok {
-		return errors.Errorf("MySqlDatastore: Field %s is missing in configured connection with alias %s!", userKey, alias)
+	return fmt.Sprintf("conj(%+v)", clauses)
+}
+func (c Conjunction) Walk(vis func(v Node)) {
+	for _, o := range c.Clauses {
+		o.Walk(vis)
 	}
-	if _, ok := conn[pwKey]; !ok {
-		return errors.Errorf("MySqlDatastore: Field %s is missing in configured connection with alias %s!", pwKey, alias)
+	vis(c)
+}
+
+func (d Disjunction) String() string {
+	var relations []string
+	for _, o := range d.Clauses {
+		relations = append(relations, o.String())
 	}
-	return nil
+	return fmt.Sprintf("disj(%+v)", relations)
+}
+func (d Disjunction) Walk(vis func(v Node)) {
+	for _, o := range d.Clauses {
+		o.Walk(vis)
+	}
+	vis(d)
+}
+
+func (c Condition) String() string {
+	return fmt.Sprintf("cond(%s)", c.Clause)
+}
+func (c Condition) Walk(vis func(v Node)) {
+	c.Clause.Walk(vis)
+	vis(c)
+}
+
+func (l Link) String() string {
+	var links []string
+	for i, e := range l.Entities {
+		links = append(links, fmt.Sprintf("(%s ON %s)", e, l.Conditions[i]))
+	}
+	return fmt.Sprintf("link(%+v)", links)
+}
+func (l Link) Walk(vis func(v Node)) {
+	for _, c := range l.Conditions {
+		c.Walk(vis)
+	}
+	for _, e := range l.Entities {
+		e.Walk(vis)
+	}
+	vis(l)
+}
+
+func (q Query) String() string {
+	return fmt.Sprintf("query(%s, %+v, %s)", q.From.String(), q.Link, q.Condition.String())
+}
+func (q Query) Walk(vis func(v Node)) {
+	q.Link.Walk(vis)
+	q.Condition.Walk(vis)
+	q.From.Walk(vis)
+	vis(q)
+}
+
+func (u Union) String() string {
+	var clauses []string
+	for _, o := range u.Clauses {
+		clauses = append(clauses, o.String())
+	}
+	return fmt.Sprintf("union(%+v)", clauses)
+}
+func (u Union) Walk(vis func(v Node)) {
+	for _, c := range u.Clauses {
+		c.Walk(vis)
+	}
+	vis(u)
 }
