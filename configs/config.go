@@ -1,7 +1,7 @@
 package configs
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 )
@@ -66,12 +66,12 @@ func (l FileConfigLoader) Load() (*ExternalConfig, error) {
 		return nil, errors.New("ApiConfigPath must not be empty! ")
 	}
 
-	// Load data from file
-	if data, ioError := ioutil.ReadFile(l.DatastoreConfigPath); ioError == nil {
-		if api, ioError := ioutil.ReadFile(l.ApiConfigPath); ioError == nil {
+	// Load dsConfigBytes from file
+	if dsConfigBytes, ioError := ioutil.ReadFile(l.DatastoreConfigPath); ioError == nil {
+		if apiConfigBytes, ioError := ioutil.ReadFile(l.ApiConfigPath); ioError == nil {
 			return ByteConfigLoader{
-				DatastoreConfigBytes: data,
-				ApiConfigBytes:       api,
+				DatastoreConfigBytes: dsConfigBytes,
+				ApiConfigBytes:       apiConfigBytes,
 			}.Load()
 		} else {
 			return nil, ioError

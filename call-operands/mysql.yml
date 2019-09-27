@@ -1,0 +1,10 @@
+call-operands:
+  - op: abs
+    args: 1
+    mapping: "ABS($0)"
+  - op: mul
+    args: 2
+    mapping: "$0 * $1"
+  - op:
+    args: 2
+    mapping: "$0 / $1"

@@ -23,6 +23,7 @@ type mysqlDatastore struct {
 	schemas       map[string]*configs.EntitySchema
 	defaultSchema string
 	dbPool        *sql.DB
+	callOps       map[string]func(args ...string) string
 	configured    bool
 }
 
@@ -35,8 +36,6 @@ var relationOperators = map[string]string{
 	"lte":   "<=",
 	"gte":   ">=",
 }
-
-var callOperators = map[string]func(args ...string) string{}
 
 var (
 	hostKey          = "host"
@@ -51,6 +50,7 @@ func NewMysqlDatastore() Datastore {
 	return &mysqlDatastore{
 		appConf:    nil,
 		alias:      "",
+		callOps:    nil,
 		configured: false,
 	}
 }
@@ -98,8 +98,13 @@ func (ds *mysqlDatastore) Configure(appConf *configs.AppConfig, alias string) er
 	}
 
 	// Load call handlers
-	for _, handler := range MySqlCallHandlers {
-		callOperators[handler.Handles()] = handler.Map
+	handlers, err := LoadDatastoreCallOpsFile(fmt.Sprintf("./call-operands/%s.yml", strings.ToLower(conf.Type)))
+	if err != nil {
+		return errors.Wrap(err, "MySqlDatastore: Unable to load handlers")
+	}
+	ds.callOps = map[string]func(args ...string) string{}
+	for _, handler := range handlers {
+		ds.callOps[handler.Handles()] = handler.Map
 	}
 
 	// Assign values
@@ -238,7 +243,7 @@ func (ds mysqlDatastore) translate(input *Node) (string, error) {
 				// Expected stack:  top -> [rhs, lhs, call-op]
 				log.Debugln("NEW RELATION")
 				nextRel = fmt.Sprintf("%s %s %s", ops[1], sqlRelOp, ops[2])
-			} else if sqlCallOp, ok := callOperators[op]; ok {
+			} else if sqlCallOp, ok := ds.callOps[op]; ok {
 				// Expected stack:  top -> [args..., call-op]
 				log.Debugln("NEW FUNCTION CALL")
 				nextRel = sqlCallOp(ops[1:]...)
