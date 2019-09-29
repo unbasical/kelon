@@ -8,8 +8,14 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"github.com/open-policy-agent/opa/ast"
+	"github.com/open-policy-agent/opa/bundle"
+	"github.com/open-policy-agent/opa/loader"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/open-policy-agent/opa/metrics"
@@ -30,6 +36,11 @@ type OPA struct {
 	manager     *plugins.Manager
 }
 
+type loadResult struct {
+	loader.Result
+	Bundles map[string]*bundle.Bundle
+}
+
 // ConfigOPA sets the configuration file to use on the OPA instance.
 func ConfigOPA(fileName string) func(opa *OPA) error {
 	return func(opa *OPA) error {
@@ -43,33 +54,70 @@ func ConfigOPA(fileName string) func(opa *OPA) error {
 }
 
 // New returns a new OPA object.
-func NewOPA(opts ...func(*OPA) error) (*OPA, error) {
+func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*OPA, error) {
 
 	opa := &OPA{}
 
+	// Configure OPA
 	for _, opt := range opts {
 		if err := opt(opa); err != nil {
 			return nil, err
 		}
 	}
 
+	// Init store
 	store := inmem.New()
+
+	log.Debugf("Loading regos from dir: %s\n", regosPath)
+	filter := func(abspath string, info os.FileInfo, depth int) bool {
+		return !strings.HasSuffix(abspath, ".rego")
+	}
+	loaded, err := loadPaths([]string{regosPath}, filter, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewOPA: Error while loading rego dir")
+	}
+
+	for bundleName, loadedBundle := range loaded.Bundles {
+		log.Infof("Loading Bundle: %s\n", bundleName)
+		for _, module := range loadedBundle.Modules {
+			log.Infof("Loaded Package: [%s]\t\t\t\t-> module [%s]\n", module.Parsed.Package.String(), module.Path)
+		}
+	}
+
+	txn, err := store.NewTransaction(ctx, storage.WriteParams)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewOPA: Error while opening transaction")
+	}
+
+	if len(loaded.Documents) > 0 {
+		if err := store.Write(ctx, txn, storage.AddOp, storage.Path{}, loaded.Documents); err != nil {
+			return nil, errors.Wrap(err, "NewOPA: Error while writing document")
+		}
+	}
+
+	if err := compileAndStoreInputs(ctx, store, txn, loaded, 1); err != nil {
+		store.Abort(ctx, txn)
+		return nil, errors.Wrap(err, "NewOPA: Error while storing inputs")
+	}
+
+	if err := store.Commit(ctx, txn); err != nil {
+		return nil, errors.Wrap(err, "NewOPA: Error while commit")
+	}
 
 	id, err := uuid4()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "NewOPA: Unable to create uuid4")
 	}
 
 	opa.manager, err = plugins.New(opa.configBytes, id, store)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "NewOPA: Error while creating manager plugin")
 	}
 
 	disc, err := discovery.New(opa.manager)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "NewOPA: Error while creating discovery plugin")
 	}
-
 	opa.manager.Register("discovery", disc)
 
 	return opa, nil
@@ -119,6 +167,7 @@ func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query st
 		record := &server.Info{
 			DecisionID: decisionID,
 			Timestamp:  time.Now(),
+			Query:      query,
 			Error:      err,
 			Metrics:    m,
 		}
@@ -140,4 +189,64 @@ func uuid4() (string, error) {
 	bs[8] = bs[8]&^0xc0 | 0x80
 	bs[6] = bs[6]&^0xf0 | 0x40
 	return fmt.Sprintf("%x-%x-%x-%x-%x", bs[0:4], bs[4:6], bs[6:8], bs[8:10], bs[10:]), nil
+}
+
+func compileAndStoreInputs(ctx context.Context, store storage.Store, txn storage.Transaction, loaded *loadResult, errorLimit int) error {
+
+	policies := make(map[string]*ast.Module, len(loaded.Modules))
+
+	for id, parsed := range loaded.Modules {
+		policies[id] = parsed.Parsed
+	}
+
+	c := ast.NewCompiler().SetErrorLimit(errorLimit).WithPathConflictsCheck(storage.NonEmpty(ctx, store, txn))
+
+	opts := &bundle.ActivateOpts{
+		Ctx:          ctx,
+		Store:        store,
+		Txn:          txn,
+		Compiler:     c,
+		Metrics:      metrics.New(),
+		Bundles:      loaded.Bundles,
+		ExtraModules: policies,
+	}
+
+	err := bundle.Activate(opts)
+	if err != nil {
+		return err
+	}
+
+	// Policies in bundles will have already been added to the store, but
+	// modules loaded outside of bundles will need to be added manually.
+	for id, parsed := range loaded.Modules {
+		if err := store.UpsertPolicy(ctx, txn, id, parsed.Raw); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func loadPaths(paths []string, filter loader.Filter, asBundle bool) (*loadResult, error) {
+	result := &loadResult{}
+	var err error
+
+	if asBundle {
+		result.Bundles = make(map[string]*bundle.Bundle, len(paths))
+		for _, path := range paths {
+			result.Bundles[path], err = loader.AsBundle(path)
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		loaded, err := loader.Filtered(paths, filter)
+		if err != nil {
+			return nil, err
+		}
+		result.Modules = loaded.Modules
+		result.Documents = loaded.Documents
+	}
+
+	return result, nil
 }

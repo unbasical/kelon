@@ -9,7 +9,7 @@ import (
 
 type PolicyCompilerConfig struct {
 	OpaConfigPath *string
-	RegoPaths     *[]string
+	RegoDir       *string
 	Prefix        *string
 	PathProcessor *request.PathProcessor
 	Translator    *translate.AstTranslator

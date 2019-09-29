@@ -84,8 +84,7 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	}
 
 	// Init database connection pool
-	connString := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", conf.Connection[userKey], conf.Connection[pwKey], conf.Connection[hostKey], conf.Connection[portKey], conf.Connection[dbKey])
-	db, err := sql.Open(conf.Type, connString)
+	db, err := sql.Open(conf.Type, getConnectionStringForPlatform(conf.Type, conf.Connection))
 	if err != nil {
 		return errors.Wrap(err, "SqlDatastore: Error while connecting to database")
 	}
@@ -94,10 +93,13 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	}
 
 	// Load call handlers
-	handlers, err := LoadDatastoreCallOpsFile(fmt.Sprintf("./call-operands/%s.yml", strings.ToLower(conf.Type)))
+	callOpsFile := fmt.Sprintf("./call-operands/%s.yml", strings.ToLower(conf.Type))
+	handlers, err := LoadDatastoreCallOpsFile(callOpsFile)
 	if err != nil {
-		return errors.Wrap(err, "SqlDatastore: Unable to load handlers")
+		return errors.Wrap(err, "SqlDatastore: Unable to load call operands as handlers")
 	}
+	log.Infof("SqlDatastore [%s] laoded call operands [%s]\n", alias, callOpsFile)
+
 	ds.callOps = map[string]func(args ...string) string{}
 	for _, handler := range handlers {
 		ds.callOps[handler.Handles()] = handler.Map
@@ -110,13 +112,13 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	ds.appConf = appConf
 	ds.alias = alias
 	ds.configured = true
-	log.Infoln("Configured MySqlDatastore")
+	log.Infoln("Configured SqlDatastore")
 	return nil
 }
 
 func (ds sqlDatastore) Execute(query *Node) (bool, error) {
 	if !ds.configured {
-		return false, errors.New("MySqlDatastore was not configured! Please call Configure(). ")
+		return false, errors.New("SqlDatastore was not configured! Please call Configure(). ")
 	}
 	log.Debugf("TRANSLATING QUERY: ==================\n%+v\n ==================", (*query).String())
 
@@ -264,7 +266,7 @@ func (ds sqlDatastore) translate(input *Node) (string, error) {
 		case Constant:
 			operands.AppendToTop(fmt.Sprintf("'%s'", v.String()))
 		default:
-			log.Warnf("Mysql datastore: Unexpected input: %T -> %+v\n", v, v)
+			log.Warnf("SqlDatastore: Unexpected input: %T -> %+v\n", v, v)
 		}
 	})
 
@@ -305,4 +307,21 @@ func validateConnection(alias string, conn map[string]string) error {
 		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", pwKey, alias)
 	}
 	return nil
+}
+
+func getConnectionStringForPlatform(platform string, conn map[string]string) string {
+	host := conn[hostKey]
+	port := conn[portKey]
+	user := conn[userKey]
+	password := conn[pwKey]
+	dbname := conn[dbKey]
+
+	switch platform {
+	case "postgres":
+		return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+	case "mysql":
+		return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", user, password, host, port, dbname)
+	default:
+		panic(fmt.Sprintf("Platform [%s] is not a supported SQL-Datastore!", platform))
+	}
 }

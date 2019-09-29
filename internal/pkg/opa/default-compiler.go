@@ -34,7 +34,7 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 	}
 
 	// Start OPA in background
-	engine, err := startOPA(compConf.OpaConfigPath)
+	engine, err := startOPA(compConf.OpaConfigPath, *compConf.RegoDir)
 	if err != nil {
 		return errors.Wrap(err, "PolicyCompiler: Error while starting OPA.")
 	}
@@ -131,6 +131,7 @@ func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, requestB
 	opts := compiler.extractOpaOpts(output)
 	input := extractOpaInput(output, requestBody)
 	query := fmt.Sprintf("data.%s.allow == true", output.Package)
+	log.Debugf("Sending query=%s\n", query)
 
 	// Compile clientRequest and return answer
 	queries, err := compiler.engine.PartialEvaluate(clientRequest.Context(), input, query, opts...)
@@ -165,16 +166,10 @@ func extractUrlFromRequestBody(requestBody map[string]interface{}) (*url.URL, er
 
 func (compiler *policyCompiler) extractOpaOpts(output *request.PathProcessorOutput) []func(*rego.Rego) {
 	unknowns := []string{fmt.Sprintf("data.%s", output.Datastore)}
-	opts := []func(*rego.Rego){
+	log.Debugf("Sending unknowns %+v\n", unknowns)
+	return []func(*rego.Rego){
 		rego.Unknowns(unknowns),
 	}
-	log.Debugf("Sending unknowns %+v\n", unknowns)
-
-	if regos := compiler.config.RegoPaths; regos != nil {
-		log.Debugf("Loaded rego: %+v\n", *regos)
-		opts = append(opts, rego.Load(*regos, nil))
-	}
-	return opts
 }
 
 func extractOpaInput(output *request.PathProcessorOutput, requestBody *map[string]interface{}) map[string]interface{} {
@@ -211,13 +206,13 @@ func initDependencies(compConf *PolicyCompilerConfig, appConf *configs.AppConfig
 	return nil
 }
 
-func startOPA(configFile *string) (*OPA, error) {
-	engine, err := NewOPA(ConfigOPA(*configFile))
+func startOPA(configFile *string, regosPath string) (*OPA, error) {
+	ctx := context.Background()
+	engine, err := NewOPA(ctx, regosPath, ConfigOPA(*configFile))
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to initialize OPA!")
 	}
 
-	ctx := context.Background()
 	if err := engine.Start(ctx); err != nil {
 		return nil, errors.Wrap(err, "Failed to start OPA!")
 	}

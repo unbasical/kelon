@@ -4,18 +4,20 @@ services:
     build: .
     restart: always
     depends_on:
-      - db
+      - mysql
+      - postgres
     ports:
       - "8181:8181"
     volumes:
       - ./examples/config/:/conf
+      - ./call-operands/:/call-operands
     environment:
       - DATASTORE_CONF=/conf/datastore.yml
       - API_CONF=/conf/api.yml
       - OPA_CONF=/conf/opa.yml
-      - REGO_PATHS=/conf/example.rego
+      - REGO_PATHS=/conf/mysql_example.rego,/conf/pg_example.rego
 
-  db:
+  mysql:
     image: mysql:5.7
     restart: always
     environment:
@@ -26,7 +28,19 @@ services:
     ports:
       - '3306:3306'
     volumes:
-      - ./examples/init:/docker-entrypoint-initdb.d
+      - ./examples/init/Init-MySql.sql:/docker-entrypoint-initdb.d/Init-MySql.sql
+
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_DB: 'appstore'
+      POSTGRES_USER: 'You'
+      POSTGRES_PASSWORD: 'SuperSecure'
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./examples/init/Init-Postgres.sql:/docker-entrypoint-initdb.d/Init-Postgres.sql
 
   adminer:
     image: adminer

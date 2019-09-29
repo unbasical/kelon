@@ -1,33 +1,33 @@
-package applications
+package applications.mysql
 
 # Deny all by default
 allow = false
 
-# Path: GET /api/v1/apps/:app_id
+# Path: GET /api/mysql/apps/:app_id
 # Users with right 'OWNER' on app can access it always
 allow = true {
     input.method = "GET"
-    input.path = ["api", "v1", "apps", appId]
+    input.path = ["api", "mysql", "apps", appId]
 
     [appId, "OWNER"] = appRights[_]
 }
 
-# Path: GET /api/v1/apps/:app_id
+# Path: GET /api/mysql/apps/:app_id
 # All apps with 5 stars are public
 allow = true {
     some app, appId
     input.method = "GET"
-    input.path = ["api", "v1", "apps", appId]
+    input.path = ["api", "mysql", "apps", appId]
 
     data.mysql.apps[app].stars = 5
     app.id = appId
 }
 
-# Path: GET /api/v1/apps/:app_id
+# Path: GET /api/mysql/apps/:app_id
 # The first app is public
 allow = true {
     input.method = "GET"
-    input.path = ["api", "v1", "apps", "1"]
+    input.path = ["api", "mysql", "apps", "1"]
 }
 
 # Path: GET <any>
