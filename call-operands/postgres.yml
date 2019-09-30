@@ -1,0 +1,19 @@
+call-operands:
+  - op: abs
+    args: 1
+    mapping: "ABS($0)"
+  - op: plus
+    args: 2
+    mapping: "$0 + $1"
+  - op: minus
+    args: 2
+    mapping: "$0 - $1"
+  - op: mul
+    args: 2
+    mapping: "$1 * $0"
+  - op: div
+    args: 2
+    mapping: "$0 / $1"
+  - op: rem
+    args: 2
+    mapping: "$0 % $1"

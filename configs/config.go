@@ -1,18 +1,22 @@
 package configs
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 )
 
-type Config struct {
+type AppConfig struct {
+	ExternalConfig
+}
+
+type ExternalConfig struct {
 	Data *DatastoreConfig
-	Api  map[string]*ApiConfig
+	Api  *ApiConfig
 }
 
 type ConfigLoader interface {
-	Load() (*Config, error)
+	Load() (*ExternalConfig, error)
 }
 
 type ByteConfigLoader struct {
@@ -20,15 +24,19 @@ type ByteConfigLoader struct {
 	ApiConfigBytes       []byte
 }
 
-func (l ByteConfigLoader) Load() (*Config, error) {
+func (a AppConfig) OnDebug(do func() (int, error)) {
+	_, _ = do()
+}
+
+func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 	if l.DatastoreConfigBytes == nil {
-		return nil, errors.New("DatastoreConfigBytes must not be nil!")
+		return nil, errors.New("DatastoreConfigBytes must not be nil! ")
 	}
 	if l.ApiConfigBytes == nil {
-		return nil, errors.New("ApiConfigBytes must not be nil!")
+		return nil, errors.New("ApiConfigBytes must not be nil! ")
 	}
 
-	result := new(Config)
+	result := new(ExternalConfig)
 
 	// Load datastore config
 	result.Data = new(DatastoreConfig)
@@ -37,7 +45,7 @@ func (l ByteConfigLoader) Load() (*Config, error) {
 	}
 
 	// Load API config
-	result.Api = make(map[string]*ApiConfig)
+	result.Api = new(ApiConfig)
 	if err := yaml.Unmarshal(l.ApiConfigBytes, result.Api); err != nil {
 		return nil, errors.New("Unable to parse api config: " + err.Error())
 	}
@@ -50,20 +58,20 @@ type FileConfigLoader struct {
 	ApiConfigPath       string
 }
 
-func (l FileConfigLoader) Load() (*Config, error) {
+func (l FileConfigLoader) Load() (*ExternalConfig, error) {
 	if l.DatastoreConfigPath == "" {
-		return nil, errors.New("DatastoreConfigPath must not be empty!")
+		return nil, errors.New("DatastoreConfigPath must not be empty! ")
 	}
 	if l.ApiConfigPath == "" {
-		return nil, errors.New("ApiConfigPath must not be empty!")
+		return nil, errors.New("ApiConfigPath must not be empty! ")
 	}
 
-	// Load data from file
-	if data, ioError := ioutil.ReadFile(l.DatastoreConfigPath); ioError == nil {
-		if api, ioError := ioutil.ReadFile(l.ApiConfigPath); ioError == nil {
+	// Load dsConfigBytes from file
+	if dsConfigBytes, ioError := ioutil.ReadFile(l.DatastoreConfigPath); ioError == nil {
+		if apiConfigBytes, ioError := ioutil.ReadFile(l.ApiConfigPath); ioError == nil {
 			return ByteConfigLoader{
-				DatastoreConfigBytes: data,
-				ApiConfigBytes:       api,
+				DatastoreConfigBytes: dsConfigBytes,
+				ApiConfigBytes:       apiConfigBytes,
 			}.Load()
 		} else {
 			return nil, ioError

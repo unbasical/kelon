@@ -8,13 +8,13 @@ import (
 
 var wantDatatoreConfig = configs.DatastoreConfig{
 	Datastores: map[string]*configs.Datastore{
-		"postgres": {
-			Type: "postgres",
+		"mysql": {
+			Type: "mysql",
 			Connection: map[string]string{
 				"host":     "localhost",
 				"port":     "5432",
-				"database": "postgres",
-				"user":     "postgres",
+				"database": "mysql",
+				"user":     "mysql",
 				"password": "SuperSecure",
 			},
 			Metadata: map[string]string{
@@ -32,37 +32,39 @@ var wantDatatoreConfig = configs.DatastoreConfig{
 		},
 	},
 	DatastoreSchemas: map[string]map[string]*configs.EntitySchema{
-		"postgres": {
+		"mysql": {
 			"appstore": {
 				Entities: []string{"users", "followers"},
-				Links: map[string]*[]configs.EntityLink{
-					"users": {
-						configs.EntityLink{
-							Column: "id",
-							Link: map[string]*configs.EntityLinkTarget{
-								"followers": {Column: "user_id"},
-							},
-						},
-					},
-				},
 			},
 		},
 	},
 }
 
-var wantApiConfig = map[string]*configs.ApiConfig{
-	"postgres": {
-		ResourcePools: []string{"users", "followers", "apps", "readers", "right", "tags"},
-		ResourcePoolGroups: map[string]*configs.ResourcePoolGroup{
-			"appRights": {
-				Resources: []string{"readers", "right"},
+var wantApiConfig = &configs.ApiConfig{
+	Mappings: []*configs.DatastoreApiMapping{
+		{
+			Prefix:    "/api",
+			Datastore: "mysql",
+			Mappings: []*configs.ApiMapping{
+				{
+					Path:    "/.*",
+					Package: "default",
+					Methods: nil,
+					Queries: nil,
+				},
+				{
+					Path:    "/articles",
+					Package: "articles",
+					Methods: []string{"POST"},
+					Queries: nil,
+				},
+				{
+					Path:    "/articles",
+					Package: "articles",
+					Methods: []string{"GET"},
+					Queries: []string{"author"},
+				},
 			},
-		},
-		ResourceLinks: map[string]string{
-			"appRights": "app_rights",
-		},
-		JoinPaths: map[string][]string{
-			"apps.tag": {"apps", "app_rights", "users", "tags"},
 		},
 	},
 }
@@ -74,13 +76,13 @@ func TestLoadConfigFromFile(t *testing.T) {
 	}.Load()
 
 	if err != nil {
-		t.Errorf("Unexpected error while parsing database config: %s", err)
+		t.Errorf("Unexpected error while parsing config: %s", err)
 	}
 
 	// Validate datastore config
 	if have := result.Data; have != nil {
 		if !cmp.Equal(wantDatatoreConfig, *have) {
-			t.Errorf("Datastore config is not as expected! Diff: %s", cmp.Diff(wantDatatoreConfig, *have))
+			t.Errorf("Datastores config is not as expected! Diff: %s", cmp.Diff(wantDatatoreConfig, *have))
 		}
 	} else {
 		t.Error("No datastore configuration present!")

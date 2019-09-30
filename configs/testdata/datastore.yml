@@ -1,12 +1,12 @@
 # Datastores to connect to
 datastores:
-  postgres:
-    type: postgres
+  mysql:
+    type: mysql
     connection:
       host: "localhost"
       port: 5432
-      database: postgres
-      user: postgres
+      database: mysql
+      user: mysql
       password: SuperSecure
     metadata:
       default_schema: default
@@ -19,14 +19,8 @@ datastores:
 
 # Entity-Schemas define the structure of the entities of one schema inside a datastore
 entity_schemas:
-  postgres:                             # Target datastore
+  mysql:                             # Target datastore
     appstore:                           # Target schema
       entities:                         # List of all entities of the schema
         - users
         - followers
-      links:                            # Link an entity's column to a set of other entities
-        users:                          # Table users
-          - column: id                  # Column id
-            link:
-              followers:                # Has foreign key constraint on table: [followers], column: [user_id]
-                column: user_id         # Resulting join would be: SELECT * FROM <schema>.users u

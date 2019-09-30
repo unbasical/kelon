@@ -1,12 +1,18 @@
 package configs
 
 type ApiConfig struct {
-	ResourcePools      []string                      `yaml:"resource_pools"`
-	ResourcePoolGroups map[string]*ResourcePoolGroup `yaml:"resource_pool_groups"`
-	ResourceLinks      map[string]string             `yaml:"resource_links"`
-	JoinPaths          map[string][]string           `yaml:"join_paths"`
+	Mappings []*DatastoreApiMapping `yaml:"apis"`
 }
 
-type ResourcePoolGroup struct {
-	Resources []string
+type DatastoreApiMapping struct {
+	Prefix    string `yaml:"path-prefix"`
+	Datastore string
+	Mappings  []*ApiMapping
+}
+
+type ApiMapping struct {
+	Path    string
+	Package string
+	Methods []string
+	Queries []string
 }
