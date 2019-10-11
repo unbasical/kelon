@@ -3,24 +3,25 @@ package data
 import (
 	"database/sql"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/util"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"strings"
 )
 
 type sqlDatastore struct {
-	appConf       *configs.AppConfig
-	alias         string
-	conn          map[string]string
-	schemas       map[string]*configs.EntitySchema
-	defaultSchema string
-	dbPool        *sql.DB
-	callOps       map[string]func(args ...string) string
-	configured    bool
+	appConf    *configs.AppConfig
+	alias      string
+	conn       map[string]string
+	schemas    map[string]*configs.EntitySchema
+	dbPool     *sql.DB
+	callOps    map[string]func(args ...string) string
+	configured bool
 }
 
 var relationOperators = map[string]string{
@@ -34,12 +35,11 @@ var relationOperators = map[string]string{
 }
 
 var (
-	hostKey          = "host"
-	portKey          = "port"
-	dbKey            = "database"
-	userKey          = "user"
-	pwKey            = "password"
-	defaultSchemaKey = "default_schema"
+	hostKey = "host"
+	portKey = "port"
+	dbKey   = "database"
+	userKey = "user"
+	pwKey   = "password"
 )
 
 func NewSqlDatastore() Datastore {
@@ -78,17 +78,23 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 		return errors.Errorf("SqlDatastore: Datastore with alias [%s] has no entity-schema-mapping configured!", alias)
 	}
 
-	// Extract metadata
-	if s, ok := conf.Metadata[defaultSchemaKey]; ok {
-		ds.defaultSchema = s
-	}
-
 	// Init database connection pool
 	db, err := sql.Open(conf.Type, getConnectionStringForPlatform(conf.Type, conf.Connection))
 	if err != nil {
 		return errors.Wrap(err, "SqlDatastore: Error while connecting to database")
 	}
-	if err = db.Ping(); err != nil {
+
+	// Ping database for 60 seconds every 3 seconds
+	var pingFailure error
+	for i := 0; i < 20; i++ {
+		if pingFailure = db.Ping(); pingFailure == nil {
+			// Ping succeeded
+			break
+		}
+		log.Infof("Waiting for [%s] to be reachable...", alias)
+		<-time.After(3 * time.Second)
+	}
+	if pingFailure != nil {
 		return errors.Wrap(err, "SqlDatastore: Unable to ping database")
 	}
 
@@ -112,7 +118,7 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	ds.appConf = appConf
 	ds.alias = alias
 	ds.configured = true
-	log.Infoln("Configured SqlDatastore")
+	log.Infof("Configured SqlDatastore [%s]\n", alias)
 	return nil
 }
 
@@ -262,7 +268,16 @@ func (ds sqlDatastore) translate(input *Node) (string, error) {
 			operands.AppendToTop(v.String())
 		case Entity:
 			entity := v.String()
-			entities = entities.Push(fmt.Sprintf("%s.%s", ds.findSchemaForEntity(entity), entity))
+			schema := ds.findSchemaForEntity(entity)
+
+			if schema == "public" && ds.appConf.Data.Datastores[ds.alias].Type == "postgres" {
+				// Special handle when datastore is postgres and schema is public
+				entities = entities.Push(entity)
+			} else {
+				// Normal case for all entities
+				entities = entities.Push(fmt.Sprintf("%s.%s", schema, entity))
+			}
+
 		case Constant:
 			operands.AppendToTop(fmt.Sprintf("'%s'", v.String()))
 		default:
@@ -282,12 +297,7 @@ func (ds sqlDatastore) findSchemaForEntity(search string) string {
 			}
 		}
 	}
-
-	// Assign default schema if exists
-	if ds.defaultSchema != "" {
-		return ds.defaultSchema
-	}
-	return ""
+	panic(fmt.Sprintf("No schema found for entity %s in datastore with alias %s", search, ds.alias))
 }
 
 func validateConnection(alias string, conn map[string]string) error {
