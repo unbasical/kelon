@@ -1,10 +1,11 @@
 package opa
 
 import (
+	"net/http"
+
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/request"
 	"github.com/Foundato/kelon/internal/pkg/translate"
-	"net/http"
 )
 
 type PolicyCompilerConfig struct {

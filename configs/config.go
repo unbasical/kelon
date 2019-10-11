@@ -1,33 +1,40 @@
+// Central package for app-global configs.
 package configs
 
 import (
+	"io/ioutil"
+
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
 )
 
+// Configuration for the entire app.
 type AppConfig struct {
 	ExternalConfig
 }
 
+// External configs.
 type ExternalConfig struct {
 	Data *DatastoreConfig
 	Api  *ApiConfig
 }
 
+// ConfigLoader is the interface that wraps the basic Load method.
+//
+// Load loads all external configuration files from a predefined source.
+// It returns the loaded configuration and any error encountered that caused the Loader to stop early.
 type ConfigLoader interface {
 	Load() (*ExternalConfig, error)
 }
 
+// ByteConfigLoader implements configs.ConfigLoader by loading configs from
+// two provided bytes slices.
 type ByteConfigLoader struct {
 	DatastoreConfigBytes []byte
 	ApiConfigBytes       []byte
 }
 
-func (a AppConfig) OnDebug(do func() (int, error)) {
-	_, _ = do()
-}
-
+// Implementing Load from configs.ConfigLoader by using the properties of the ByteConfigLoader.
 func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 	if l.DatastoreConfigBytes == nil {
 		return nil, errors.New("DatastoreConfigBytes must not be nil! ")
@@ -53,11 +60,14 @@ func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 	return result, nil
 }
 
+// FileConfigLoader implements configs.ConfigLoader by loading configs from
+// two files located at given paths.
 type FileConfigLoader struct {
 	DatastoreConfigPath string
 	ApiConfigPath       string
 }
 
+// Implementing Load from configs.ConfigLoader by using the properties of the FileConfigLoader.
 func (l FileConfigLoader) Load() (*ExternalConfig, error) {
 	if l.DatastoreConfigPath == "" {
 		return nil, errors.New("DatastoreConfigPath must not be empty! ")
