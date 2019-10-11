@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
+
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/request"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"net/http"
-	"net/url"
-	"strings"
 )
 
 type policyCompiler struct {
@@ -54,22 +55,30 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	}
 
 	// Parse body of request
-	requestBody := make(map[string]interface{})
+	requestBody := make(map[string]map[string]interface{})
 	if marshalErr := json.NewDecoder(request.Body).Decode(&requestBody); marshalErr != nil {
 		return false, errors.Wrap(marshalErr, "PolicyCompiler: Error while parsing request body!")
 	}
+	input := requestBody["input"]
+	log.Infof("Received input: %+v", input)
 
 	// Process path
-	output, err := compiler.processPath(requestBody)
+	output, err := compiler.processPath(input)
 	if err != nil {
 		return false, errors.Wrap(err, "PolicyCompiler: Error during path processing")
 	}
 
 	// Compile mapped path
-	queries, err := compiler.opaCompile(request, &requestBody, output)
+	queries, err := compiler.opaCompile(request, &input, output)
 	if err != nil {
 		return false, errors.Wrap(err, "PolicyCompiler: Error during policy compilation")
 	}
+
+	// OPA decided denied
+	if queries.Queries == nil {
+		return false, nil
+	}
+	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
 		return true, nil
 	}
@@ -99,13 +108,13 @@ func anyQuerySucceeded(queries *rego.PartialQueries) bool {
 	return false
 }
 
-func (compiler policyCompiler) processPath(requestBody map[string]interface{}) (*request.PathProcessorOutput, error) {
-	inputURL, err := extractUrlFromRequestBody(requestBody)
+func (compiler policyCompiler) processPath(input map[string]interface{}) (*request.PathProcessorOutput, error) {
+	inputURL, err := extractUrlFromRequestBody(input)
 	if err != nil {
 		return nil, err
 	}
 	var method string
-	if sentMethod, ok := requestBody["method"]; ok {
+	if sentMethod, ok := input["method"]; ok {
 		if m, ok := sentMethod.(string); ok {
 			method = strings.ToUpper(m)
 		} else {
@@ -126,18 +135,18 @@ func (compiler policyCompiler) processPath(requestBody map[string]interface{}) (
 	return output, nil
 }
 
-func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, requestBody *map[string]interface{}, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
+func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input *map[string]interface{}, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
 	// Extract parameters for partial evaluation
 	opts := compiler.extractOpaOpts(output)
-	input := extractOpaInput(output, requestBody)
+	extractedInput := extractOpaInput(output, input)
 	query := fmt.Sprintf("data.%s.allow == true", output.Package)
 	log.Debugf("Sending query=%s\n", query)
 
 	// Compile clientRequest and return answer
-	queries, err := compiler.engine.PartialEvaluate(clientRequest.Context(), input, query, opts...)
+	queries, err := compiler.engine.PartialEvaluate(clientRequest.Context(), extractedInput, query, opts...)
 	if err == nil {
+		log.Infof("Partial Evaluation for %q with extractedInput: \n%+v\nReturned %d queries:\n", query, extractedInput, len(queries.Queries))
 		if log.IsLevelEnabled(log.DebugLevel) {
-			log.Debugf("=======> OPA's Partial Evaluation with input: \n%+v\nReturned queries:\n", input)
 			for _, q := range queries.Queries {
 				log.Debugf("[%+v]\n", q)
 			}
@@ -148,8 +157,8 @@ func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, requestB
 	}
 }
 
-func extractUrlFromRequestBody(requestBody map[string]interface{}) (*url.URL, error) {
-	if sentPath, ok := requestBody["path"]; ok {
+func extractUrlFromRequestBody(input map[string]interface{}) (*url.URL, error) {
+	if sentPath, ok := input["path"]; ok {
 		if sentURL, ok := sentPath.(string); ok {
 			if parsed, urlError := url.Parse(sentURL); urlError == nil {
 				return parsed, nil
@@ -172,18 +181,18 @@ func (compiler *policyCompiler) extractOpaOpts(output *request.PathProcessorOutp
 	}
 }
 
-func extractOpaInput(output *request.PathProcessorOutput, requestBody *map[string]interface{}) map[string]interface{} {
-	input := map[string]interface{}{
+func extractOpaInput(output *request.PathProcessorOutput, input *map[string]interface{}) map[string]interface{} {
+	extracted := map[string]interface{}{
 		"queries": output.Queries,
 	}
 	// Append custom fields to received body
-	for key, value := range *requestBody {
-		input[key] = value
+	for key, value := range *input {
+		extracted[key] = value
 	}
 
-	// Add parsed input without query params
-	input["path"] = output.Path
-	return input
+	// Add parsed extracted without query params
+	extracted["path"] = output.Path
+	return extracted
 }
 
 func initDependencies(compConf *PolicyCompilerConfig, appConf *configs.AppConfig) error {

@@ -5,7 +5,7 @@ allow = false
 
 # Path: GET /api/pg/apps/:app_id
 # Users with right 'OWNER' on app can access it always
-allow = true {
+allow {
     input.method = "GET"
     input.path = ["api", "pg", "apps", appId]
 
