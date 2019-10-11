@@ -8,15 +8,15 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"github.com/open-policy-agent/opa/ast"
-	"github.com/open-policy-agent/opa/bundle"
-	"github.com/open-policy-agent/opa/loader"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
-	"time"
+
+	"github.com/open-policy-agent/opa/ast"
+	"github.com/open-policy-agent/opa/bundle"
+	"github.com/open-policy-agent/opa/loader"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/open-policy-agent/opa/metrics"
 	"github.com/open-policy-agent/opa/plugins"
@@ -166,7 +166,6 @@ func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query st
 	if logger := logs.Lookup(opa.manager); logger != nil {
 		record := &server.Info{
 			DecisionID: decisionID,
-			Timestamp:  time.Now(),
 			Query:      query,
 			Error:      err,
 			Metrics:    m,

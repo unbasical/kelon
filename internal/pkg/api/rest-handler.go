@@ -2,11 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"net/http"
+	"strings"
+
 	"github.com/Foundato/kelon/internal/pkg/request"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"net/http"
-	"strings"
 )
 
 type apiError struct {
@@ -54,8 +55,10 @@ func (proxy restProxy) handlePost(w http.ResponseWriter, r *http.Request) {
 		// Send decision to client
 		switch decision {
 		case true:
+			log.Infoln("Decision: ALLOW")
 			writeJSON(w, http.StatusOK, apiResponse{Result: true})
 		case false:
+			log.Infoln("Decision: DENY")
 			writeJSON(w, http.StatusOK, apiResponse{Result: false})
 		}
 	} else {
