@@ -6,6 +6,7 @@ import (
 	"github.com/Foundato/kelon/configs"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"time"
@@ -58,6 +59,7 @@ func (proxy *restProxy) Start() error {
 	// Create Server and Route Handlers
 	proxy.router.PathPrefix(proxy.pathPrefix).HandlerFunc(proxy.handleGet).Methods("GET")
 	proxy.router.PathPrefix(proxy.pathPrefix).HandlerFunc(proxy.handlePost).Methods("POST")
+	proxy.router.PathPrefix("/metrics").Handler(promhttp.Handler())
 
 	proxy.server = &http.Server{
 		Handler:      proxy.router,
