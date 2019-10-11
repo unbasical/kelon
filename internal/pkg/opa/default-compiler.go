@@ -59,8 +59,8 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	if marshalErr := json.NewDecoder(request.Body).Decode(&requestBody); marshalErr != nil {
 		return false, errors.Wrap(marshalErr, "PolicyCompiler: Error while parsing request body!")
 	}
-	log.Debugf("Parsed request body: %+v\n", requestBody)
 	input := requestBody["input"]
+	log.Infof("Received input: %+v", input)
 
 	// Process path
 	output, err := compiler.processPath(input)
@@ -145,8 +145,8 @@ func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input *m
 	// Compile clientRequest and return answer
 	queries, err := compiler.engine.PartialEvaluate(clientRequest.Context(), extractedInput, query, opts...)
 	if err == nil {
+		log.Infof("Partial Evaluation for %q with extractedInput: \n%+v\nReturned %d queries:\n", query, extractedInput, len(queries.Queries))
 		if log.IsLevelEnabled(log.DebugLevel) {
-			log.Debugf("=======> OPA's Partial Evaluation with extractedInput: \n%+v\nReturned queries:\n", extractedInput)
 			for _, q := range queries.Queries {
 				log.Debugf("[%+v]\n", q)
 			}
