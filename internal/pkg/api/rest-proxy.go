@@ -3,13 +3,14 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/Foundato/kelon/configs"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-	"net/http"
-	"time"
 )
 
 type restProxy struct {
@@ -22,6 +23,7 @@ type restProxy struct {
 	server     *http.Server
 }
 
+// Implements api.ClientProxy by providing OPA's Data-REST-API.
 func NewRestProxy(pathPrefix string, port int32) ClientProxy {
 	return &restProxy{
 		pathPrefix: pathPrefix,
@@ -33,6 +35,7 @@ func NewRestProxy(pathPrefix string, port int32) ClientProxy {
 	}
 }
 
+// See Configure() of api.ClientProxy
 func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *ClientProxyConfig) error {
 	// Configure subcomponents
 	if serverConf.Compiler == nil {
@@ -51,6 +54,7 @@ func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *Client
 	return nil
 }
 
+// See Start() of api.ClientProxy
 func (proxy *restProxy) Start() error {
 	if !proxy.configured {
 		return errors.New("RestProxy was not configured! Please call Configure(). ")
@@ -78,7 +82,11 @@ func (proxy *restProxy) Start() error {
 	return nil
 }
 
+// See Stop() of api.ClientProxy
 func (proxy *restProxy) Stop(deadline time.Duration) error {
+	if proxy.server == nil {
+		return errors.New("RestProxy has not bin started yet!")
+	}
 	log.Infof("Stopping server at: http://localhost:%d%s\n", proxy.port, proxy.pathPrefix)
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()

@@ -19,7 +19,7 @@ type ExternalConfig struct {
 	Api  *ApiConfig
 }
 
-// ConfigLoader is the interface that wraps the basic Load method.
+// ConfigLoader is the interface that the functionality of loading kelon's external configuration.
 //
 // Load loads all external configuration files from a predefined source.
 // It returns the loaded configuration and any error encountered that caused the Loader to stop early.
