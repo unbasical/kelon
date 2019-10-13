@@ -22,6 +22,7 @@ type policyCompiler struct {
 	engine     *OPA
 }
 
+// Return a new instance of the default implementation of the opa.PolicyCompiler.
 func NewPolicyCompiler() PolicyCompiler {
 	return &policyCompiler{
 		configured: false,
@@ -29,6 +30,7 @@ func NewPolicyCompiler() PolicyCompiler {
 	}
 }
 
+// See Configure() from opa.PolicyCompiler
 func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *PolicyCompilerConfig) error {
 	if e := initDependencies(compConf, appConf); e != nil {
 		return errors.Wrap(e, "PolicyCompiler: Error while initializing dependencies.")
@@ -49,6 +51,7 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 	return nil
 }
 
+// See Process() from opa.PolicyCompiler
 func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	if !compiler.configured {
 		return false, errors.New("PolicyCompiler was not configured! Please call Configure(). ")

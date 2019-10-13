@@ -53,7 +53,7 @@ func ConfigOPA(fileName string) func(opa *OPA) error {
 	}
 }
 
-// New returns a new OPA object.
+// Returns a new OPA instance.
 func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*OPA, error) {
 
 	opa := &OPA{}
