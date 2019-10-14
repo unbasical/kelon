@@ -1,12 +1,13 @@
 package request
 
 import (
-	"github.com/Foundato/kelon/configs"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"net/url"
 	"reflect"
 	"strings"
+
+	"github.com/Foundato/kelon/configs"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type urlProcessor struct {
@@ -15,11 +16,13 @@ type urlProcessor struct {
 	configured bool
 }
 
+// Input needed to process a URL.
 type UrlProcessorInput struct {
 	Method string
 	Url    *url.URL
 }
 
+// Return a UrlProcessor instance implementing request.PathProcessor.
 func NewUrlProcessor() PathProcessor {
 	return &urlProcessor{
 		appConf:    nil,
@@ -28,6 +31,7 @@ func NewUrlProcessor() PathProcessor {
 	}
 }
 
+// See request.PathProcessor.
 func (processor *urlProcessor) Configure(appConf *configs.AppConfig, processorConf *PathProcessorConfig) error {
 	// Configure subcomponents
 	if processorConf.PathMapper == nil {
@@ -45,6 +49,7 @@ func (processor *urlProcessor) Configure(appConf *configs.AppConfig, processorCo
 	return nil
 }
 
+// See request.PathProcessor.
 func (processor urlProcessor) Process(input interface{}) (*PathProcessorOutput, error) {
 	if !processor.configured {
 		return nil, errors.New("UrlProcessor was not configured! Please call Configure(). ")

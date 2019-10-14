@@ -2,14 +2,15 @@ package request
 
 import (
 	"fmt"
-	"github.com/Foundato/kelon/configs"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"net/url"
 	"reflect"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/Foundato/kelon/configs"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type pathMapper struct {
@@ -30,6 +31,7 @@ type pathMapperInput struct {
 	Url    *url.URL
 }
 
+// New instance of a request.PathMapper that handles REST-like paths.
 func NewPathMapper() PathMapper {
 	return &pathMapper{
 		appConf:    nil,
@@ -37,6 +39,7 @@ func NewPathMapper() PathMapper {
 	}
 }
 
+// See request.PathMapper.
 func (mapper *pathMapper) Configure(appConf *configs.AppConfig) error {
 	if appConf == nil {
 		return errors.New("PathMapper: AppConfig not configured! ")
@@ -50,6 +53,7 @@ func (mapper *pathMapper) Configure(appConf *configs.AppConfig) error {
 	return nil
 }
 
+// See request.PathMapper
 func (mapper pathMapper) Map(input interface{}) (*MapperOutput, error) {
 	if !mapper.configured {
 		return nil, errors.New("PathMapper was not configured! Please call Configure(). ")
