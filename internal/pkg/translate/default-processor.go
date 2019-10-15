@@ -2,11 +2,12 @@ package translate
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/Foundato/kelon/internal/pkg/data"
 	"github.com/open-policy-agent/opa/ast"
 	log "github.com/sirupsen/logrus"
-	"strconv"
-	"strings"
 )
 
 type astProcessor struct {
@@ -20,6 +21,7 @@ type astProcessor struct {
 
 var inset string = "\t\t\t\t\t"
 
+// See translate.AstTranslator.
 func (p *astProcessor) Process(queries []ast.Body) (*data.Node, error) {
 	p.link = data.Link{}
 	p.conjunctions = []data.Node{}
@@ -51,6 +53,7 @@ func (p *astProcessor) Process(queries []ast.Body) (*data.Node, error) {
 	return &result, nil
 }
 
+// Implementation of the visitor pattern to crawl the AST.
 func (p *astProcessor) Visit(v interface{}) ast.Visitor {
 	switch node := v.(type) {
 	case *ast.Body:
@@ -230,13 +233,16 @@ func (p astProcessor) isAlreadyLinked(entity data.Entity) bool {
 	return true
 }
 
+// Stack which is used for AST-transformation
 type NodeStack [][]data.Node
 
+// Push new element to stack
 func (s NodeStack) Push(v []data.Node) NodeStack {
 	log.Debugf("%sOperands len(%d) PUSH(%+v)\n", inset, len(s), v)
 	return append(s, v)
 }
 
+// Append new node to top element of the stack
 func (s NodeStack) AppendToTop(v data.Node) {
 	if l := len(s); l > 0 {
 		s[l-1] = append(s[l-1], v)
@@ -246,6 +252,7 @@ func (s NodeStack) AppendToTop(v data.Node) {
 	}
 }
 
+// Pop top element from Stack
 func (s NodeStack) Pop() (NodeStack, []data.Node) {
 	if l := len(s); l > 0 {
 		log.Debugf("%sOperands len(%d) POP()\n", inset, len(s))
