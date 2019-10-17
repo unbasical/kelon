@@ -55,7 +55,6 @@ func main() {
 
 	// Process args
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
-
 	case start.FullCommand():
 		log.SetOutput(os.Stdout)
 		log.SetLevel(log.InfoLevel)

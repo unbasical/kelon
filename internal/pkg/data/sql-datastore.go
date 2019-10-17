@@ -25,16 +25,6 @@ type sqlDatastore struct {
 	configured bool
 }
 
-var relationOperators = map[string]string{
-	"eq":    "=",
-	"equal": "=",
-	"neq":   "!=",
-	"lt":    "<",
-	"gt":    ">",
-	"lte":   "<=",
-	"gte":   ">=",
-}
-
 var (
 	hostKey = "host"
 	portKey = "port"
@@ -43,6 +33,7 @@ var (
 	pwKey   = "password"
 )
 
+// Return a new data.Datastore which is able to connect to PostgreSQL and MySQL databases.
 func NewSqlDatastore() data.Datastore {
 	return &sqlDatastore{
 		appConf:    nil,
@@ -244,11 +235,7 @@ func (ds sqlDatastore) translate(input *data.Node) (string, error) {
 
 			// Handle Call
 			var nextRel string
-			if sqlRelOp, ok := relationOperators[op]; ok {
-				// Expected stack:  top -> [rhs, lhs, call-op]
-				log.Debugln("NEW RELATION")
-				nextRel = fmt.Sprintf("%s %s %s", ops[1], sqlRelOp, ops[2])
-			} else if sqlCallOp, ok := ds.callOps[op]; ok {
+			if sqlCallOp, ok := ds.callOps[op]; ok {
 				// Expected stack:  top -> [args..., call-op]
 				log.Debugln("NEW FUNCTION CALL")
 				nextRel = sqlCallOp(ops[1:]...)
