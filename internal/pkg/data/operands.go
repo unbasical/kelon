@@ -2,12 +2,14 @@ package data
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
+	"github.com/Foundato/kelon/pkg/data"
 	"io/ioutil"
 	"regexp"
 	"strconv"
+
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 )
 
 type GenericCallOpMapper struct {
@@ -107,7 +109,7 @@ func (h loadedCallHandler) Map(args ...string) string {
 	}
 }
 
-func LoadDatastoreCallOpsBytes(input []byte) ([]CallOpMapper, error) {
+func LoadDatastoreCallOpsBytes(input []byte) ([]data.CallOpMapper, error) {
 	if input == nil {
 		return nil, errors.New("Data must not be nil! ")
 	}
@@ -118,7 +120,7 @@ func LoadDatastoreCallOpsBytes(input []byte) ([]CallOpMapper, error) {
 		return nil, errors.New("Unable to parse datastore call-operands config: " + err.Error())
 	}
 
-	var result []CallOpMapper
+	var result []data.CallOpMapper
 	for _, h := range loadedConf.CallOperands {
 		if err := h.Init(); err != nil {
 			return nil, errors.Wrap(err, "Error while loading call operands")
@@ -129,7 +131,7 @@ func LoadDatastoreCallOpsBytes(input []byte) ([]CallOpMapper, error) {
 	return result, nil
 }
 
-func LoadDatastoreCallOpsFile(filePath string) ([]CallOpMapper, error) {
+func LoadDatastoreCallOpsFile(filePath string) ([]data.CallOpMapper, error) {
 	if filePath == "" {
 		return nil, errors.New("FilePath must not be empty! ")
 	}

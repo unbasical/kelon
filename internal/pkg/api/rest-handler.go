@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Foundato/kelon/internal/pkg/request"
+	"github.com/Foundato/kelon/pkg/request"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )

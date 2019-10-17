@@ -1,20 +1,26 @@
 package main
 
 import (
-	"github.com/Foundato/kelon/common"
-	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/internal/pkg/api"
-	"github.com/Foundato/kelon/internal/pkg/data"
-	"github.com/Foundato/kelon/internal/pkg/opa"
-	"github.com/Foundato/kelon/internal/pkg/request"
-	"github.com/Foundato/kelon/internal/pkg/translate"
-	"github.com/Foundato/kelon/internal/pkg/watcher"
-	log "github.com/sirupsen/logrus"
-	"gopkg.in/alecthomas/kingpin.v2"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	apiInt "github.com/Foundato/kelon/internal/pkg/api"
+	opaInt "github.com/Foundato/kelon/internal/pkg/opa"
+	requestInt "github.com/Foundato/kelon/internal/pkg/request"
+	translateInt "github.com/Foundato/kelon/internal/pkg/translate"
+
+	"github.com/Foundato/kelon/common"
+	"github.com/Foundato/kelon/configs"
+	"github.com/Foundato/kelon/internal/pkg/data"
+	"github.com/Foundato/kelon/internal/pkg/watcher"
+	"github.com/Foundato/kelon/pkg/api"
+	"github.com/Foundato/kelon/pkg/opa"
+	"github.com/Foundato/kelon/pkg/request"
+	"github.com/Foundato/kelon/pkg/translate"
+	log "github.com/sirupsen/logrus"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 // Configure kingpin
@@ -37,10 +43,10 @@ var (
 	config                 = new(configs.AppConfig)
 	proxy  api.ClientProxy = nil
 
-	compiler   = opa.NewPolicyCompiler()
-	parser     = request.NewUrlProcessor()
-	mapper     = request.NewPathMapper()
-	translator = translate.NewAstTranslator()
+	compiler   = opaInt.NewPolicyCompiler()
+	parser     = requestInt.NewUrlProcessor()
+	mapper     = requestInt.NewPathMapper()
+	translator = translateInt.NewAstTranslator()
 )
 
 func main() {
@@ -67,7 +73,7 @@ func main() {
 		ApiConfigPath:       *apiPath,
 	}
 	// Start app after config is present
-	watcher.DefaultConfigWatcher{Loader: configLoader}.Watch(onConfigLoaded)
+	watcher.NewFileWatcher(configLoader).Watch(onConfigLoaded)
 
 	stopOnSIGTERM()
 }
@@ -100,7 +106,7 @@ func onConfigLoaded(loadedConf *configs.ExternalConfig, err error) {
 	}
 
 	// Create Rest proxy and start
-	proxy = api.NewRestProxy(*pathPrefix, *port)
+	proxy = apiInt.NewRestProxy(*pathPrefix, *port)
 	if err := proxy.Configure(config, &serverConf); err != nil {
 		log.Fatalln(err.Error())
 	}

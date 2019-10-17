@@ -1,23 +1,10 @@
 package data
 
-import (
-	"fmt"
-	"github.com/Foundato/kelon/configs"
-)
-
-type Datastore interface {
-	Configure(appConf *configs.AppConfig, alias string) error
-	Execute(query *Node) (bool, error)
-}
+import "fmt"
 
 type Node interface {
 	String() string
 	Walk(func(v Node))
-}
-
-type CallOpMapper interface {
-	Handles() string
-	Map(args ...string) string
 }
 
 type Operator struct {

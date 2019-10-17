@@ -8,8 +8,8 @@ import (
 	"net/http"
 
 	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/internal/pkg/request"
-	"github.com/Foundato/kelon/internal/pkg/translate"
+	"github.com/Foundato/kelon/pkg/request"
+	"github.com/Foundato/kelon/pkg/translate"
 )
 
 // PolicyCompilerConfig contains all configuration needed by a single opa.PolicyCompiler to run.

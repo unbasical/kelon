@@ -6,7 +6,7 @@ package translate
 
 import (
 	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/internal/pkg/data"
+	"github.com/Foundato/kelon/pkg/data"
 	"github.com/open-policy-agent/opa/rego"
 )
 

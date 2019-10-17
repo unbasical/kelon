@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Foundato/kelon/internal/pkg/data"
+	"github.com/Foundato/kelon/pkg/data"
 	"github.com/open-policy-agent/opa/ast"
 	log "github.com/sirupsen/logrus"
 )

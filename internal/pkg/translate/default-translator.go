@@ -2,6 +2,7 @@ package translate
 
 import (
 	"github.com/Foundato/kelon/configs"
+	"github.com/Foundato/kelon/pkg/translate"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -9,14 +10,14 @@ import (
 
 type astTranslator struct {
 	appConf      *configs.AppConfig
-	config       *AstTranslatorConfig
+	config       *translate.AstTranslatorConfig
 	preprocessor *astPreprocessor
 	processor    *astProcessor
 	configured   bool
 }
 
 // Create a new instance of the default translate.AstTranslator.
-func NewAstTranslator() AstTranslator {
+func NewAstTranslator() translate.AstTranslator {
 	return &astTranslator{
 		appConf:    nil,
 		config:     nil,
@@ -25,7 +26,7 @@ func NewAstTranslator() AstTranslator {
 }
 
 // See translate.AstTranslator.
-func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *AstTranslatorConfig) error {
+func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *translate.AstTranslatorConfig) error {
 	// Configure subcomponents
 	if transConf.Datastores == nil {
 		return errors.New("AstTranslator: Datastores not configured! ")

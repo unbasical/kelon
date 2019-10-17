@@ -9,7 +9,9 @@ import (
 	"strings"
 
 	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/internal/pkg/request"
+	requestInt "github.com/Foundato/kelon/internal/pkg/request"
+	"github.com/Foundato/kelon/pkg/opa"
+	"github.com/Foundato/kelon/pkg/request"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -18,12 +20,12 @@ import (
 type policyCompiler struct {
 	configured bool
 	appConfig  *configs.AppConfig
-	config     *PolicyCompilerConfig
+	config     *opa.PolicyCompilerConfig
 	engine     *OPA
 }
 
 // Return a new instance of the default implementation of the opa.PolicyCompiler.
-func NewPolicyCompiler() PolicyCompiler {
+func NewPolicyCompiler() opa.PolicyCompiler {
 	return &policyCompiler{
 		configured: false,
 		config:     nil,
@@ -31,7 +33,7 @@ func NewPolicyCompiler() PolicyCompiler {
 }
 
 // See Configure() from opa.PolicyCompiler
-func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *PolicyCompilerConfig) error {
+func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *opa.PolicyCompilerConfig) error {
 	if e := initDependencies(compConf, appConf); e != nil {
 		return errors.Wrap(e, "PolicyCompiler: Error while initializing dependencies.")
 	}
@@ -127,7 +129,7 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 		return nil, errors.New("PolicyCompiler: Request body didn't contain a 'method'. ")
 	}
 
-	output, err := (*compiler.config.PathProcessor).Process(&request.UrlProcessorInput{
+	output, err := (*compiler.config.PathProcessor).Process(&requestInt.UrlProcessorInput{
 		Method: method,
 		Url:    inputURL,
 	})
@@ -198,7 +200,7 @@ func extractOpaInput(output *request.PathProcessorOutput, input *map[string]inte
 	return extracted
 }
 
-func initDependencies(compConf *PolicyCompilerConfig, appConf *configs.AppConfig) error {
+func initDependencies(compConf *opa.PolicyCompilerConfig, appConf *configs.AppConfig) error {
 	// Configure PathProcessor
 	if compConf.PathProcessor == nil {
 		return errors.New("PolicyCompiler: PathProcessor not configured! ")
