@@ -123,7 +123,7 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 		if m, ok := sentMethod.(string); ok {
 			method = strings.ToUpper(m)
 		} else {
-			return nil, errors.Errorf("PolicyCompiler: Attribute 'method' of request body was not of type string! Type was %T\n", sentMethod)
+			return nil, errors.Errorf("PolicyCompiler: Attribute 'method' of request body was not of type string! Type was %T", sentMethod)
 		}
 	} else {
 		return nil, errors.New("PolicyCompiler: Request body didn't contain a 'method'. ")
@@ -136,7 +136,7 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 	if err != nil {
 		return nil, err
 	}
-	log.Debugf("Mapped request [%s] to: Datastores [%s] Package: [%s]\n", inputURL, output.Datastore, output.Package)
+	log.Debugf("Mapped request [%s] to: Datastores [%s] Package: [%s]", inputURL, output.Datastore, output.Package)
 	return output, nil
 }
 
@@ -145,15 +145,15 @@ func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input *m
 	opts := compiler.extractOpaOpts(output)
 	extractedInput := extractOpaInput(output, input)
 	query := fmt.Sprintf("data.%s.allow == true", output.Package)
-	log.Debugf("Sending query=%s\n", query)
+	log.Debugf("Sending query=%s", query)
 
 	// Compile clientRequest and return answer
 	queries, err := compiler.engine.PartialEvaluate(clientRequest.Context(), extractedInput, query, opts...)
 	if err == nil {
-		log.Infof("Partial Evaluation for %q with extractedInput: \n%+v\nReturned %d queries:\n", query, extractedInput, len(queries.Queries))
+		log.Infof("Partial Evaluation for %q with extractedInput: %+vReturned %d queries:", query, extractedInput, len(queries.Queries))
 		if log.IsLevelEnabled(log.DebugLevel) {
 			for _, q := range queries.Queries {
-				log.Debugf("[%+v]\n", q)
+				log.Debugf("[%+v]", q)
 			}
 		}
 		return queries, nil
@@ -172,14 +172,14 @@ func extractURLFromRequestBody(input map[string]interface{}) (*url.URL, error) {
 			}
 			return nil, errors.Wrap(urlError, "PolicyCompiler: Field 'path' from request body is no valid URL")
 		}
-		return nil, errors.Errorf("PolicyCompiler: Attribute 'path' of request body was not of type string! Type was %T\n", sentURL)
+		return nil, errors.Errorf("PolicyCompiler: Attribute 'path' of request body was not of type string! Type was %T", sentURL)
 	}
 	return nil, errors.New("PolicyCompiler: Request body didn't contain a 'path'. ")
 }
 
 func (compiler *policyCompiler) extractOpaOpts(output *request.PathProcessorOutput) []func(*rego.Rego) {
 	unknowns := []string{fmt.Sprintf("data.%s", output.Datastore)}
-	log.Debugf("Sending unknowns %+v\n", unknowns)
+	log.Debugf("Sending unknowns %+v", unknowns)
 	return []func(*rego.Rego){
 		rego.Unknowns(unknowns),
 	}

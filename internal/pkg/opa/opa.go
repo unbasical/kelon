@@ -66,7 +66,7 @@ func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*O
 	// Init store
 	store := inmem.New()
 
-	log.Debugf("Loading regos from dir: %s\n", regosPath)
+	log.Debugf("Loading regos from dir: %s", regosPath)
 	filter := func(abspath string, info os.FileInfo, depth int) bool {
 		return !strings.HasSuffix(abspath, ".rego")
 	}
@@ -76,9 +76,9 @@ func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*O
 	}
 
 	for bundleName, loadedBundle := range loaded.Bundles {
-		log.Infof("Loading Bundle: %s\n", bundleName)
+		log.Infof("Loading Bundle: %s", bundleName)
 		for _, module := range loadedBundle.Modules {
-			log.Infof("Loaded Package: [%s]\t\t\t\t-> module [%s]\n", module.Parsed.Package.String(), module.Path)
+			log.Infof("Loaded Package: [%s] -> module [%s]", module.Parsed.Package.String(), module.Path)
 		}
 	}
 

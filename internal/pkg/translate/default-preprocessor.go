@@ -25,7 +25,7 @@ func (processor *astPreprocessor) Process(queries []ast.Body, datastore string) 
 	processor.expectedDatastore = fmt.Sprintf("\"%s\"", datastore)
 
 	for i, q := range queries {
-		log.Debugf("================= PREPROCESS QUERY: %+v\n", q)
+		log.Debugf("================= PREPROCESS QUERY: %+v", q)
 		processor.tableNames = make(map[string]string)
 		processor.tableVars = make(map[string][]*ast.Term)
 
@@ -63,14 +63,14 @@ func (processor *astPreprocessor) transformRefs(value interface{}) (interface{},
 
 		// Validate if datastore prefix is present
 		if head == "data" && node[1].String() != processor.expectedDatastore {
-			return nil, errors.Errorf("Invalid reference: expected [data.%s.<table>] but found reference [%s] \n", processor.expectedDatastore, node.String())
+			return nil, errors.Errorf("Invalid reference: expected [data.%s.<table>] but found reference [%s] ", processor.expectedDatastore, node.String())
 		}
 
 		rowID := node[3].Value
 
 		// Refs must be of the form data.<datastore>.<table>[<iterator>].<column>.
 		if _, ok := rowID.(ast.Var); !ok {
-			return nil, errors.Errorf("Invalid reference: row identifier type not supported: %s\n", rowID.String())
+			return nil, errors.Errorf("Invalid reference: row identifier type not supported: %s", rowID.String())
 		}
 
 		// Remove datastore from prefix

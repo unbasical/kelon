@@ -98,7 +98,7 @@ func (mapper pathMapper) handleInput(input *pathMapperInput) (*request.MapperOut
 				OtherMatch: matches[1].mapping.Path,
 			}
 		}
-		log.Debugf("Found matching API-Mapping [%s]\n", matches[0].matcher.String())
+		log.Debugf("Found matching API-Mapping [%s]", matches[0].matcher.String())
 
 		// Match found
 		return &request.MapperOutput{

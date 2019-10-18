@@ -23,36 +23,34 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// Configure kingpin
 var (
+	//nolint:gochecknoglobals
 	app = kingpin.New("kelon", "Kelon policy enforcer.")
-	// Commands
-	start = app.Command("start", "Start kelon in production mode.")
-	debug = app.Command("debug", "Enable debug mode.")
-	// Flags
-	datastorePath = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
-	apiPath       = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
-	opaPath       = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
-	regoDir       = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Default("./").Short('r').Envar("REGO_DIR").ExistingDir()
-	pathPrefix    = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
-	port          = app.Flag("port", "port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Int32()
-)
-
-// Configure application
-var (
-	config                 = new(configs.AppConfig)
-	proxy  api.ClientProxy = nil
-
-	compiler   = opaInt.NewPolicyCompiler()
-	parser     = requestInt.NewURLProcessor()
-	mapper     = requestInt.NewPathMapper()
-	translator = translateInt.NewAstTranslator()
+	//nolint:gochecknoglobals
+	opaPath = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
+	//nolint:gochecknoglobals
+	regoDir = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Default("./").Short('r').Envar("REGO_DIR").ExistingDir()
+	//nolint:gochecknoglobals
+	pathPrefix = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
+	//nolint:gochecknoglobals
+	port = app.Flag("port", "port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Int32()
+	//nolint:gochecknoglobals
+	proxy api.ClientProxy = nil
 )
 
 func main() {
+	// Configure kingpin
+	var (
+		// Commands
+		start = app.Command("start", "Start kelon in production mode.")
+		debug = app.Command("debug", "Enable debug mode.")
+		// Flags
+		datastorePath = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
+		apiPath       = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
+	)
+
 	app.HelpFlag.Short('h')
 	app.Version(common.Version)
-
 	// Process args
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 	case start.FullCommand():
@@ -81,6 +79,15 @@ func onConfigLoaded(loadedConf *configs.ExternalConfig, err error) {
 	if err != nil {
 		log.Fatalln("Unable to parse configuration: ", err.Error())
 	}
+
+	// Configure application
+	var (
+		config     = new(configs.AppConfig)
+		compiler   = opaInt.NewPolicyCompiler()
+		parser     = requestInt.NewURLProcessor()
+		mapper     = requestInt.NewPathMapper()
+		translator = translateInt.NewAstTranslator()
+	)
 
 	// Build app config
 	config.API = loadedConf.API

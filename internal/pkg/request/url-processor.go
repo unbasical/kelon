@@ -78,7 +78,7 @@ func (processor urlProcessor) handleInput(input *URLProcessorInput) (*request.Pa
 		// Build queries which are passed to OPA as part of the input object
 		queries[queryName] = queryParams.Get(queryName)
 	}
-	log.Debugf("PathProcessor: Parsed path %+v with queries %+v\n", path, queries)
+	log.Debugf("PathProcessor: Parsed path %+v with queries %+v", path, queries)
 
 	// Map path and return
 	out, err := (*processor.config.PathMapper).Map(&pathMapperInput{

@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+//nolint:gochecknoglobals
 var wantDatatoreConfig = configs.DatastoreConfig{
 	Datastores: map[string]*configs.Datastore{
 		"mysql": {
@@ -41,6 +42,7 @@ var wantDatatoreConfig = configs.DatastoreConfig{
 	},
 }
 
+//nolint:gochecknoglobals
 var wantAPIConfig = &configs.APIConfig{
 	Mappings: []*configs.DatastoreAPIMapping{
 		{

@@ -19,8 +19,6 @@ type astProcessor struct {
 	operands     NodeStack
 }
 
-var inset string = "\t\t\t\t\t"
-
 // See translate.AstTranslator.
 func (p *astProcessor) Process(queries []ast.Body) (*data.Node, error) {
 	p.link = data.Link{}
@@ -56,30 +54,30 @@ func (p *astProcessor) Process(queries []ast.Body) (*data.Node, error) {
 func (p *astProcessor) Visit(v interface{}) ast.Visitor {
 	switch node := v.(type) {
 	case *ast.Body:
-		log.Debugf("Body: -> %+v\n", v)
+		log.Debugf("Body: -> %+v", v)
 		return p.translateQuery(*node)
 	case *ast.Expr:
-		log.Debugf("Expr: -> %+v\n", v)
+		log.Debugf("Expr: -> %+v", v)
 		return p.translateExpr(*node)
 	case *ast.Term:
-		log.Debugf("Term: -> %+v\n", v)
+		log.Debugf("Term: -> %+v", v)
 		return p.translateTerm(*node)
 	default:
-		log.Warnf("Unexpectedly visiting children of: %T -> %+v\n", v, v)
+		log.Warnf("Unexpectedly visiting children of: %T -> %+v", v, v)
 	}
 	return p
 }
 
 func (p *astProcessor) translateQuery(q ast.Body) ast.Visitor {
-	log.Debugf("================= PROCESS QUERY: %+v\n", q)
+	log.Debugf("================= PROCESS QUERY: %+v", q)
 	for _, exp := range q {
 		ast.Walk(p, exp)
 	}
 
-	log.Debugf("%sAppend to Conjunctions -> %+v\n", inset, p.relations)
+	log.Debugf("%30sAppend to Conjunctions -> %+v", "", p.relations)
 	p.conjunctions = append(p.conjunctions, p.relations...)
 
-	log.Debugf("%sClean entities and relations", inset)
+	log.Debugf("%30sClean entities and relations", "")
 	p.entities = make(map[string]interface{})
 	p.relations = p.relations[:0]
 
@@ -112,14 +110,14 @@ func (p *astProcessor) translateExpr(node ast.Expr) ast.Visitor {
 			Operator: op,
 			Operands: functionOperands,
 		})
-		log.Debugf("%sLink: %+v\n", inset, p.link)
+		log.Debugf("%30sLink: %+v", "", p.link)
 	} else {
 		// Append new relation for conjunction
 		p.relations = append(p.relations, data.Call{
 			Operator: op,
 			Operands: functionOperands,
 		})
-		log.Debugf("%sRelations: %+v\n", inset, p.relations)
+		log.Debugf("%30sRelations: %+v", "", p.relations)
 	}
 
 	// Cleanup
@@ -164,7 +162,7 @@ func (p *astProcessor) translateTerm(node ast.Term) ast.Visitor {
 		})
 		return nil
 	default:
-		log.Warnf("Unexpected term Node: %T -> %+v\n", v, v)
+		log.Warnf("Unexpected term Node: %T -> %+v", v, v)
 	}
 	return p
 }
@@ -230,7 +228,7 @@ type NodeStack [][]data.Node
 
 // Push new element to stack
 func (s NodeStack) Push(v []data.Node) NodeStack {
-	log.Debugf("%sOperands len(%d) PUSH(%+v)\n", inset, len(s), v)
+	log.Debugf("%30sOperands len(%d) PUSH(%+v)", "", len(s), v)
 	return append(s, v)
 }
 
@@ -242,7 +240,7 @@ func (s NodeStack) AppendToTop(v data.Node) {
 	}
 
 	s[l-1] = append(s[l-1], v)
-	log.Debugf("%sOperands len(%d) APPEND |%+v <- TOP\n", inset, len(s), s[l-1])
+	log.Debugf("%30sOperands len(%d) APPEND |%+v <- TOP", "", len(s), s[l-1])
 }
 
 // Pop top element from Stack
@@ -252,6 +250,6 @@ func (s NodeStack) Pop() (NodeStack, []data.Node) {
 		panic("Stack is empty!")
 	}
 
-	log.Debugf("%sOperands len(%d) POP()\n", inset, len(s))
+	log.Debugf("%30sOperands len(%d) POP()", "", len(s))
 	return s[:l-1], s[l-1]
 }

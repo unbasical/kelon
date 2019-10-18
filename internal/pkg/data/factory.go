@@ -10,7 +10,7 @@ func MakeDatastores(config *configs.DatastoreConfig) map[string]*data.Datastore 
 	result := make(map[string]*data.Datastore)
 	for dsName, ds := range config.Datastores {
 		newDs := NewSQLDatastore()
-		log.Infof("Init SqlDatastore of type [%s] with alias [%s]\n", ds.Type, dsName)
+		log.Infof("Init SqlDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 		result[dsName] = &newDs
 	}
 	return result

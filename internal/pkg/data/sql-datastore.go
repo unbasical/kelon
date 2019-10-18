@@ -29,11 +29,16 @@ type sqlDatastore struct {
 }
 
 var (
+	//nolint:gochecknoglobals
 	hostKey = "host"
+	//nolint:gochecknoglobals
 	portKey = "port"
-	dbKey   = "database"
+	//nolint:gochecknoglobals
+	dbKey = "database"
+	//nolint:gochecknoglobals
 	userKey = "user"
-	pwKey   = "password"
+	//nolint:gochecknoglobals
+	pwKey = "password"
 )
 
 // Return a new data.Datastore which is able to connect to PostgreSQL and MySQL databases.
@@ -99,7 +104,7 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	if err != nil {
 		return errors.Wrap(err, "SqlDatastore: Unable to load call operands as handlers")
 	}
-	log.Infof("SqlDatastore [%s] laoded call operands [%s]\n", alias, callOpsFile)
+	log.Infof("SqlDatastore [%s] laoded call operands [%s]", alias, callOpsFile)
 
 	ds.callOps = map[string]func(args ...string) string{}
 	for _, handler := range handlers {
@@ -113,7 +118,7 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	ds.appConf = appConf
 	ds.alias = alias
 	ds.configured = true
-	log.Infof("Configured SqlDatastore [%s]\n", alias)
+	log.Infof("Configured SqlDatastore [%s]", alias)
 	return nil
 }
 
@@ -121,11 +126,11 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 	if !ds.configured {
 		return false, errors.New("SqlDatastore was not configured! Please call Configure(). ")
 	}
-	log.Debugf("TRANSLATING QUERY: ==================\n%+v\n ==================", (*query).String())
+	log.Debugf("TRANSLATING QUERY: ==================%+v==================", (*query).String())
 
 	// Translate query to into sql statement
 	statement := ds.translate(query)
-	log.Debugf("EXECUTING STATEMENT: ==================\n%s\n ==================", statement)
+	log.Debugf("EXECUTING STATEMENT: ==================%s==================", statement)
 
 	rows, err := ds.dbPool.Query(statement)
 	if err != nil {
@@ -143,7 +148,7 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 			return false, errors.Wrap(err, "SqlDatastore: Unable to read result")
 		}
 		if count > 0 {
-			log.Infof("Result row with count %d found! -> ALLOWED\n", count)
+			log.Infof("Result row with count %d found! -> ALLOWED", count)
 			return true, nil
 		}
 	}
@@ -166,7 +171,7 @@ func (ds sqlDatastore) translate(input *data.Node) string {
 		switch v := q.(type) {
 		case data.Union:
 			// Expected stack:  top -> [Queries...]
-			query = query.Push(strings.Join(selects, "\nUNION\n"))
+			query = query.Push(strings.Join(selects, " UNION "))
 			selects = selects[:0]
 		case data.Query:
 			// Expected stack: entities-top -> [singleEntity] relations-top -> [singleCondition]
@@ -185,20 +190,21 @@ func (ds sqlDatastore) translate(input *data.Node) string {
 			if len(relations) > 0 {
 				condition = relations[0]
 				if len(relations) != 1 {
-					log.Errorf("Error while building Query: Too many relations left to build 1 condition! len(relations) = %d\n", len(relations))
+					log.Errorf("Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", len(relations))
 				}
 			}
 
+			//nolint:gosec
 			selects = selects.Push(fmt.Sprintf("SELECT count(*) FROM %s%s%s", entity, joinClause, condition))
 			joins = joins[:0]
 			relations = relations[:0]
 		case data.Link:
 			// Expected stack: entities-top -> [entities] relations-top -> [relations]
 			if len(entities) != len(relations) {
-				log.Errorf("Error while creating Link: Entities and relations are not balanced! Lengths are Entities[%d:%d]Relations\n", len(entities), len(relations))
+				log.Errorf("Error while creating Link: Entities and relations are not balanced! Lengths are Entities[%d:%d]Relations", len(entities), len(relations))
 			}
 			for i, entity := range entities {
-				joins = joins.Push(fmt.Sprintf("\n\tINNER JOIN %s \n\t\tON %s", entity, strings.Replace(relations[i], "WHERE", "", 1)))
+				joins = joins.Push(fmt.Sprintf(" INNER JOIN %s ON %s", entity, strings.Replace(relations[i], "WHERE", "", 1)))
 			}
 			entities = entities[:0]
 			relations = relations[:0]
@@ -207,20 +213,21 @@ func (ds sqlDatastore) translate(input *data.Node) string {
 			if len(relations) > 0 {
 				var rel string
 				relations, rel = relations.Pop()
-				relations = relations.Push(fmt.Sprintf("\n\tWHERE \n\t\t%s", rel))
-				log.Debugf("CONDITION: relations |%+v <- TOP\n", relations)
+				//nolint:gosec
+				relations = relations.Push(fmt.Sprintf(" WHERE %s", rel))
+				log.Debugf("CONDITION: relations |%+v <- TOP", relations)
 			}
 		case data.Disjunction:
 			// Expected stack: relations-top -> [disjunctions ...]
 			if len(relations) > 0 {
-				relations = relations[:0].Push(fmt.Sprintf("(%s)", strings.Join(query, "\n\t\tOR ")))
-				log.Debugf("DISJUNCTION: relations |%+v <- TOP\n", relations)
+				relations = relations[:0].Push(fmt.Sprintf("(%s)", strings.Join(query, " OR ")))
+				log.Debugf("DISJUNCTION: relations |%+v <- TOP", relations)
 			}
 		case data.Conjunction:
 			// Expected stack: relations-top -> [conjunctions ...]
 			if len(relations) > 0 {
-				relations = relations[:0].Push(fmt.Sprintf("(%s)", strings.Join(relations, "\n\t\tAND ")))
-				log.Debugf("CONJUNCTION: relations |%+v <- TOP\n", relations)
+				relations = relations[:0].Push(fmt.Sprintf("(%s)", strings.Join(relations, " AND ")))
+				log.Debugf("CONJUNCTION: relations |%+v <- TOP", relations)
 			}
 		case data.Attribute:
 			// Expected stack:  top -> [entity, ...]
@@ -249,7 +256,7 @@ func (ds sqlDatastore) translate(input *data.Node) string {
 			} else {
 				// We reached root operation -> relation is processed
 				relations = relations.Push(nextRel)
-				log.Debugf("RELATION DONE: relations |%+v <- TOP\n", relations)
+				log.Debugf("RELATION DONE: relations |%+v <- TOP", relations)
 			}
 		case data.Operator:
 			operands = operands.Push([]string{})
@@ -269,11 +276,11 @@ func (ds sqlDatastore) translate(input *data.Node) string {
 		case data.Constant:
 			operands.AppendToTop(fmt.Sprintf("'%s'", v.String()))
 		default:
-			log.Warnf("SqlDatastore: Unexpected input: %T -> %+v\n", v, v)
+			log.Warnf("SqlDatastore: Unexpected input: %T -> %+v", v, v)
 		}
 	})
 
-	return strings.Join(query, "\n")
+	return strings.Join(query, "")
 }
 
 func (ds sqlDatastore) findSchemaForEntity(search string) string {

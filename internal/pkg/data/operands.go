@@ -26,7 +26,7 @@ func (h GenericCallOpMapper) Handles() string {
 func (h GenericCallOpMapper) Map(args ...string) string {
 	argsLen := len(args)
 	if argsLen < h.argsCount || argsLen > (h.argsCount+1) {
-		log.Fatalf("Call-handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.\n", h.operator, h.argsCount, h.argsCount+1, args)
+		log.Fatalf("Call-handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.operator, h.argsCount, h.argsCount+1, args)
 	}
 
 	var (
@@ -85,7 +85,7 @@ func (h *loadedCallHandler) Init() error {
 func (h loadedCallHandler) Map(args ...string) string {
 	argsLen := len(args)
 	if argsLen < h.ArgsCount || argsLen > (h.ArgsCount+1) {
-		log.Fatalf("Call-Handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.\n", h.Operator, h.ArgsCount, h.ArgsCount+1, args)
+		log.Fatalf("Call-Handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.Operator, h.ArgsCount, h.ArgsCount+1, args)
 	}
 
 	// Rearrange args if mapping is specified
