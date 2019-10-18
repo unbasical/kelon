@@ -18,11 +18,11 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v1
 
-      - name: Lint Go Code
-        run: |
-          export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/issues/14
-          go get -u golang.org/x/lint/golint
-          make lint
+      - name: Install golangci-lint
+        run: curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(go env GOPATH)/bin v1.21.0
+
+      - name: Run golangci-lint
+        run: $(go env GOPATH)/bin/golangci-lint run --enable-all --disable wsl --disable lll --disable funlen
 
   test:
     name: Test
