@@ -22,14 +22,14 @@ type pathMapper struct {
 
 type compiledMapping struct {
 	matcher    *regexp.Regexp
-	mapping    *configs.ApiMapping
+	mapping    *configs.APIMapping
 	importance int
 	datastore  string
 }
 
 type pathMapperInput struct {
 	Method string
-	Url    *url.URL
+	URL    *url.URL
 }
 
 // New instance of a request.PathMapper that handles REST-like paths.
@@ -63,7 +63,7 @@ func (mapper pathMapper) Map(input interface{}) (*request.MapperOutput, error) {
 	// Check type and handle request
 	switch in := input.(type) {
 	case *pathMapperInput:
-		if in.Url == nil {
+		if in.URL == nil {
 			return nil, errors.New("PathMapper: Argument URL mustn't be nil! ")
 		}
 		if len(in.Method) == 0 {
@@ -77,7 +77,7 @@ func (mapper pathMapper) Map(input interface{}) (*request.MapperOutput, error) {
 
 func (mapper pathMapper) handleInput(input *pathMapperInput) (*request.MapperOutput, error) {
 	var matches []*compiledMapping
-	requestString := fmt.Sprintf("%s-%s", input.Method, input.Url.Path)
+	requestString := fmt.Sprintf("%s-%s", input.Method, input.URL.Path)
 	for _, mapping := range mapper.mappings {
 		if mapping.matcher.MatchString(requestString) {
 			matches = append(matches, mapping)
@@ -93,32 +93,30 @@ func (mapper pathMapper) handleInput(input *pathMapperInput) (*request.MapperOut
 		// Throw error if ambiguous paths are matched
 		if len(matches) > 1 && matches[0].importance == matches[1].importance {
 			return nil, &request.PathAmbiguousError{
-				RequestUrl: requestString,
+				RequestURL: requestString,
 				FirstMatch: matches[0].mapping.Path,
 				OtherMatch: matches[1].mapping.Path,
 			}
 		}
-		log.Debugf("Found matching API-Mapping [%s]\n", matches[0].matcher.String())
+		log.Debugf("Found matching API-Mapping [%s]", matches[0].matcher.String())
 
 		// Match found
 		return &request.MapperOutput{
 			Datastore: matches[0].datastore,
 			Package:   matches[0].mapping.Package,
 		}, nil
-	} else {
-		// No matches at all
-		return nil, &request.PathNotFoundError{
-			RequestUrl: requestString,
-		}
+	}
+
+	// No matches at all
+	return nil, &request.PathNotFoundError{
+		RequestURL: requestString,
 	}
 }
 
 func (mapper *pathMapper) generateMappings() error {
-	for _, dsMapping := range mapper.appConf.Api.Mappings {
-
+	for _, dsMapping := range mapper.appConf.API.Mappings {
 		pathPrefix := dsMapping.Prefix
 		for _, mapping := range dsMapping.Mappings {
-
 			endpointsRegex := "[(GET)|(POST)|(PUT)|(DELETE)|(PATCH)]"
 			endpointsCount := 0
 			if mapping.Methods != nil && len(mapping.Methods) > 0 {

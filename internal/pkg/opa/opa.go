@@ -31,7 +31,6 @@ import (
 
 // OPA represents an instance of the policy engine.
 type OPA struct {
-	decision    string
 	configBytes []byte
 	manager     *plugins.Manager
 }
@@ -55,7 +54,6 @@ func ConfigOPA(fileName string) func(opa *OPA) error {
 
 // Returns a new OPA instance.
 func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*OPA, error) {
-
 	opa := &OPA{}
 
 	// Configure OPA
@@ -68,7 +66,7 @@ func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*O
 	// Init store
 	store := inmem.New()
 
-	log.Debugf("Loading regos from dir: %s\n", regosPath)
+	log.Debugf("Loading regos from dir: %s", regosPath)
 	filter := func(abspath string, info os.FileInfo, depth int) bool {
 		return !strings.HasSuffix(abspath, ".rego")
 	}
@@ -78,9 +76,9 @@ func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*O
 	}
 
 	for bundleName, loadedBundle := range loaded.Bundles {
-		log.Infof("Loading Bundle: %s\n", bundleName)
+		log.Infof("Loading Bundle: %s", bundleName)
 		for _, module := range loadedBundle.Modules {
-			log.Infof("Loaded Package: [%s]\t\t\t\t-> module [%s]\n", module.Parsed.Package.String(), module.Path)
+			log.Infof("Loaded Package: [%s] -> module [%s]", module.Parsed.Package.String(), module.Path)
 		}
 	}
 
@@ -131,13 +129,11 @@ func (opa *OPA) Start(ctx context.Context) error {
 
 // Bool returns a boolean policy decision.
 func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query string, opts ...func(*rego.Rego)) (*rego.PartialQueries, error) {
-
 	m := metrics.New()
 	var decisionID string
 	var partialResult *rego.PartialQueries
 
 	err := storage.Txn(ctx, opa.manager.Store, storage.TransactionParams{}, func(txn storage.Transaction) error {
-
 		var err error
 		decisionID, err = uuid4()
 		if err != nil {
@@ -153,13 +149,10 @@ func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query st
 			rego.Transaction(txn))...)
 
 		rs, err := r.Partial(ctx)
-
 		if err != nil {
 			return err
-		} else {
-			partialResult = rs
 		}
-
+		partialResult = rs
 		return nil
 	})
 
@@ -191,7 +184,6 @@ func uuid4() (string, error) {
 }
 
 func compileAndStoreInputs(ctx context.Context, store storage.Store, txn storage.Transaction, loaded *loadResult, errorLimit int) error {
-
 	policies := make(map[string]*ast.Module, len(loaded.Modules))
 
 	for id, parsed := range loaded.Modules {

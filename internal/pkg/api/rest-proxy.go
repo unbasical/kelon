@@ -76,7 +76,7 @@ func (proxy *restProxy) Start() error {
 
 	// Start Server
 	go func() {
-		log.Infof("Starting server at: http://localhost:%d%s\n", proxy.port, proxy.pathPrefix)
+		log.Infof("Starting server at: http://localhost:%d%s", proxy.port, proxy.pathPrefix)
 		if err := proxy.server.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
@@ -87,9 +87,9 @@ func (proxy *restProxy) Start() error {
 // See Stop() of api.ClientProxy
 func (proxy *restProxy) Stop(deadline time.Duration) error {
 	if proxy.server == nil {
-		return errors.New("RestProxy has not bin started yet!")
+		return errors.New("RestProxy has not bin started yet")
 	}
-	log.Infof("Stopping server at: http://localhost:%d%s\n", proxy.port, proxy.pathPrefix)
+	log.Infof("Stopping server at: http://localhost:%d%s", proxy.port, proxy.pathPrefix)
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()
 	if err := proxy.server.Shutdown(ctx); err != nil {

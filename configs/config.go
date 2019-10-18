@@ -16,7 +16,7 @@ type AppConfig struct {
 // External configs.
 type ExternalConfig struct {
 	Data *DatastoreConfig
-	Api  *ApiConfig
+	API  *APIConfig
 }
 
 // ConfigLoader is the interface that the functionality of loading kelon's external configuration.
@@ -31,7 +31,7 @@ type ConfigLoader interface {
 // two provided bytes slices.
 type ByteConfigLoader struct {
 	DatastoreConfigBytes []byte
-	ApiConfigBytes       []byte
+	APIConfigBytes       []byte
 }
 
 // Implementing Load from configs.ConfigLoader by using the properties of the ByteConfigLoader.
@@ -39,8 +39,8 @@ func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 	if l.DatastoreConfigBytes == nil {
 		return nil, errors.New("DatastoreConfigBytes must not be nil! ")
 	}
-	if l.ApiConfigBytes == nil {
-		return nil, errors.New("ApiConfigBytes must not be nil! ")
+	if l.APIConfigBytes == nil {
+		return nil, errors.New("APIConfigBytes must not be nil! ")
 	}
 
 	result := new(ExternalConfig)
@@ -52,8 +52,8 @@ func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 	}
 
 	// Load API config
-	result.Api = new(ApiConfig)
-	if err := yaml.Unmarshal(l.ApiConfigBytes, result.Api); err != nil {
+	result.API = new(APIConfig)
+	if err := yaml.Unmarshal(l.APIConfigBytes, result.API); err != nil {
 		return nil, errors.New("Unable to parse api config: " + err.Error())
 	}
 
@@ -64,7 +64,7 @@ func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 // two files located at given paths.
 type FileConfigLoader struct {
 	DatastoreConfigPath string
-	ApiConfigPath       string
+	APIConfigPath       string
 }
 
 // Implementing Load from configs.ConfigLoader by using the properties of the FileConfigLoader.
@@ -72,21 +72,23 @@ func (l FileConfigLoader) Load() (*ExternalConfig, error) {
 	if l.DatastoreConfigPath == "" {
 		return nil, errors.New("DatastoreConfigPath must not be empty! ")
 	}
-	if l.ApiConfigPath == "" {
-		return nil, errors.New("ApiConfigPath must not be empty! ")
+	if l.APIConfigPath == "" {
+		return nil, errors.New("APIConfigPath must not be empty! ")
 	}
 
 	// Load dsConfigBytes from file
-	if dsConfigBytes, ioError := ioutil.ReadFile(l.DatastoreConfigPath); ioError == nil {
-		if apiConfigBytes, ioError := ioutil.ReadFile(l.ApiConfigPath); ioError == nil {
+	var (
+		ioError        error
+		dsConfigBytes  []byte
+		apiConfigBytes []byte
+	)
+	if dsConfigBytes, ioError = ioutil.ReadFile(l.DatastoreConfigPath); ioError == nil {
+		if apiConfigBytes, ioError = ioutil.ReadFile(l.APIConfigPath); ioError == nil {
 			return ByteConfigLoader{
 				DatastoreConfigBytes: dsConfigBytes,
-				ApiConfigBytes:       apiConfigBytes,
+				APIConfigBytes:       apiConfigBytes,
 			}.Load()
-		} else {
-			return nil, ioError
 		}
-	} else {
-		return nil, ioError
 	}
+	return nil, ioError
 }
