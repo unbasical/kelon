@@ -2,10 +2,11 @@ package data
 
 import (
 	"fmt"
-	"github.com/Foundato/kelon/pkg/data"
 	"io/ioutil"
 	"regexp"
 	"strconv"
+
+	"github.com/Foundato/kelon/pkg/data"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -63,10 +64,7 @@ func (h loadedCallHandler) Handles() string {
 }
 
 func (h *loadedCallHandler) Init() error {
-	argsMatcher, err := regexp.Compile("\\$\\d+")
-	if err != nil {
-		return errors.Wrap(err, "Unable to load datastore-call-operands")
-	}
+	argsMatcher := regexp.MustCompile(`\$\d+`)
 
 	// Extract indices of operands
 	h.indexMapping = []int{}
@@ -104,9 +102,9 @@ func (h loadedCallHandler) Map(args ...string) string {
 	// Handle call with default comparison
 	if argsLen > h.ArgsCount {
 		return fmt.Sprintf(h.targetMapping+" = %s", rearangedArgs...)
-	} else { // Handle any other
-		return fmt.Sprintf(h.targetMapping, rearangedArgs...)
 	}
+	// Handle any other
+	return fmt.Sprintf(h.targetMapping, rearangedArgs...)
 }
 
 func LoadDatastoreCallOpsBytes(input []byte) ([]data.CallOpMapper, error) {
@@ -120,12 +118,12 @@ func LoadDatastoreCallOpsBytes(input []byte) ([]data.CallOpMapper, error) {
 		return nil, errors.New("Unable to parse datastore call-operands config: " + err.Error())
 	}
 
-	var result []data.CallOpMapper
-	for _, h := range loadedConf.CallOperands {
+	result := make([]data.CallOpMapper, len(loadedConf.CallOperands))
+	for i, h := range loadedConf.CallOperands {
 		if err := h.Init(); err != nil {
 			return nil, errors.Wrap(err, "Error while loading call operands")
 		}
-		result = append(result, h)
+		result[i] = h
 	}
 
 	return result, nil
@@ -137,9 +135,9 @@ func LoadDatastoreCallOpsFile(filePath string) ([]data.CallOpMapper, error) {
 	}
 
 	// Load datastoreOpsBytes from file
-	if datastoreOpsBytes, ioError := ioutil.ReadFile(filePath); ioError == nil {
+	datastoreOpsBytes, ioError := ioutil.ReadFile(filePath)
+	if ioError == nil {
 		return LoadDatastoreCallOpsBytes(datastoreOpsBytes)
-	} else {
-		return nil, errors.Wrap(ioError, "Unable to load datastore-call-operands")
 	}
+	return nil, errors.Wrap(ioError, "Unable to load datastore-call-operands")
 }

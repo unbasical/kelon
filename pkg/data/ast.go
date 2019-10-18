@@ -121,10 +121,11 @@ func (a Attribute) Walk(vis func(v Node)) {
 
 // Implements data.Node
 func (c Call) String() string {
-	var operands []string
-	for _, o := range c.Operands {
-		operands = append(operands, o.String())
+	operands := make([]string, len(c.Operands))
+	for i, o := range c.Operands {
+		operands[i] = o.String()
 	}
+
 	return fmt.Sprintf("%s(%+v)", c.Operator.String(), operands)
 }
 
@@ -139,9 +140,9 @@ func (c Call) Walk(vis func(v Node)) {
 
 // Implements data.Node
 func (c Conjunction) String() string {
-	var clauses []string
-	for _, o := range c.Clauses {
-		clauses = append(clauses, o.String())
+	clauses := make([]string, len(c.Clauses))
+	for i, o := range c.Clauses {
+		clauses[i] = o.String()
 	}
 	return fmt.Sprintf("conj(%+v)", clauses)
 }
@@ -156,9 +157,9 @@ func (c Conjunction) Walk(vis func(v Node)) {
 
 // Implements data.Node
 func (d Disjunction) String() string {
-	var relations []string
-	for _, o := range d.Clauses {
-		relations = append(relations, o.String())
+	relations := make([]string, len(d.Clauses))
+	for i, o := range d.Clauses {
+		relations[i] = o.String()
 	}
 	return fmt.Sprintf("disj(%+v)", relations)
 }
@@ -184,9 +185,9 @@ func (c Condition) Walk(vis func(v Node)) {
 
 // Implements data.Node
 func (l Link) String() string {
-	var links []string
+	links := make([]string, len(l.Entities))
 	for i, e := range l.Entities {
-		links = append(links, fmt.Sprintf("(%s ON %s)", e, l.Conditions[i]))
+		links[i] = fmt.Sprintf("(%s ON %s)", e, l.Conditions[i])
 	}
 	return fmt.Sprintf("link(%+v)", links)
 }
@@ -217,9 +218,9 @@ func (q Query) Walk(vis func(v Node)) {
 
 // Implements data.Node
 func (u Union) String() string {
-	var clauses []string
-	for _, o := range u.Clauses {
-		clauses = append(clauses, o.String())
+	clauses := make([]string, len(u.Clauses))
+	for i, o := range u.Clauses {
+		clauses[i] = o.String()
 	}
 	return fmt.Sprintf("union(%+v)", clauses)
 }

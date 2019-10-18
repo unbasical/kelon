@@ -30,17 +30,17 @@ func (p *astProcessor) Process(queries []ast.Body) (*data.Node, error) {
 	p.operands = [][]data.Node{}
 
 	// NEW ERA
-	var clauses []data.Node
-	for _, q := range queries {
+	clauses := make([]data.Node, len(queries))
+	for i, q := range queries {
 		p.translateQuery(q)
 		condition := data.Condition{Clause: data.Conjunction{Clauses: append(p.conjunctions[:0:0], p.conjunctions...)}}
 
 		// Add new Query
-		clauses = append(clauses, data.Query{
+		clauses[i] = data.Query{
 			From:      *p.fromEntity,
 			Link:      p.link,
 			Condition: condition,
-		})
+		}
 
 		// Cleanup
 		p.conjunctions = p.conjunctions[:0]
@@ -48,8 +48,7 @@ func (p *astProcessor) Process(queries []ast.Body) (*data.Node, error) {
 		p.link = data.Link{}
 	}
 
-	var result data.Node
-	result = data.Union{Clauses: clauses}
+	var result data.Node = data.Union{Clauses: clauses}
 	return &result, nil
 }
 
@@ -217,20 +216,13 @@ func (p *astProcessor) removeAlreadyJoinedEntities() {
 }
 
 func keys(input map[string]interface{}) []string {
-	var result []string
+	i := 0
+	result := make([]string, len(input))
 	for k := range input {
-		result = append(result, k)
+		result[i] = k
+		i++
 	}
 	return result
-}
-
-func (p astProcessor) isAlreadyLinked(entity data.Entity) bool {
-	for _, e := range p.link.Entities {
-		if e.Value == entity.Value {
-			return false
-		}
-	}
-	return true
 }
 
 // Stack which is used for AST-transformation
@@ -244,20 +236,22 @@ func (s NodeStack) Push(v []data.Node) NodeStack {
 
 // Append new node to top element of the stack
 func (s NodeStack) AppendToTop(v data.Node) {
-	if l := len(s); l > 0 {
-		s[l-1] = append(s[l-1], v)
-		log.Debugf("%sOperands len(%d) APPEND |%+v <- TOP\n", inset, len(s), s[l-1])
-	} else {
+	l := len(s)
+	if l <= 0 {
 		panic("Stack is empty!")
 	}
+
+	s[l-1] = append(s[l-1], v)
+	log.Debugf("%sOperands len(%d) APPEND |%+v <- TOP\n", inset, len(s), s[l-1])
 }
 
 // Pop top element from Stack
 func (s NodeStack) Pop() (NodeStack, []data.Node) {
-	if l := len(s); l > 0 {
-		log.Debugf("%sOperands len(%d) POP()\n", inset, len(s))
-		return s[:l-1], s[l-1]
-	} else {
+	l := len(s)
+	if l <= 0 {
 		panic("Stack is empty!")
 	}
+
+	log.Debugf("%sOperands len(%d) POP()\n", inset, len(s))
+	return s[:l-1], s[l-1]
 }

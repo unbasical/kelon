@@ -114,7 +114,7 @@ func anyQuerySucceeded(queries *rego.PartialQueries) bool {
 }
 
 func (compiler policyCompiler) processPath(input map[string]interface{}) (*request.PathProcessorOutput, error) {
-	inputURL, err := extractUrlFromRequestBody(input)
+	inputURL, err := extractURLFromRequestBody(input)
 	if err != nil {
 		return nil, err
 	}
@@ -129,9 +129,9 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 		return nil, errors.New("PolicyCompiler: Request body didn't contain a 'method'. ")
 	}
 
-	output, err := (*compiler.config.PathProcessor).Process(&requestInt.UrlProcessorInput{
+	output, err := (*compiler.config.PathProcessor).Process(&requestInt.URLProcessorInput{
 		Method: method,
-		Url:    inputURL,
+		URL:    inputURL,
 	})
 	if err != nil {
 		return nil, err
@@ -157,25 +157,24 @@ func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input *m
 			}
 		}
 		return queries, nil
-	} else {
-		return nil, err
 	}
+	return nil, err
 }
 
-func extractUrlFromRequestBody(input map[string]interface{}) (*url.URL, error) {
-	if sentPath, ok := input["path"]; ok {
-		if sentURL, ok := sentPath.(string); ok {
-			if parsed, urlError := url.Parse(sentURL); urlError == nil {
+func extractURLFromRequestBody(input map[string]interface{}) (*url.URL, error) {
+	sentPath, hasPath := input["path"]
+	if hasPath {
+		sentURL, pathIsString := sentPath.(string)
+		if pathIsString {
+			parsed, urlError := url.Parse(sentURL)
+			if urlError == nil {
 				return parsed, nil
-			} else {
-				return nil, errors.Wrap(urlError, "PolicyCompiler: Field 'path' from request body is no valid URL")
 			}
-		} else {
-			return nil, errors.Errorf("PolicyCompiler: Attribute 'path' of request body was not of type string! Type was %T\n", sentURL)
+			return nil, errors.Wrap(urlError, "PolicyCompiler: Field 'path' from request body is no valid URL")
 		}
-	} else {
-		return nil, errors.New("PolicyCompiler: Request body didn't contain a 'path'. ")
+		return nil, errors.Errorf("PolicyCompiler: Attribute 'path' of request body was not of type string! Type was %T\n", sentURL)
 	}
+	return nil, errors.New("PolicyCompiler: Request body didn't contain a 'path'. ")
 }
 
 func (compiler *policyCompiler) extractOpaOpts(output *request.PathProcessorOutput) []func(*rego.Rego) {

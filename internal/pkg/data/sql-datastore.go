@@ -9,7 +9,10 @@ import (
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/data"
+
+	// Import mysql dirver
 	_ "github.com/go-sql-driver/mysql"
+	// import postgres driver
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -34,7 +37,7 @@ var (
 )
 
 // Return a new data.Datastore which is able to connect to PostgreSQL and MySQL databases.
-func NewSqlDatastore() data.Datastore {
+func NewSQLDatastore() data.Datastore {
 	return &sqlDatastore{
 		appConf:    nil,
 		alias:      "",
@@ -121,10 +124,7 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 	log.Debugf("TRANSLATING QUERY: ==================\n%+v\n ==================", (*query).String())
 
 	// Translate query to into sql statement
-	statement, err := ds.translate(query)
-	if err != nil {
-		return false, errors.New("SqlDatastore: Unable to translate Query!")
-	}
+	statement := ds.translate(query)
 	log.Debugf("EXECUTING STATEMENT: ==================\n%s\n ==================", statement)
 
 	rows, err := ds.dbPool.Query(statement)
@@ -152,7 +152,7 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 	return false, nil
 }
 
-func (ds sqlDatastore) translate(input *data.Node) (string, error) {
+func (ds sqlDatastore) translate(input *data.Node) string {
 	var query util.SStack
 	var selects util.SStack
 	var entities util.SStack
@@ -273,7 +273,7 @@ func (ds sqlDatastore) translate(input *data.Node) (string, error) {
 		}
 	})
 
-	return strings.Join(query, "\n"), nil
+	return strings.Join(query, "\n")
 }
 
 func (ds sqlDatastore) findSchemaForEntity(search string) string {

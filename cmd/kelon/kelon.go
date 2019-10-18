@@ -34,7 +34,7 @@ var (
 	apiPath       = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
 	opaPath       = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
 	regoDir       = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Default("./").Short('r').Envar("REGO_DIR").ExistingDir()
-	pathPrefix    = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-Api.").Default("/v1").Envar("PATH_PREFIX").String()
+	pathPrefix    = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
 	port          = app.Flag("port", "port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Int32()
 )
 
@@ -44,7 +44,7 @@ var (
 	proxy  api.ClientProxy = nil
 
 	compiler   = opaInt.NewPolicyCompiler()
-	parser     = requestInt.NewUrlProcessor()
+	parser     = requestInt.NewURLProcessor()
 	mapper     = requestInt.NewPathMapper()
 	translator = translateInt.NewAstTranslator()
 )
@@ -69,7 +69,7 @@ func main() {
 	// Init config loader
 	configLoader := configs.FileConfigLoader{
 		DatastoreConfigPath: *datastorePath,
-		ApiConfigPath:       *apiPath,
+		APIConfigPath:       *apiPath,
 	}
 	// Start app after config is present
 	watcher.NewFileWatcher(configLoader).Watch(onConfigLoaded)
@@ -83,7 +83,7 @@ func onConfigLoaded(loadedConf *configs.ExternalConfig, err error) {
 	}
 
 	// Build app config
-	config.Api = loadedConf.Api
+	config.API = loadedConf.API
 	config.Data = loadedConf.Data
 
 	// Build server config

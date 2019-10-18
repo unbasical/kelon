@@ -27,14 +27,14 @@ type PathMapper interface {
 
 // Error thrown if there are more then one path mapping in the api.yaml-config that match the incoming path.
 type PathAmbiguousError struct {
-	RequestUrl string
+	RequestURL string
 	FirstMatch string
 	OtherMatch string
 }
 
 // Error thrown if there is no mapping in the api.yaml-config matching the incoming path.
 type PathNotFoundError struct {
-	RequestUrl string
+	RequestURL string
 }
 
 // Output returned by the RequestMapper.
@@ -45,10 +45,10 @@ type MapperOutput struct {
 
 // Textual representation of a PathAmbiguousError.
 func (e *PathAmbiguousError) Error() string {
-	return fmt.Sprintf("Path-mapping [%s] is ambiguous! Mapping [%s] also matches incoming path [%s]!", e.RequestUrl, e.FirstMatch, e.OtherMatch)
+	return fmt.Sprintf("Path-mapping [%s] is ambiguous! Mapping [%s] also matches incoming path [%s]!", e.RequestURL, e.FirstMatch, e.OtherMatch)
 }
 
 // Textual representation of a PatNotFoundError.
 func (e *PathNotFoundError) Error() string {
-	return fmt.Sprintf("PathMapper: There is no mapping which matches path [%s]!", e.RequestUrl)
+	return fmt.Sprintf("PathMapper: There is no mapping which matches path [%s]!", e.RequestURL)
 }

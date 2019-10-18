@@ -87,7 +87,7 @@ func (proxy *restProxy) Start() error {
 // See Stop() of api.ClientProxy
 func (proxy *restProxy) Stop(deadline time.Duration) error {
 	if proxy.server == nil {
-		return errors.New("RestProxy has not bin started yet!")
+		return errors.New("RestProxy has not bin started yet")
 	}
 	log.Infof("Stopping server at: http://localhost:%d%s\n", proxy.port, proxy.pathPrefix)
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
