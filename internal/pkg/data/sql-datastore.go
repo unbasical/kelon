@@ -8,6 +8,7 @@ import (
 
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/util"
+	"github.com/Foundato/kelon/pkg/data"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -24,16 +25,6 @@ type sqlDatastore struct {
 	configured bool
 }
 
-var relationOperators = map[string]string{
-	"eq":    "=",
-	"equal": "=",
-	"neq":   "!=",
-	"lt":    "<",
-	"gt":    ">",
-	"lte":   "<=",
-	"gte":   ">=",
-}
-
 var (
 	hostKey = "host"
 	portKey = "port"
@@ -42,7 +33,8 @@ var (
 	pwKey   = "password"
 )
 
-func NewSqlDatastore() Datastore {
+// Return a new data.Datastore which is able to connect to PostgreSQL and MySQL databases.
+func NewSqlDatastore() data.Datastore {
 	return &sqlDatastore{
 		appConf:    nil,
 		alias:      "",
@@ -122,7 +114,7 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	return nil
 }
 
-func (ds sqlDatastore) Execute(query *Node) (bool, error) {
+func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 	if !ds.configured {
 		return false, errors.New("SqlDatastore was not configured! Please call Configure(). ")
 	}
@@ -160,7 +152,7 @@ func (ds sqlDatastore) Execute(query *Node) (bool, error) {
 	return false, nil
 }
 
-func (ds sqlDatastore) translate(input *Node) (string, error) {
+func (ds sqlDatastore) translate(input *data.Node) (string, error) {
 	var query util.SStack
 	var selects util.SStack
 	var entities util.SStack
@@ -170,13 +162,13 @@ func (ds sqlDatastore) translate(input *Node) (string, error) {
 	var operands util.OpStack
 
 	// Walk input
-	(*input).Walk(func(q Node) {
+	(*input).Walk(func(q data.Node) {
 		switch v := q.(type) {
-		case Union:
+		case data.Union:
 			// Expected stack:  top -> [Queries...]
 			query = query.Push(strings.Join(selects, "\nUNION\n"))
 			selects = selects[:0]
-		case Query:
+		case data.Query:
 			// Expected stack: entities-top -> [singleEntity] relations-top -> [singleCondition]
 			var (
 				entity     string
@@ -200,7 +192,7 @@ func (ds sqlDatastore) translate(input *Node) (string, error) {
 			selects = selects.Push(fmt.Sprintf("SELECT count(*) FROM %s%s%s", entity, joinClause, condition))
 			joins = joins[:0]
 			relations = relations[:0]
-		case Link:
+		case data.Link:
 			// Expected stack: entities-top -> [entities] relations-top -> [relations]
 			if len(entities) != len(relations) {
 				log.Errorf("Error while creating Link: Entities and relations are not balanced! Lengths are Entities[%d:%d]Relations\n", len(entities), len(relations))
@@ -210,7 +202,7 @@ func (ds sqlDatastore) translate(input *Node) (string, error) {
 			}
 			entities = entities[:0]
 			relations = relations[:0]
-		case Condition:
+		case data.Condition:
 			// Expected stack: relations-top -> [singleRelation]
 			if len(relations) > 0 {
 				var rel string
@@ -218,24 +210,24 @@ func (ds sqlDatastore) translate(input *Node) (string, error) {
 				relations = relations.Push(fmt.Sprintf("\n\tWHERE \n\t\t%s", rel))
 				log.Debugf("CONDITION: relations |%+v <- TOP\n", relations)
 			}
-		case Disjunction:
+		case data.Disjunction:
 			// Expected stack: relations-top -> [disjunctions ...]
 			if len(relations) > 0 {
 				relations = relations[:0].Push(fmt.Sprintf("(%s)", strings.Join(query, "\n\t\tOR ")))
 				log.Debugf("DISJUNCTION: relations |%+v <- TOP\n", relations)
 			}
-		case Conjunction:
+		case data.Conjunction:
 			// Expected stack: relations-top -> [conjunctions ...]
 			if len(relations) > 0 {
 				relations = relations[:0].Push(fmt.Sprintf("(%s)", strings.Join(relations, "\n\t\tAND ")))
 				log.Debugf("CONJUNCTION: relations |%+v <- TOP\n", relations)
 			}
-		case Attribute:
+		case data.Attribute:
 			// Expected stack:  top -> [entity, ...]
 			var entity string
 			entities, entity = entities.Pop()
 			operands.AppendToTop(fmt.Sprintf("%s.%s", entity, v.Name))
-		case Call:
+		case data.Call:
 			// Expected stack:  top -> [args..., call-op]
 			var ops []string
 			operands, ops = operands.Pop()
@@ -243,11 +235,7 @@ func (ds sqlDatastore) translate(input *Node) (string, error) {
 
 			// Handle Call
 			var nextRel string
-			if sqlRelOp, ok := relationOperators[op]; ok {
-				// Expected stack:  top -> [rhs, lhs, call-op]
-				log.Debugln("NEW RELATION")
-				nextRel = fmt.Sprintf("%s %s %s", ops[1], sqlRelOp, ops[2])
-			} else if sqlCallOp, ok := ds.callOps[op]; ok {
+			if sqlCallOp, ok := ds.callOps[op]; ok {
 				// Expected stack:  top -> [args..., call-op]
 				log.Debugln("NEW FUNCTION CALL")
 				nextRel = sqlCallOp(ops[1:]...)
@@ -263,10 +251,10 @@ func (ds sqlDatastore) translate(input *Node) (string, error) {
 				relations = relations.Push(nextRel)
 				log.Debugf("RELATION DONE: relations |%+v <- TOP\n", relations)
 			}
-		case Operator:
+		case data.Operator:
 			operands = operands.Push([]string{})
 			operands.AppendToTop(v.String())
-		case Entity:
+		case data.Entity:
 			entity := v.String()
 			schema := ds.findSchemaForEntity(entity)
 
@@ -278,7 +266,7 @@ func (ds sqlDatastore) translate(input *Node) (string, error) {
 				entities = entities.Push(fmt.Sprintf("%s.%s", schema, entity))
 			}
 
-		case Constant:
+		case data.Constant:
 			operands.AppendToTop(fmt.Sprintf("'%s'", v.String()))
 		default:
 			log.Warnf("SqlDatastore: Unexpected input: %T -> %+v\n", v, v)

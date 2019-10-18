@@ -2,14 +2,16 @@ package request
 
 import (
 	"fmt"
-	"github.com/Foundato/kelon/configs"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"net/url"
 	"reflect"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/Foundato/kelon/configs"
+	"github.com/Foundato/kelon/pkg/request"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type pathMapper struct {
@@ -30,13 +32,15 @@ type pathMapperInput struct {
 	Url    *url.URL
 }
 
-func NewPathMapper() PathMapper {
+// New instance of a request.PathMapper that handles REST-like paths.
+func NewPathMapper() request.PathMapper {
 	return &pathMapper{
 		appConf:    nil,
 		configured: false,
 	}
 }
 
+// See request.PathMapper.
 func (mapper *pathMapper) Configure(appConf *configs.AppConfig) error {
 	if appConf == nil {
 		return errors.New("PathMapper: AppConfig not configured! ")
@@ -50,7 +54,8 @@ func (mapper *pathMapper) Configure(appConf *configs.AppConfig) error {
 	return nil
 }
 
-func (mapper pathMapper) Map(input interface{}) (*MapperOutput, error) {
+// See request.PathMapper
+func (mapper pathMapper) Map(input interface{}) (*request.MapperOutput, error) {
 	if !mapper.configured {
 		return nil, errors.New("PathMapper was not configured! Please call Configure(). ")
 	}
@@ -70,11 +75,11 @@ func (mapper pathMapper) Map(input interface{}) (*MapperOutput, error) {
 	}
 }
 
-func (mapper pathMapper) handleInput(input *pathMapperInput) (*MapperOutput, error) {
+func (mapper pathMapper) handleInput(input *pathMapperInput) (*request.MapperOutput, error) {
 	var matches []*compiledMapping
-	request := fmt.Sprintf("%s-%s", input.Method, input.Url.Path)
+	requestString := fmt.Sprintf("%s-%s", input.Method, input.Url.Path)
 	for _, mapping := range mapper.mappings {
-		if mapping.matcher.MatchString(request) {
+		if mapping.matcher.MatchString(requestString) {
 			matches = append(matches, mapping)
 		}
 	}
@@ -87,8 +92,8 @@ func (mapper pathMapper) handleInput(input *pathMapperInput) (*MapperOutput, err
 
 		// Throw error if ambiguous paths are matched
 		if len(matches) > 1 && matches[0].importance == matches[1].importance {
-			return nil, &PathAmbiguousError{
-				RequestUrl: request,
+			return nil, &request.PathAmbiguousError{
+				RequestUrl: requestString,
 				FirstMatch: matches[0].mapping.Path,
 				OtherMatch: matches[1].mapping.Path,
 			}
@@ -96,14 +101,14 @@ func (mapper pathMapper) handleInput(input *pathMapperInput) (*MapperOutput, err
 		log.Debugf("Found matching API-Mapping [%s]\n", matches[0].matcher.String())
 
 		// Match found
-		return &MapperOutput{
+		return &request.MapperOutput{
 			Datastore: matches[0].datastore,
 			Package:   matches[0].mapping.Package,
 		}, nil
 	} else {
 		// No matches at all
-		return nil, &PathNotFoundError{
-			RequestUrl: request,
+		return nil, &request.PathNotFoundError{
+			RequestUrl: requestString,
 		}
 	}
 }

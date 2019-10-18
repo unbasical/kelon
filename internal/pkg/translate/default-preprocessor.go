@@ -2,6 +2,7 @@ package translate
 
 import (
 	"fmt"
+
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -13,6 +14,12 @@ type astPreprocessor struct {
 	expectedDatastore string
 }
 
+// Preprocess the AST to simplify the translation process.
+// Refs are rewritten to correspond directly to Entities and Attributes.
+//
+// Refs are rewritten to correspond directly to SQL tables aand columns.
+// Specifically, refs of the form data.foo[var].bar are rewritten as data.foo.bar. Similarly, if var is
+// dereferenced later in the query, e.g., var.baz, that will be rewritten as data.foo.baz.
 func (processor *astPreprocessor) Process(queries []ast.Body, datastore string) ([]ast.Body, error) {
 	var transformedQueries []ast.Body
 	processor.expectedDatastore = fmt.Sprintf("\"%s\"", datastore)

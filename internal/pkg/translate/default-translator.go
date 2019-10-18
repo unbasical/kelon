@@ -2,7 +2,7 @@ package translate
 
 import (
 	"github.com/Foundato/kelon/configs"
-	"github.com/open-policy-agent/opa/ast"
+	"github.com/Foundato/kelon/pkg/translate"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -10,13 +10,14 @@ import (
 
 type astTranslator struct {
 	appConf      *configs.AppConfig
-	config       *AstTranslatorConfig
+	config       *translate.AstTranslatorConfig
 	preprocessor *astPreprocessor
 	processor    *astProcessor
 	configured   bool
 }
 
-func NewAstTranslator() AstTranslator {
+// Create a new instance of the default translate.AstTranslator.
+func NewAstTranslator() translate.AstTranslator {
 	return &astTranslator{
 		appConf:    nil,
 		config:     nil,
@@ -24,7 +25,8 @@ func NewAstTranslator() AstTranslator {
 	}
 }
 
-func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *AstTranslatorConfig) error {
+// See translate.AstTranslator.
+func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *translate.AstTranslatorConfig) error {
 	// Configure subcomponents
 	if transConf.Datastores == nil {
 		return errors.New("AstTranslator: Datastores not configured! ")
@@ -48,6 +50,7 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *Ast
 	return nil
 }
 
+// See translate.AstTranslator.
 func (trans astTranslator) Process(response *rego.PartialQueries, datastore string) (bool, error) {
 	if !trans.configured {
 		return false, errors.New("AstTranslator was not configured! Please call Configure(). ")
@@ -68,9 +71,4 @@ func (trans astTranslator) Process(response *rego.PartialQueries, datastore stri
 	} else {
 		return false, errors.New("AstTranslator: Unable to find datastore: " + datastore)
 	}
-}
-
-func (trans astTranslator) Visit(v interface{}) ast.Visitor {
-	log.Debugf("Node: %+v\n", v)
-	return trans
 }

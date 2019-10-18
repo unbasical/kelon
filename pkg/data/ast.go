@@ -1,29 +1,74 @@
 package data
 
-import (
-	"fmt"
-	"github.com/Foundato/kelon/configs"
-)
+import "fmt"
 
-type Datastore interface {
-	Configure(appConf *configs.AppConfig, alias string) error
-	Execute(query *Node) (bool, error)
-}
-
+// Node is the abstract interface that every Node of the Query-AST implements.
 type Node interface {
+
+	// Get the current node as string representation (In case of a leave this will be the contained Value).
 	String() string
+
+	// Walk the current node (Buttom-Up, Left-to-Right).
 	Walk(func(v Node))
 }
 
-type CallOpMapper interface {
-	Handles() string
-	Map(args ...string) string
+// Union of multiple queries.
+type Union struct {
+	Clauses []Node
 }
 
+// Query which contains links between entities and a condition.
+type Query struct {
+	From      Entity
+	Link      Link
+	Condition Condition
+}
+
+// Link between a parent entity and a list of entities with corresponding conditions.
+// Note that len(Entities) == len(conditions)
+type Link struct {
+	Entities   []Entity
+	Conditions []Node
+}
+
+// A single root condition.
+type Condition struct {
+	Clause Node
+}
+
+// Conjunction of several conditions.
+type Conjunction struct {
+	Clauses []Node
+}
+
+// Disjunction of several disjunctions.
+type Disjunction struct {
+	Clauses []Node
+}
+
+// Call represented by an operand and a list of arguments.
+type Call struct {
+	Operator Operator
+	Operands []Node
+}
+
+// Attribute of an entity.
+type Attribute struct {
+	Entity Entity
+	Name   string
+}
+
+// An Entity
+type Entity struct {
+	Value string
+}
+
+// An Operator.
 type Operator struct {
 	Value string
 }
 
+// A simple Constant.
 type Constant struct {
 	Value     string
 	IsNumeric bool
@@ -31,78 +76,50 @@ type Constant struct {
 	IsFloat32 bool
 }
 
-type Entity struct {
-	Value string
-}
-
-type Attribute struct {
-	Entity Entity
-	Name   string
-}
-
-type Call struct {
-	Operator Operator
-	Operands []Node
-}
-
-type Conjunction struct {
-	Clauses []Node
-}
-
-type Disjunction struct {
-	Clauses []Node
-}
-
-type Condition struct {
-	Clause Node
-}
-
-type Link struct {
-	Entities   []Entity
-	Conditions []Node
-}
-
-type Query struct {
-	From      Entity
-	Link      Link
-	Condition Condition
-}
-
-type Union struct {
-	Clauses []Node
-}
-
 // Interface implementations
 
+// Implements data.Node
 func (o Operator) String() string {
 	return o.Value
 }
+
+// Implements data.Node
 func (o Operator) Walk(vis func(v Node)) {
 	vis(o)
 }
 
+// Implements data.Node
 func (c Constant) String() string {
 	return c.Value
 }
+
+// Implements data.Node
 func (c Constant) Walk(vis func(v Node)) {
 	vis(c)
 }
 
+// Implements data.Node
 func (e Entity) String() string {
 	return e.Value
 }
+
+// Implements data.Node
 func (e Entity) Walk(vis func(v Node)) {
 	vis(e)
 }
 
+// Implements data.Node
 func (a Attribute) String() string {
 	return fmt.Sprintf("att(%s.%s)", a.Entity.String(), a.Name)
 }
+
+// Implements data.Node
 func (a Attribute) Walk(vis func(v Node)) {
 	a.Entity.Walk(vis)
 	vis(a)
 }
 
+// Implements data.Node
 func (c Call) String() string {
 	var operands []string
 	for _, o := range c.Operands {
@@ -110,6 +127,8 @@ func (c Call) String() string {
 	}
 	return fmt.Sprintf("%s(%+v)", c.Operator.String(), operands)
 }
+
+// Implements data.Node
 func (c Call) Walk(vis func(v Node)) {
 	c.Operator.Walk(vis)
 	for _, o := range c.Operands {
@@ -118,6 +137,7 @@ func (c Call) Walk(vis func(v Node)) {
 	vis(c)
 }
 
+// Implements data.Node
 func (c Conjunction) String() string {
 	var clauses []string
 	for _, o := range c.Clauses {
@@ -125,6 +145,8 @@ func (c Conjunction) String() string {
 	}
 	return fmt.Sprintf("conj(%+v)", clauses)
 }
+
+// Implements data.Node
 func (c Conjunction) Walk(vis func(v Node)) {
 	for _, o := range c.Clauses {
 		o.Walk(vis)
@@ -132,6 +154,7 @@ func (c Conjunction) Walk(vis func(v Node)) {
 	vis(c)
 }
 
+// Implements data.Node
 func (d Disjunction) String() string {
 	var relations []string
 	for _, o := range d.Clauses {
@@ -139,6 +162,8 @@ func (d Disjunction) String() string {
 	}
 	return fmt.Sprintf("disj(%+v)", relations)
 }
+
+// Implements data.Node
 func (d Disjunction) Walk(vis func(v Node)) {
 	for _, o := range d.Clauses {
 		o.Walk(vis)
@@ -146,14 +171,18 @@ func (d Disjunction) Walk(vis func(v Node)) {
 	vis(d)
 }
 
+// Implements data.Node
 func (c Condition) String() string {
 	return fmt.Sprintf("cond(%s)", c.Clause)
 }
+
+// Implements data.Node
 func (c Condition) Walk(vis func(v Node)) {
 	c.Clause.Walk(vis)
 	vis(c)
 }
 
+// Implements data.Node
 func (l Link) String() string {
 	var links []string
 	for i, e := range l.Entities {
@@ -161,6 +190,8 @@ func (l Link) String() string {
 	}
 	return fmt.Sprintf("link(%+v)", links)
 }
+
+// Implements data.Node
 func (l Link) Walk(vis func(v Node)) {
 	for _, c := range l.Conditions {
 		c.Walk(vis)
@@ -171,9 +202,12 @@ func (l Link) Walk(vis func(v Node)) {
 	vis(l)
 }
 
+// Implements data.Node
 func (q Query) String() string {
 	return fmt.Sprintf("query(%s, %+v, %s)", q.From.String(), q.Link, q.Condition.String())
 }
+
+// Implements data.Node
 func (q Query) Walk(vis func(v Node)) {
 	q.Link.Walk(vis)
 	q.Condition.Walk(vis)
@@ -181,6 +215,7 @@ func (q Query) Walk(vis func(v Node)) {
 	vis(q)
 }
 
+// Implements data.Node
 func (u Union) String() string {
 	var clauses []string
 	for _, o := range u.Clauses {
@@ -188,6 +223,8 @@ func (u Union) String() string {
 	}
 	return fmt.Sprintf("union(%+v)", clauses)
 }
+
+// Implements data.Node
 func (u Union) Walk(vis func(v Node)) {
 	for _, c := range u.Clauses {
 		c.Walk(vis)
