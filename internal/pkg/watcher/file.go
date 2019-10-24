@@ -52,12 +52,11 @@ func (w *fileConfigWatcher) watchForChanges() {
 
 				// Check if current modified file is File
 				if !removeEvent {
-					fileInfo, err := os.Stat(event.Name)
-					if err != nil {
+					if fileInfo, err := os.Stat(event.Name); err == nil {
+						isFile = !fileInfo.IsDir()
+					} else {
 						log.Warnf("Unbable to get information about file %q", event.Name)
-						return
 					}
-					isFile = !fileInfo.IsDir()
 				}
 
 				// Notify observers if a file was created, modified or deleted
@@ -87,13 +86,13 @@ func extractChangeType(event fsnotify.Event) watcher.ChangeType {
 	var change watcher.ChangeType
 	extension := filepath.Ext(event.Name)
 	switch extension {
-	case "rego":
+	case ".rego":
 		change = watcher.CHANGE_REGO
 		log.Println("FileConfigWatcher: update observers due to REGO change: ", event)
-	case "yml":
+	case ".yml":
 		change = watcher.CHANGE_CONF
 		log.Println("FileConfigWatcher: update observers due to CONF change: ", event)
-	case "yaml":
+	case ".yaml":
 		change = watcher.CHANGE_CONF
 		log.Println("FileConfigWatcher: update observers due to CONF change: ", event)
 	default:

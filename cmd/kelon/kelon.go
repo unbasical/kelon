@@ -37,6 +37,8 @@ var (
 	port = app.Flag("port", "port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Int32()
 	//nolint:gochecknoglobals
 	proxy api.ClientProxy = nil
+	//nolint:gochecknoglobals
+	configWatcher watcher.ConfigWatcher = nil
 )
 
 func main() {
@@ -72,8 +74,8 @@ func main() {
 		APIConfigPath:       *apiPath,
 	}
 	// Start app after config is present
-	watcherInt.NewFileWatcher(configLoader, *configWatcherPath).Watch(onConfigLoaded)
-
+	configWatcher = watcherInt.NewFileWatcher(configLoader, *configWatcherPath)
+	configWatcher.Watch(onConfigLoaded)
 	stopOnSIGTERM()
 }
 
@@ -86,10 +88,6 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 	// First update
 	case watcher.CHANGE_ALL:
 		startNewRestProxy(loadedConf)
-		// On file change
-	case watcher.CHANGE_CONF:
-		// TODO handle config file change
-		log.Infoln("Config changed")
 	}
 }
 
@@ -112,6 +110,7 @@ func startNewRestProxy(loadedConf *configs.ExternalConfig) {
 			Prefix:        pathPrefix,
 			OpaConfigPath: opaPath,
 			RegoDir:       regoDir,
+			ConfigWatcher: &configWatcher,
 			PathProcessor: &parser,
 			PathProcessorConfig: request.PathProcessorConfig{
 				PathMapper: &mapper,
