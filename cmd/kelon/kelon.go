@@ -10,15 +10,16 @@ import (
 	opaInt "github.com/Foundato/kelon/internal/pkg/opa"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
 	translateInt "github.com/Foundato/kelon/internal/pkg/translate"
+	watcherInt "github.com/Foundato/kelon/internal/pkg/watcher"
 
 	"github.com/Foundato/kelon/common"
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/data"
-	"github.com/Foundato/kelon/internal/pkg/watcher"
 	"github.com/Foundato/kelon/pkg/api"
 	"github.com/Foundato/kelon/pkg/opa"
 	"github.com/Foundato/kelon/pkg/request"
 	"github.com/Foundato/kelon/pkg/translate"
+	"github.com/Foundato/kelon/pkg/watcher"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -45,8 +46,9 @@ func main() {
 		start = app.Command("start", "Start kelon in production mode.")
 		debug = app.Command("debug", "Enable debug mode.")
 		// Flags
-		datastorePath = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
-		apiPath       = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
+		datastorePath     = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
+		apiPath           = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
+		configWatcherPath = app.Flag("config-watcher-path", "Path where the config watcher should listen for changes.").Default("./").Envar("CONFIG_WATCHER_PATH").ExistingDir()
 	)
 
 	app.HelpFlag.Short('h')
@@ -70,16 +72,28 @@ func main() {
 		APIConfigPath:       *apiPath,
 	}
 	// Start app after config is present
-	watcher.NewFileWatcher(configLoader).Watch(onConfigLoaded)
+	watcherInt.NewFileWatcher(configLoader, *configWatcherPath).Watch(onConfigLoaded)
 
 	stopOnSIGTERM()
 }
 
-func onConfigLoaded(loadedConf *configs.ExternalConfig, err error) {
+func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfig, err error) {
 	if err != nil {
 		log.Fatalln("Unable to parse configuration: ", err.Error())
 	}
 
+	switch change {
+	// First update
+	case watcher.CHANGE_ALL:
+		startNewRestProxy(loadedConf)
+		// On file change
+	case watcher.CHANGE_CONF:
+		// TODO handle config file change
+		log.Infoln("Config changed")
+	}
+}
+
+func startNewRestProxy(loadedConf *configs.ExternalConfig) {
 	// Configure application
 	var (
 		config     = new(configs.AppConfig)
@@ -88,11 +102,9 @@ func onConfigLoaded(loadedConf *configs.ExternalConfig, err error) {
 		mapper     = requestInt.NewPathMapper()
 		translator = translateInt.NewAstTranslator()
 	)
-
 	// Build app config
 	config.API = loadedConf.API
 	config.Data = loadedConf.Data
-
 	// Build server config
 	serverConf := api.ClientProxyConfig{
 		Compiler: &compiler,
@@ -110,13 +122,11 @@ func onConfigLoaded(loadedConf *configs.ExternalConfig, err error) {
 			},
 		},
 	}
-
 	// Create Rest proxy and start
 	proxy = apiInt.NewRestProxy(*pathPrefix, *port)
 	if err := proxy.Configure(config, &serverConf); err != nil {
 		log.Fatalln(err.Error())
 	}
-
 	// Start proxy
 	if err := proxy.Start(); err != nil {
 		log.Fatalln(err.Error())
