@@ -87,16 +87,16 @@ func extractChangeType(event fsnotify.Event) watcher.ChangeType {
 	extension := filepath.Ext(event.Name)
 	switch extension {
 	case ".rego":
-		change = watcher.CHANGE_REGO
+		change = watcher.ChangeRego
 		log.Println("FileConfigWatcher: update observers due to REGO change: ", event)
 	case ".yml":
-		change = watcher.CHANGE_CONF
+		change = watcher.ChangeConf
 		log.Println("FileConfigWatcher: update observers due to CONF change: ", event)
 	case ".yaml":
-		change = watcher.CHANGE_CONF
+		change = watcher.ChangeConf
 		log.Println("FileConfigWatcher: update observers due to CONF change: ", event)
 	default:
-		change = watcher.CHANGE_UNKNOWN
+		change = watcher.ChangeUnknown
 		log.Println("FileConfigWatcher: update observers due to UNKNOWN change: ", event)
 	}
 	return change
@@ -142,5 +142,5 @@ func addWatchDirsRecursive(configWatcher *fileConfigWatcher, fileWatcher *fsnoti
 func (w *fileConfigWatcher) Watch(callback func(watcher.ChangeType, *configs.ExternalConfig, error)) {
 	w.observers = append(w.observers, callback)
 	loaded, err := w.loader.Load()
-	callback(watcher.CHANGE_ALL, loaded, err)
+	callback(watcher.ChangeAll, loaded, err)
 }

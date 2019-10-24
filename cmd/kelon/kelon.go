@@ -84,9 +84,7 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		log.Fatalln("Unable to parse configuration: ", err.Error())
 	}
 
-	switch change {
-	// First update
-	case watcher.CHANGE_ALL:
+	if change == watcher.ChangeAll {
 		startNewRestProxy(loadedConf)
 	}
 }

@@ -18,11 +18,11 @@ type ChangeType int
 
 const (
 	// Passed to Watch() on initial load
-	CHANGE_ALL ChangeType = 0
+	ChangeAll ChangeType = 0
 	// Passed to Watch() if any file with ending '.rego' changed
-	CHANGE_REGO ChangeType = 1
+	ChangeRego ChangeType = 1
 	// Passed to Watch() if any file with ending .yml or .yaml changed
-	CHANGE_CONF ChangeType = 2
+	ChangeConf ChangeType = 2
 	// Passed to Watch() if any file with unknown file ending changed
-	CHANGE_UNKNOWN ChangeType = 3
+	ChangeUnknown ChangeType = 3
 )
