@@ -19,6 +19,10 @@ type astProcessor struct {
 	operands     NodeStack
 }
 
+func newAstProcessor() *astProcessor {
+	return &astProcessor{}
+}
+
 // See translate.AstTranslator.
 func (p *astProcessor) Process(queries []ast.Body) (*data.Node, error) {
 	p.link = data.Link{}

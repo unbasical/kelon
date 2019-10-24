@@ -9,11 +9,9 @@ import (
 )
 
 type astTranslator struct {
-	appConf      *configs.AppConfig
-	config       *translate.AstTranslatorConfig
-	preprocessor *astPreprocessor
-	processor    *astProcessor
-	configured   bool
+	appConf    *configs.AppConfig
+	config     *translate.AstTranslatorConfig
+	configured bool
 }
 
 // Create a new instance of the default translate.AstTranslator.
@@ -43,8 +41,6 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *tra
 	// Assign variables
 	trans.appConf = appConf
 	trans.config = transConf
-	trans.preprocessor = &astPreprocessor{}
-	trans.processor = &astProcessor{}
 	trans.configured = true
 	log.Infoln("Configured AstTranslator")
 	return nil
@@ -56,12 +52,12 @@ func (trans astTranslator) Process(response *rego.PartialQueries, datastore stri
 		return false, errors.New("AstTranslator was not configured! Please call Configure(). ")
 	}
 
-	preprocessedQueries, preprocessErr := trans.preprocessor.Process(response.Queries, datastore)
+	preprocessedQueries, preprocessErr := newAstPreprocessor().Process(response.Queries, datastore)
 	if preprocessErr != nil {
 		return false, errors.Wrap(preprocessErr, "AstTranslator: Error during preprocessing.")
 	}
 
-	processedQuery, processErr := trans.processor.Process(preprocessedQueries)
+	processedQuery, processErr := newAstProcessor().Process(preprocessedQueries)
 	if processErr != nil {
 		return false, errors.Wrap(preprocessErr, "AstTranslator: Error during processing.")
 	}

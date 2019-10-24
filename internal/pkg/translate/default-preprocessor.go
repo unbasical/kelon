@@ -14,6 +14,10 @@ type astPreprocessor struct {
 	expectedDatastore string
 }
 
+func newAstPreprocessor() *astPreprocessor {
+	return &astPreprocessor{}
+}
+
 // Preprocess the AST to simplify the translation process.
 // Refs are rewritten to correspond directly to Entities and Attributes.
 //
