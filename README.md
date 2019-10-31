@@ -40,7 +40,7 @@ $ go mod download
 $ go build -o ./kelon ./cmd/kelon
 ```
 
-After the container is built, you have to create following configuration files that tell Kelon which data sources it should connect to and how it should map incoming requests to OPA-Queries.
+After kelon is installed, you have to create following configuration files that tell Kelon which data sources it should connect to and how it should map incoming requests to OPA-Queries.
 
 ### Configuration
 
