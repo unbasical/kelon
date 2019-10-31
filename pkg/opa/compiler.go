@@ -7,6 +7,8 @@ package opa
 import (
 	"net/http"
 
+	"github.com/Foundato/kelon/pkg/watcher"
+
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/pkg/request"
 	"github.com/Foundato/kelon/pkg/translate"
@@ -23,6 +25,7 @@ type PolicyCompilerConfig struct {
 	Prefix        *string
 	PathProcessor *request.PathProcessor
 	Translator    *translate.AstTranslator
+	ConfigWatcher *watcher.ConfigWatcher
 	translate.AstTranslatorConfig
 	request.PathProcessorConfig
 }

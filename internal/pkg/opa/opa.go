@@ -66,42 +66,6 @@ func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*O
 	// Init store
 	store := inmem.New()
 
-	log.Debugf("Loading regos from dir: %s", regosPath)
-	filter := func(abspath string, info os.FileInfo, depth int) bool {
-		return !strings.HasSuffix(abspath, ".rego")
-	}
-	loaded, err := loadPaths([]string{regosPath}, filter, true)
-	if err != nil {
-		return nil, errors.Wrap(err, "NewOPA: Error while loading rego dir")
-	}
-
-	for bundleName, loadedBundle := range loaded.Bundles {
-		log.Infof("Loading Bundle: %s", bundleName)
-		for _, module := range loadedBundle.Modules {
-			log.Infof("Loaded Package: [%s] -> module [%s]", module.Parsed.Package.String(), module.Path)
-		}
-	}
-
-	txn, err := store.NewTransaction(ctx, storage.WriteParams)
-	if err != nil {
-		return nil, errors.Wrap(err, "NewOPA: Error while opening transaction")
-	}
-
-	if len(loaded.Documents) > 0 {
-		if err := store.Write(ctx, txn, storage.AddOp, storage.Path{}, loaded.Documents); err != nil {
-			return nil, errors.Wrap(err, "NewOPA: Error while writing document")
-		}
-	}
-
-	if err := compileAndStoreInputs(ctx, store, txn, loaded, 1); err != nil {
-		store.Abort(ctx, txn)
-		return nil, errors.Wrap(err, "NewOPA: Error while storing inputs")
-	}
-
-	if err := store.Commit(ctx, txn); err != nil {
-		return nil, errors.Wrap(err, "NewOPA: Error while commit")
-	}
-
 	id, err := uuid4()
 	if err != nil {
 		return nil, errors.Wrap(err, "NewOPA: Unable to create uuid4")
@@ -118,7 +82,49 @@ func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*O
 	}
 	opa.manager.Register("discovery", disc)
 
+	// Load regos
+	if err := opa.LoadRegosFromPath(ctx, regosPath); err != nil {
+		return nil, errors.Wrap(err, "NewOPA: Unable to load regos")
+	}
+
 	return opa, nil
+}
+
+func (opa *OPA) LoadRegosFromPath(ctx context.Context, regosPath string) error {
+	store := opa.manager.Store
+
+	log.Debugf("Loading regos from dir: %s", regosPath)
+	filter := func(abspath string, info os.FileInfo, depth int) bool {
+		return !strings.HasSuffix(abspath, ".rego")
+	}
+	loaded, err := loadPaths([]string{regosPath}, filter, true)
+	if err != nil {
+		return errors.Wrap(err, "NewOPA: Error while loading rego dir")
+	}
+	for bundleName, loadedBundle := range loaded.Bundles {
+		log.Infof("Loading Bundle: %s", bundleName)
+		for _, module := range loadedBundle.Modules {
+			log.Infof("Loaded Package: [%s] -> module [%s]", module.Parsed.Package.String(), module.Path)
+		}
+	}
+	txn, err := store.NewTransaction(ctx, storage.WriteParams)
+	if err != nil {
+		return errors.Wrap(err, "NewOPA: Error while opening transaction")
+	}
+	if len(loaded.Documents) > 0 {
+		if err := store.Write(ctx, txn, storage.AddOp, storage.Path{}, loaded.Documents); err != nil {
+			return errors.Wrap(err, "NewOPA: Error while writing document")
+		}
+	}
+	if err := compileAndStoreInputs(ctx, store, txn, loaded, 1); err != nil {
+		store.Abort(ctx, txn)
+		return errors.Wrap(err, "NewOPA: Error while storing inputs")
+	}
+	if err := store.Commit(ctx, txn); err != nil {
+		return errors.Wrap(err, "NewOPA: Error while commit")
+	}
+
+	return nil
 }
 
 // Start asynchronously starts the policy engine's plugins that download

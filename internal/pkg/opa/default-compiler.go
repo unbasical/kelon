@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/Foundato/kelon/pkg/watcher"
+
 	"github.com/Foundato/kelon/configs"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
 	"github.com/Foundato/kelon/pkg/opa"
@@ -43,6 +45,15 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 	if err != nil {
 		return errors.Wrap(err, "PolicyCompiler: Error while starting OPA.")
 	}
+
+	// Register watcher for rego changes
+	(*compConf.ConfigWatcher).Watch(func(changeType watcher.ChangeType, config *configs.ExternalConfig, e error) {
+		if changeType == watcher.ChangeRego {
+			if err := engine.LoadRegosFromPath(context.Background(), *compConf.RegoDir); err != nil {
+				log.Error("PolicyCompiler: Unable to reload regos on file change due to: ", err)
+			}
+		}
+	})
 
 	// Assign variables
 	compiler.engine = engine

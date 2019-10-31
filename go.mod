@@ -6,6 +6,7 @@ require (
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20190910110746-680d30ca3117 // indirect
+	github.com/fsnotify/fsnotify v1.4.7
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/gobwas/glob v0.2.3 // indirect
