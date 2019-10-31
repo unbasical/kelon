@@ -1,6 +1,6 @@
 # Kelon
 
-Kelon is a policy enforcement point, that is wrapping the [Open Policy Agent]() (OPA) and adding more functionality in terms of microservices.
+Kelon is a policy enforcement point, that is wrapping the [Open Policy Agent](https://www.openpolicyagent.org) (OPA) and adding more functionality in terms of microservices.
 
 ## Problems you face when applying authorizing to your services
 
@@ -22,7 +22,7 @@ you copy an abstraction of your entire database into OPA which is not only redun
 
 Kelon is basically a proxy of OPA's Data-API which is connected to all your data sources and responds to incoming queries with "ALLOW" or "DENY".
 This request contains all information about i.e. the incoming client request to your service.
-Internally, Kelon uses the provided input to determine a [OPA-Package]() which it then sends a query to (using OPA's [Partial Evaluation]()).
+Internally, Kelon uses the provided input to determine a [OPA-Package](https://www.openpolicyagent.org/docs/latest/policy-language/#packages) which it then sends a query to (using OPA's [Partial Evaluation](https://www.openpolicyagent.org/docs/latest/rest-api/#compile-api)).
 The result of this query is interpreted and (in case of any "unknowns") translated into a data source query which will be used to make the decision.
 
 ## Getting Started
@@ -72,7 +72,7 @@ entity_schemas:
 
 #### call-operands/mysql.yml
 
-Open Policy Agent has [builtin call operands]() which may not be the same as the ones of each datasource.
+Open Policy Agent has [builtin call operands](https://www.openpolicyagent.org/docs/latest/policy-language/#operators) which may not be the same as the ones of each datasource.
 Therefore each datasource-type has to have a mappings-file inside the folder 'call-operands'.
 
 ```yaml
