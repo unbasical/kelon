@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/open-policy-agent/opa/plugins"
+
 	"github.com/Foundato/kelon/pkg/watcher"
 
 	"github.com/Foundato/kelon/configs"
@@ -32,6 +34,11 @@ func NewPolicyCompiler() opa.PolicyCompiler {
 		configured: false,
 		config:     nil,
 	}
+}
+
+// See GetEngine() from opa.PolicyCompiler
+func (compiler *policyCompiler) GetEngine() *plugins.Manager {
+	return compiler.engine.manager
 }
 
 // See Configure() from opa.PolicyCompiler

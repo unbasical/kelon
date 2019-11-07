@@ -7,6 +7,8 @@ package opa
 import (
 	"net/http"
 
+	"github.com/open-policy-agent/opa/plugins"
+
 	"github.com/Foundato/kelon/pkg/watcher"
 
 	"github.com/Foundato/kelon/configs"
@@ -50,4 +52,7 @@ type PolicyCompiler interface {
 	//
 	// Returns the final decision or any error encountered while processing the decision.
 	Process(request *http.Request) (bool, error)
+
+	// Get the underlying open policy agent which is running inside the PolicyCompiler.
+	GetEngine() *plugins.Manager
 }

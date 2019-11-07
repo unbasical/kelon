@@ -63,8 +63,9 @@ func (proxy *restProxy) Start() error {
 	}
 
 	// Create Server and Route Handlers
-	proxy.router.PathPrefix(proxy.pathPrefix).HandlerFunc(proxy.handleGet).Methods("GET")
-	proxy.router.PathPrefix(proxy.pathPrefix).HandlerFunc(proxy.handlePost).Methods("POST")
+	proxy.router.PathPrefix(proxy.pathPrefix + "/data").HandlerFunc(proxy.handleV1DataGet).Methods("GET")
+	proxy.router.PathPrefix(proxy.pathPrefix + "/data").HandlerFunc(proxy.handleV1DataPost).Methods("POST")
+	proxy.router.PathPrefix(proxy.pathPrefix + "/policies").HandlerFunc(proxy.handleV1PolicyPut).Methods("PUT")
 	proxy.router.PathPrefix("/metrics").Handler(promhttp.Handler())
 
 	proxy.server = &http.Server{
