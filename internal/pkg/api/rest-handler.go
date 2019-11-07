@@ -155,6 +155,54 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, make(map[string]string))
 }
 
+func (proxy restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	opa := (*proxy.config.Compiler).GetEngine()
+	path := r.URL.Path
+
+	// Start transaction
+	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, apiCodeInvalidArgs, err)
+		return
+	}
+
+	// Load all modules and remove module to delete
+	modules, err := proxy.loadModules(ctx, txn)
+	if err != nil {
+		opa.Store.Abort(ctx, txn)
+		writeError(w, http.StatusInternalServerError, apiCodeInternalError, err)
+		return
+	}
+	delete(modules, path)
+
+	// Compile module in combination with other modules
+	c := ast.NewCompiler().SetErrorLimit(1)
+	if c.Compile(modules); c.Failed() {
+		opa.Store.Abort(ctx, txn)
+		writeError(w, http.StatusBadRequest, apiCodeInvalidArgs, c.Errors)
+		return
+	}
+
+	// Delete policy
+	if err := opa.Store.DeletePolicy(ctx, txn, path); err != nil {
+		opa.Store.Abort(ctx, txn)
+		writeError(w, http.StatusInternalServerError, apiCodeInternalError, err)
+		return
+	}
+
+	// Commit the transaction
+	if err := opa.Store.Commit(ctx, txn); err != nil {
+		opa.Store.Abort(ctx, txn)
+		writeError(w, http.StatusInternalServerError, apiCodeInternalError, err)
+		return
+	}
+
+	// Write result
+	log.Infof("Deleted Policy at path: %s", path)
+	writeJSON(w, http.StatusOK, make(map[string]string))
+}
+
 func writeError(w http.ResponseWriter, status int, code string, err error) {
 	var resp apiError
 	resp.Error.Code = code
