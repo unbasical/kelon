@@ -7,7 +7,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/open-policy-agent/opa/server/writer"
+	"github.com/open-policy-agent/opa/util"
+
 	"github.com/open-policy-agent/opa/ast"
+	"github.com/open-policy-agent/opa/server/types"
 	"github.com/open-policy-agent/opa/storage"
 
 	"github.com/Foundato/kelon/pkg/request"
@@ -25,12 +29,6 @@ type apiError struct {
 type apiResponse struct {
 	Result bool `json:"result"`
 }
-
-const (
-	apiCodeNotFound      = "not_found"
-	apiCodeInternalError = "internal_error"
-	apiCodeInvalidArgs   = "invalid_args"
-)
 
 /*
  * ================ Data API ================
@@ -76,11 +74,82 @@ func (proxy restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request) 
 		log.Errorf("RestProxy: Unable to compile request: %s", err.Error())
 		switch errors.Cause(err).(type) {
 		case *request.PathAmbiguousError:
-			writeError(w, http.StatusNotFound, apiCodeNotFound, err)
+			writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
 		default:
-			writeError(w, http.StatusInternalServerError, apiCodeInternalError, err)
+			writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 		}
 	}
+}
+
+func (proxy restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	opa := (*proxy.config.Compiler).GetEngine()
+
+	// Parse input
+	var value interface{}
+	if err := util.NewJSONDecoder(r.Body).Decode(&value); err != nil {
+		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
+		return
+	}
+
+	// Parse Path
+	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
+	if !ok {
+		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, errors.Errorf("bad path: %v", r.URL.Path))
+		return
+	}
+
+	// Start transaction
+	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
+		return
+	}
+
+	_, err = opa.Store.Read(ctx, txn, path)
+
+	if err != nil {
+		if !storage.IsNotFound(err) {
+			opa.Store.Abort(ctx, txn)
+			writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+			return
+		}
+		if err := storage.MakeDir(ctx, opa.Store, txn, path[:len(path)-1]); err != nil {
+			opa.Store.Abort(ctx, txn)
+			writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+			return
+		}
+	} else if r.Header.Get("If-None-Match") == "*" {
+		opa.Store.Abort(ctx, txn)
+		log.Infof("Updated Data at path: %s", path.String())
+		writer.Bytes(w, 304, nil)
+		return
+	}
+
+	// Write to storage
+	if err := opa.Store.Write(ctx, txn, storage.AddOp, path, value); err != nil {
+		opa.Store.Abort(ctx, txn)
+		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		return
+	}
+
+	// Check path conflicts
+	if err := ast.CheckPathConflicts(opa.GetCompiler(), storage.NonEmpty(ctx, opa.Store, txn)); len(err) > 0 {
+		opa.Store.Abort(ctx, txn)
+		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
+		return
+	}
+
+	// Commit the transaction
+	if err := opa.Store.Commit(ctx, txn); err != nil {
+		opa.Store.Abort(ctx, txn)
+		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		return
+	}
+
+	// Write result
+	log.Infof("Created Data at path: %s", path.String())
+	writer.Bytes(w, 204, nil)
 }
 
 /*
@@ -90,32 +159,38 @@ func (proxy restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request) 
 func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	opa := (*proxy.config.Compiler).GetEngine()
-	path := r.URL.Path
 
 	// Read request body
 	buf, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, apiCodeInvalidArgs, err)
+		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
+		return
+	}
+
+	// Parse Path
+	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
+	if !ok {
+		writer.Error(w, http.StatusBadRequest, types.NewErrorV1(types.CodeInvalidParameter, "bad path: %v", r.URL.Path))
 		return
 	}
 
 	// Start transaction
 	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, apiCodeInvalidArgs, err)
+		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
 		return
 	}
 
 	// Parse module
-	parsedMod, err := ast.ParseModule(path, string(buf))
+	parsedMod, err := ast.ParseModule(path.String(), string(buf))
 	if err != nil {
 		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusBadRequest, apiCodeInvalidArgs, err)
+		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		return
 	}
 	if parsedMod == nil {
 		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusBadRequest, apiCodeInvalidArgs, errors.New("Empty module"))
+		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, errors.New("Empty module"))
 		return
 	}
 
@@ -123,47 +198,53 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	modules, err := proxy.loadModules(ctx, txn)
 	if err != nil {
 		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, apiCodeInternalError, err)
+		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 		return
 	}
-	modules[path] = parsedMod
+	modules[path.String()] = parsedMod
 
 	// Compile module in combination with other modules
 	c := ast.NewCompiler().SetErrorLimit(1).WithPathConflictsCheck(storage.NonEmpty(ctx, opa.Store, txn))
 	if c.Compile(modules); c.Failed() {
 		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusBadRequest, apiCodeInvalidArgs, c.Errors)
+		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, c.Errors)
 		return
 	}
 
 	// Upsert policy
-	if err := opa.Store.UpsertPolicy(ctx, txn, path, buf); err != nil {
+	if err := opa.Store.UpsertPolicy(ctx, txn, path.String(), buf); err != nil {
 		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, apiCodeInternalError, err)
+		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 		return
 	}
 
 	// Commit the transaction
 	if err := opa.Store.Commit(ctx, txn); err != nil {
 		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, apiCodeInternalError, err)
+		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 		return
 	}
 
 	// Write result
-	log.Infof("Updated Policy at path: %s", path)
+	log.Infof("Updated Policy at path: %s", path.String())
 	writeJSON(w, http.StatusOK, make(map[string]string))
 }
 
 func (proxy restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	opa := (*proxy.config.Compiler).GetEngine()
-	path := r.URL.Path
 
 	// Start transaction
 	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, apiCodeInvalidArgs, err)
+		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
+		return
+	}
+
+	// Parse Path
+	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
+	if !ok {
+		writer.Error(w, http.StatusBadRequest, types.NewErrorV1(types.CodeInvalidParameter, "bad path: %v", r.URL.Path))
 		return
 	}
 
@@ -171,37 +252,41 @@ func (proxy restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Reque
 	modules, err := proxy.loadModules(ctx, txn)
 	if err != nil {
 		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, apiCodeInternalError, err)
+		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 		return
 	}
-	delete(modules, path)
+	delete(modules, path.String())
 
 	// Compile module in combination with other modules
 	c := ast.NewCompiler().SetErrorLimit(1)
 	if c.Compile(modules); c.Failed() {
 		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusBadRequest, apiCodeInvalidArgs, c.Errors)
+		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, c.Errors)
 		return
 	}
 
 	// Delete policy
-	if err := opa.Store.DeletePolicy(ctx, txn, path); err != nil {
+	if err := opa.Store.DeletePolicy(ctx, txn, path.String()); err != nil {
 		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, apiCodeInternalError, err)
+		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 		return
 	}
 
 	// Commit the transaction
 	if err := opa.Store.Commit(ctx, txn); err != nil {
 		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, apiCodeInternalError, err)
+		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 		return
 	}
 
 	// Write result
-	log.Infof("Deleted Policy at path: %s", path)
+	log.Infof("Deleted Policy at path: %s", path.String())
 	writeJSON(w, http.StatusOK, make(map[string]string))
 }
+
+/*
+ * ================ Helper Functions ================
+ */
 
 func writeError(w http.ResponseWriter, status int, code string, err error) {
 	var resp apiError
