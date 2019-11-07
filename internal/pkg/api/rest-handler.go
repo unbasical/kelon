@@ -152,6 +152,50 @@ func (proxy restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) {
 	writer.Bytes(w, 204, nil)
 }
 
+func (proxy restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	opa := (*proxy.config.Compiler).GetEngine()
+
+	// Parse Path
+	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
+	if !ok {
+		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, errors.Errorf("bad path: %v", r.URL.Path))
+		return
+	}
+
+	// Start transaction
+	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
+		return
+	}
+
+	_, err = opa.Store.Read(ctx, txn, path)
+	if err != nil {
+		opa.Store.Abort(ctx, txn)
+		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
+		return
+	}
+
+	// Write to storage
+	if err := opa.Store.Write(ctx, txn, storage.RemoveOp, path, nil); err != nil {
+		opa.Store.Abort(ctx, txn)
+		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		return
+	}
+
+	// Commit the transaction
+	if err := opa.Store.Commit(ctx, txn); err != nil {
+		opa.Store.Abort(ctx, txn)
+		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		return
+	}
+
+	// Write result
+	log.Infof("Deleted Data at path: %s", path.String())
+	writer.Bytes(w, 204, nil)
+}
+
 /*
  * ================ Policy API ================
  */
