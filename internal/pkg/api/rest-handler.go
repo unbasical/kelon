@@ -3,18 +3,19 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 
-	"github.com/open-policy-agent/opa/server/writer"
-	"github.com/open-policy-agent/opa/util"
-
-	"github.com/open-policy-agent/opa/ast"
-	"github.com/open-policy-agent/opa/server/types"
-	"github.com/open-policy-agent/opa/storage"
-
 	"github.com/Foundato/kelon/pkg/request"
+	"github.com/open-policy-agent/opa/ast"
+	"github.com/open-policy-agent/opa/bundle"
+	"github.com/open-policy-agent/opa/plugins"
+	"github.com/open-policy-agent/opa/server/types"
+	"github.com/open-policy-agent/opa/server/writer"
+	"github.com/open-policy-agent/opa/storage"
+	"github.com/open-policy-agent/opa/util"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -28,6 +29,12 @@ type apiError struct {
 
 type apiResponse struct {
 	Result bool `json:"result"`
+}
+
+type patchImpl struct {
+	path  storage.Path
+	op    storage.PatchOp
+	value interface{}
 }
 
 /*
@@ -81,6 +88,7 @@ func (proxy restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// Migration from github.com/open-policy-agent/opa/server/server.go
 func (proxy restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	opa := (*proxy.config.Compiler).GetEngine()
@@ -106,44 +114,45 @@ func (proxy restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = opa.Store.Read(ctx, txn, path)
+	// Check path scope before start
+	if err := proxy.checkPathScope(ctx, txn, path); err != nil {
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
+		return
+	}
 
+	// Read from store and check if data already exists
+	_, err = opa.Store.Read(ctx, txn, path)
 	if err != nil {
 		if !storage.IsNotFound(err) {
-			opa.Store.Abort(ctx, txn)
-			writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+			proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 			return
 		}
 		if err := storage.MakeDir(ctx, opa.Store, txn, path[:len(path)-1]); err != nil {
-			opa.Store.Abort(ctx, txn)
-			writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+			proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 			return
 		}
 	} else if r.Header.Get("If-None-Match") == "*" {
 		opa.Store.Abort(ctx, txn)
-		log.Infof("Updated Data at path: %s", path.String())
+		log.Infof("Update data with If-None-Match header at path: %s", path.String())
 		writer.Bytes(w, 304, nil)
 		return
 	}
 
 	// Write to storage
 	if err := opa.Store.Write(ctx, txn, storage.AddOp, path, value); err != nil {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 
 	// Check path conflicts
 	if err := ast.CheckPathConflicts(opa.GetCompiler(), storage.NonEmpty(ctx, opa.Store, txn)); len(err) > 0 {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
+		proxy.abortWithBadRequest(ctx, opa, txn, w, err)
 		return
 	}
 
 	// Commit the transaction
 	if err := opa.Store.Commit(ctx, txn); err != nil {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 
@@ -152,6 +161,71 @@ func (proxy restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) {
 	writer.Bytes(w, 204, nil)
 }
 
+// Migration from github.com/open-policy-agent/opa/server/server.go
+func (proxy restProxy) handleV1DataPatch(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	opa := (*proxy.config.Compiler).GetEngine()
+
+	// Parse Path
+	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
+	if !ok {
+		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, errors.Errorf("bad path: %v", r.URL.Path))
+		return
+	}
+
+	// Parse input
+	var ops []types.PatchV1
+	if err := util.NewJSONDecoder(r.Body).Decode(&ops); err != nil {
+		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
+		return
+	}
+
+	patches, err := proxy.prepareV1PatchSlice(path.String(), ops)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
+		return
+	}
+
+	// Start transaction
+	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
+		return
+	}
+
+	// Write patches
+	for _, patch := range patches {
+		// Check path scope before start
+		if err := proxy.checkPathScope(ctx, txn, path); err != nil {
+			proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
+			return
+		}
+
+		// Write one patch
+		if err := opa.Store.Write(ctx, txn, patch.op, patch.path, patch.value); err != nil {
+			proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
+			return
+		}
+	}
+
+	// Check path conflicts
+	if err := ast.CheckPathConflicts(opa.GetCompiler(), storage.NonEmpty(ctx, opa.Store, txn)); len(err) > 0 {
+		proxy.abortWithBadRequest(ctx, opa, txn, w, err)
+		return
+	}
+
+	// Commit the transaction
+	if err := opa.Store.Commit(ctx, txn); err != nil {
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
+		return
+	}
+
+	// Write result
+	log.Infof("Patched Data at path: %s", path.String())
+	writer.Bytes(w, 204, nil)
+}
+
+// Migration from github.com/open-policy-agent/opa/server/server.go
 func (proxy restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	opa := (*proxy.config.Compiler).GetEngine()
@@ -170,24 +244,27 @@ func (proxy restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Check path scope before start
+	if err := proxy.checkPathScope(ctx, txn, path); err != nil {
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
+		return
+	}
+
 	_, err = opa.Store.Read(ctx, txn, path)
 	if err != nil {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 
 	// Write to storage
 	if err := opa.Store.Write(ctx, txn, storage.RemoveOp, path, nil); err != nil {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 
 	// Commit the transaction
 	if err := opa.Store.Commit(ctx, txn); err != nil {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 
@@ -200,6 +277,7 @@ func (proxy restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Request
  * ================ Policy API ================
  */
 
+// Migration from github.com/open-policy-agent/opa/server/server.go
 func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	opa := (*proxy.config.Compiler).GetEngine()
@@ -228,21 +306,23 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	// Parse module
 	parsedMod, err := ast.ParseModule(path.String(), string(buf))
 	if err != nil {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
+		proxy.abortWithBadRequest(ctx, opa, txn, w, err)
 		return
 	}
 	if parsedMod == nil {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, errors.New("Empty module"))
+		proxy.abortWithBadRequest(ctx, opa, txn, w, errors.New("Empty module"))
+		return
+	}
+
+	if err := proxy.checkPolicyPackageScope(ctx, txn, parsedMod.Package); err != nil {
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 
 	// Load all modules and add parsed module
 	modules, err := proxy.loadModules(ctx, txn)
 	if err != nil {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 	modules[path.String()] = parsedMod
@@ -250,22 +330,19 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	// Compile module in combination with other modules
 	c := ast.NewCompiler().SetErrorLimit(1).WithPathConflictsCheck(storage.NonEmpty(ctx, opa.Store, txn))
 	if c.Compile(modules); c.Failed() {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, c.Errors)
+		proxy.abortWithBadRequest(ctx, opa, txn, w, c.Errors)
 		return
 	}
 
 	// Upsert policy
 	if err := opa.Store.UpsertPolicy(ctx, txn, path.String(), buf); err != nil {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 
 	// Commit the transaction
 	if err := opa.Store.Commit(ctx, txn); err != nil {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 
@@ -274,16 +351,10 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, make(map[string]string))
 }
 
+// Migration from github.com/open-policy-agent/opa/server/server.go
 func (proxy restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	opa := (*proxy.config.Compiler).GetEngine()
-
-	// Start transaction
-	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
-		return
-	}
 
 	// Parse Path
 	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
@@ -292,11 +363,23 @@ func (proxy restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Start transaction
+	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
+		return
+	}
+
+	// Check policy scope
+	if err := proxy.checkPolicyIDScope(ctx, txn, path.String()); err != nil {
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
+		return
+	}
+
 	// Load all modules and remove module to delete
 	modules, err := proxy.loadModules(ctx, txn)
 	if err != nil {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 	delete(modules, path.String())
@@ -304,22 +387,19 @@ func (proxy restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Reque
 	// Compile module in combination with other modules
 	c := ast.NewCompiler().SetErrorLimit(1)
 	if c.Compile(modules); c.Failed() {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, c.Errors)
+		proxy.abortWithBadRequest(ctx, opa, txn, w, err)
 		return
 	}
 
 	// Delete policy
 	if err := opa.Store.DeletePolicy(ctx, txn, path.String()); err != nil {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 
 	// Commit the transaction
 	if err := opa.Store.Commit(ctx, txn); err != nil {
-		opa.Store.Abort(ctx, txn)
-		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 
@@ -331,6 +411,16 @@ func (proxy restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Reque
 /*
  * ================ Helper Functions ================
  */
+
+func (proxy restProxy) abortWithInternalServerError(ctx context.Context, opa *plugins.Manager, txn storage.Transaction, w http.ResponseWriter, err error) {
+	opa.Store.Abort(ctx, txn)
+	writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+}
+
+func (proxy restProxy) abortWithBadRequest(ctx context.Context, opa *plugins.Manager, txn storage.Transaction, w http.ResponseWriter, err error) {
+	opa.Store.Abort(ctx, txn)
+	writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
+}
 
 func writeError(w http.ResponseWriter, status int, code string, err error) {
 	var resp apiError
@@ -375,4 +465,143 @@ func (proxy restProxy) loadModules(ctx context.Context, txn storage.Transaction)
 	}
 
 	return modules, nil
+}
+
+// Migration from github.com/open-policy-agent/opa/server/server.go
+func (proxy restProxy) prepareV1PatchSlice(root string, ops []types.PatchV1) (result []patchImpl, err error) {
+	root = "/" + strings.Trim(root, "/")
+
+	for _, op := range ops {
+		impl := patchImpl{value: op.Value}
+
+		// Map patch operation.
+		switch op.Op {
+		case "add":
+			impl.op = storage.AddOp
+		case "remove":
+			impl.op = storage.RemoveOp
+		case "replace":
+			impl.op = storage.ReplaceOp
+		default:
+			return nil, types.BadPatchOperationErr(op.Op)
+		}
+
+		// Construct patch path.
+		path := strings.Trim(op.Path, "/")
+		if len(path) > 0 {
+			if root == "/" {
+				path = root + path
+			} else {
+				path = root + "/" + path
+			}
+		} else {
+			path = root
+		}
+
+		var ok bool
+		impl.path, ok = parsePatchPathEscaped(path)
+		if !ok {
+			return nil, types.BadPatchPathErr(op.Path)
+		}
+
+		result = append(result, impl)
+	}
+
+	return result, nil
+}
+
+// Migration from github.com/open-policy-agent/opa/server/server.go
+// parsePatchPathEscaped returns a new path for the given escaped str.
+// This is based on storage.ParsePathEscaped so will do URL unescaping of
+// the provided str for backwards compatibility, but also handles the
+// specific escape strings defined in RFC 6901 (JSON Pointer) because
+// that's what's mandated by RFC 6902 (JSON Patch).
+func parsePatchPathEscaped(str string) (path storage.Path, ok bool) {
+	path, ok = storage.ParsePathEscaped(str)
+	if !ok {
+		return
+	}
+	for i := range path {
+		// RFC 6902 section 4: "[The "path" member's] value is a string containing
+		// a JSON-Pointer value [RFC6901] that references a location within the
+		// target document (the "target location") where the operation is performed."
+		//
+		// RFC 6901 section 3: "Because the characters '~' (%x7E) and '/' (%x2F)
+		// have special meanings in JSON Pointer, '~' needs to be encoded as '~0'
+		// and '/' needs to be encoded as '~1' when these characters appear in a
+		// reference token."
+
+		// RFC 6901 section 4: "Evaluation of each reference token begins by
+		// decoding any escaped character sequence.  This is performed by first
+		// transforming any occurrence of the sequence '~1' to '/', and then
+		// transforming any occurrence of the sequence '~0' to '~'.  By performing
+		// the substitutions in this order, an implementation avoids the error of
+		// turning '~01' first into '~1' and then into '/', which would be
+		// incorrect (the string '~01' correctly becomes '~1' after transformation)."
+		path[i] = strings.Replace(path[i], "~1", "/", -1)
+		path[i] = strings.Replace(path[i], "~0", "~", -1)
+	}
+	return
+}
+
+func (proxy restProxy) checkPolicyIDScope(ctx context.Context, txn storage.Transaction, id string) error {
+	opa := (*proxy.config.Compiler).GetEngine()
+
+	bs, err := opa.Store.GetPolicy(ctx, txn, id)
+	if err != nil {
+		return err
+	}
+
+	module, err := ast.ParseModule(id, string(bs))
+	if err != nil {
+		return err
+	}
+
+	return proxy.checkPolicyPackageScope(ctx, txn, module.Package)
+}
+
+func (proxy restProxy) checkPolicyPackageScope(ctx context.Context, txn storage.Transaction, pkg *ast.Package) error {
+	path, err := pkg.Path.Ptr()
+	if err != nil {
+		return err
+	}
+
+	spath, ok := storage.ParsePathEscaped("/" + path)
+	if !ok {
+		return types.BadRequestErr("invalid package path: cannot determine scope")
+	}
+
+	return proxy.checkPathScope(ctx, txn, spath)
+}
+
+func (proxy restProxy) checkPathScope(ctx context.Context, txn storage.Transaction, path storage.Path) error {
+	opa := (*proxy.config.Compiler).GetEngine()
+
+	names, err := bundle.ReadBundleNamesFromStore(ctx, opa.Store, txn)
+	if err != nil {
+		if !storage.IsNotFound(err) {
+			return err
+		}
+		return nil
+	}
+
+	bundleRoots := map[string][]string{}
+	for _, name := range names {
+		roots, err := bundle.ReadBundleRootsFromStore(ctx, opa.Store, txn, name)
+		if err != nil && !storage.IsNotFound(err) {
+			return err
+		}
+		bundleRoots[name] = roots
+	}
+
+	spath := strings.Trim(path.String(), "/")
+	for name, roots := range bundleRoots {
+		for _, root := range roots {
+			if root != "" && (strings.HasPrefix(spath, root) || strings.HasPrefix(root, spath)) {
+				return types.BadRequestErr(fmt.Sprintf("path %v is owned by bundle %q", spath, name))
+			}
+		}
+	}
+
+	return nil
 }
