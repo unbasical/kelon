@@ -115,15 +115,18 @@ func (proxy *envoyProxy) Stop(deadline time.Duration) error {
 	return nil
 }
 
+// Start the underlying grpc-server
 func (p *envoyExtAuthzGrpcServer) Start(ctx context.Context) error {
 	go p.listen()
 	return nil
 }
 
+// Stop the underlying grpc-server
 func (p *envoyExtAuthzGrpcServer) Stop(ctx context.Context) {
 	p.server.Stop()
 }
 
+// Reconfigure the underlying grpc-server (Unused! Just to be conform with the interface)
 func (p *envoyExtAuthzGrpcServer) Reconfigure(ctx context.Context, config interface{}) {
 }
 
@@ -147,10 +150,19 @@ func (p *envoyExtAuthzGrpcServer) listen() {
 	log.Info("EnvoyProxy: Listener exited.")
 }
 
+// Check a new incoming request
 func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.CheckRequest) (*ext_authz.CheckResponse, error) {
 	// Rebuild http request
 	r := req.GetAttributes().GetRequest().GetHttp()
-	httpRequest, err := http.NewRequest(r.GetMethod(), fmt.Sprintf("%s%s?%s", r.GetHost(), r.GetPath(), r.GetQuery()), strings.NewReader(r.GetBody()))
+	protocol := "http"
+	if strings.HasPrefix(r.Protocol, "HTTPS") {
+		protocol = "https"
+	}
+	stringURL := fmt.Sprintf("%s://%s%s", protocol, r.GetHost(), r.GetPath())
+	if r.Query != "" {
+		stringURL = fmt.Sprintf("%s?%s", stringURL, r.GetQuery())
+	}
+	httpRequest, err := http.NewRequest(r.GetMethod(), stringURL, strings.NewReader(r.GetBody()))
 	if err != nil {
 		return nil, errors.Wrap(err, "EnvoyProxy: Unable to reconstruct HTTP-Request")
 	}
