@@ -52,6 +52,11 @@ func NewSQLDatastore() data.Datastore {
 }
 
 func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) error {
+	// Exit if already configured
+	if ds.configured {
+		return nil
+	}
+
 	if appConf == nil {
 		return errors.New("SqlDatastore: AppConfig not configured! ")
 	}

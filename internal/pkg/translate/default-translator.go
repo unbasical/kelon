@@ -25,6 +25,11 @@ func NewAstTranslator() translate.AstTranslator {
 
 // See translate.AstTranslator.
 func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *translate.AstTranslatorConfig) error {
+	// Exit if already configured
+	if trans.configured {
+		return nil
+	}
+
 	// Configure subcomponents
 	if transConf.Datastores == nil {
 		return errors.New("AstTranslator: Datastores not configured! ")

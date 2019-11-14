@@ -34,9 +34,17 @@ var (
 	//nolint:gochecknoglobals
 	pathPrefix = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
 	//nolint:gochecknoglobals
-	port = app.Flag("port", "port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Int32()
+	port = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
+	//nolint:gochecknoglobals
+	envoyPort = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Default("9191").Envar("ENVOY_PORT").Uint32()
+	//nolint:gochecknoglobals
+	envoyDryRun = app.Flag("envoy-dry-run", "Enable/Disable the dry run feature of the envoy-proxy.").Default("false").Envar("ENVOY_DRY_RUN").Bool()
+	//nolint:gochecknoglobals
+	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
 	//nolint:gochecknoglobals
 	proxy api.ClientProxy = nil
+	//nolint:gochecknoglobals
+	envoy api.ClientProxy = nil
 	//nolint:gochecknoglobals
 	configWatcher watcher.ConfigWatcher = nil
 )
@@ -55,7 +63,11 @@ func main() {
 
 	app.HelpFlag.Short('h')
 	app.Version(common.Version)
-	// Process args
+
+	// Process args and initialize logger
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 	case start.FullCommand():
 		log.SetOutput(os.Stdout)
@@ -85,22 +97,63 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 	}
 
 	if change == watcher.ChangeAll {
-		startNewRestProxy(loadedConf)
+		// Configure application
+		var (
+			config     = new(configs.AppConfig)
+			compiler   = opaInt.NewPolicyCompiler()
+			parser     = requestInt.NewURLProcessor()
+			mapper     = requestInt.NewPathMapper()
+			translator = translateInt.NewAstTranslator()
+		)
+		// Build app config
+		config.API = loadedConf.API
+		config.Data = loadedConf.Data
+		// Build server config
+		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
+
+		// Start rest proxy
+		startNewRestProxy(config, &serverConf)
+
+		// Start envoy proxy in addition to rest proxy as soon as a port was specified!
+		if envoyPort != nil {
+			startNewEnvoyProxy(config, &serverConf)
+		}
 	}
 }
 
-func startNewRestProxy(loadedConf *configs.ExternalConfig) {
-	// Configure application
-	var (
-		config     = new(configs.AppConfig)
-		compiler   = opaInt.NewPolicyCompiler()
-		parser     = requestInt.NewURLProcessor()
-		mapper     = requestInt.NewPathMapper()
-		translator = translateInt.NewAstTranslator()
-	)
-	// Build app config
-	config.API = loadedConf.API
-	config.Data = loadedConf.Data
+func startNewRestProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
+	// Create Rest proxy and start
+	proxy = apiInt.NewRestProxy(*pathPrefix, int32(*port))
+	if err := proxy.Configure(appConfig, serverConf); err != nil {
+		log.Fatalln(err.Error())
+	}
+	// Start proxy
+	if err := proxy.Start(); err != nil {
+		log.Fatalln(err.Error())
+	}
+}
+
+func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
+	if *envoyPort == *port {
+		panic("Cannot start envoy proxy and rest proxy on same port!")
+	}
+
+	// Create Rest proxy and start
+	envoy = apiInt.NewEnvoyProxy(apiInt.EnvoyConfig{
+		Port:             *envoyPort,
+		DryRun:           *envoyDryRun,
+		EnableReflection: *envoyReflection,
+	})
+	if err := envoy.Configure(appConfig, serverConf); err != nil {
+		log.Fatalln(err.Error())
+	}
+	// Start proxy
+	if err := envoy.Start(); err != nil {
+		log.Fatalln(err.Error())
+	}
+}
+
+func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
 	// Build server config
 	serverConf := api.ClientProxyConfig{
 		Compiler: &compiler,
@@ -119,15 +172,7 @@ func startNewRestProxy(loadedConf *configs.ExternalConfig) {
 			},
 		},
 	}
-	// Create Rest proxy and start
-	proxy = apiInt.NewRestProxy(*pathPrefix, *port)
-	if err := proxy.Configure(config, &serverConf); err != nil {
-		log.Fatalln(err.Error())
-	}
-	// Start proxy
-	if err := proxy.Start(); err != nil {
-		log.Fatalln(err.Error())
-	}
+	return serverConf
 }
 
 func stopOnSIGTERM() {
@@ -138,9 +183,21 @@ func stopOnSIGTERM() {
 	<-interruptChan
 
 	log.Infoln("Caught SIGTERM...")
-	if proxy != nil {
-		if err := proxy.Stop(time.Second * 10); err != nil {
-			log.Fatalln(err.Error())
+	// Stop envoy proxy if started
+	if envoy != nil {
+		if err := envoy.Stop(time.Second * 10); err != nil {
+			log.Warnln(err.Error())
 		}
 	}
+
+	// Stop rest proxy if started
+	if proxy != nil {
+		if err := proxy.Stop(time.Second * 10); err != nil {
+			log.Warnln(err.Error())
+		}
+	}
+
+	// Give components enough time for graceful shutdown
+	// This terminates earlier, because rest-proxy prints FATAL if http-server is closed
+	time.Sleep(5 * time.Second)
 }
