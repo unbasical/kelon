@@ -112,7 +112,7 @@ func (opa *OPA) LoadRegosFromPath(ctx context.Context, regosPath string) error {
 		return errors.Wrap(err, "NewOPA: Error while opening transaction")
 	}
 	if len(loaded.Documents) > 0 {
-		if err := store.Write(ctx, txn, storage.AddOp, storage.Path{}, loaded.Documents); err != nil {
+		if err := store.Write(ctx, txn, storage.AddOp, storage.MustParsePath(regosPath), loaded.Documents); err != nil {
 			return errors.Wrap(err, "NewOPA: Error while writing document")
 		}
 	}
