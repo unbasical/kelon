@@ -103,7 +103,7 @@ func (proxy restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) {
 	// Parse Path
 	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
 	if !ok {
-		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, errors.Errorf("bad path: %v", r.URL.Path))
+		writeBadPath(w, r.URL.Path)
 		return
 	}
 
@@ -169,7 +169,7 @@ func (proxy restProxy) handleV1DataPatch(w http.ResponseWriter, r *http.Request)
 	// Parse Path
 	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
 	if !ok {
-		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, errors.Errorf("bad path: %v", r.URL.Path))
+		writeBadPath(w, r.URL.Path)
 		return
 	}
 
@@ -233,7 +233,7 @@ func (proxy restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Request
 	// Parse Path
 	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
 	if !ok {
-		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, errors.Errorf("bad path: %v", r.URL.Path))
+		writeBadPath(w, r.URL.Path)
 		return
 	}
 
@@ -292,7 +292,7 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	// Parse Path
 	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
 	if !ok {
-		writer.Error(w, http.StatusBadRequest, types.NewErrorV1(types.CodeInvalidParameter, "bad path: %v", r.URL.Path))
+		writeBadPath(w, r.URL.Path)
 		return
 	}
 
@@ -359,7 +359,7 @@ func (proxy restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Reque
 	// Parse Path
 	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
 	if !ok {
-		writer.Error(w, http.StatusBadRequest, types.NewErrorV1(types.CodeInvalidParameter, "bad path: %v", r.URL.Path))
+		writeBadPath(w, r.URL.Path)
 		return
 	}
 
@@ -604,4 +604,8 @@ func (proxy restProxy) checkPathScope(ctx context.Context, txn storage.Transacti
 	}
 
 	return nil
+}
+
+func writeBadPath(w http.ResponseWriter, path string) {
+	writer.Error(w, http.StatusBadRequest, types.NewErrorV1(types.CodeInvalidParameter, "bad path: %s", path))
 }
