@@ -2,6 +2,20 @@
 
 Kelon is a policy enforcement point, that is wrapping the [Open Policy Agent](https://www.openpolicyagent.org) (OPA) and adding more functionality in terms of microservices.
 
+### Status
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=alert_status)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=ncloc)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
+
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=code_smells)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=bugs)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=duplicated_lines_density)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
+
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=security_rating)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=vulnerabilities)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
+
+
 ## Problems you face when applying authorizing to your services
 
 Let's say you have some services you would like to have authorization implemented into. With this challenge in mind there are basically two options:
