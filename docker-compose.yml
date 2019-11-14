@@ -42,6 +42,18 @@ services:
     volumes:
       - ./examples/init/Init-Postgres.sql:/docker-entrypoint-initdb.d/Init-Postgres.sql
 
+  mongo:
+    image: mongo
+    restart: always
+    ports:
+      - "27017-27019:27017-27019"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: Root
+      MONGO_INITDB_ROOT_PASSWORD: RootPwd
+      MONGO_INITDB_DATABASE: appstore
+    volumes:
+      - ./examples/init/Init-Mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
+
   adminer:
     image: adminer
     restart: always
