@@ -100,23 +100,9 @@ func (proxy restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse Path
-	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
-	if !ok {
-		writeBadPath(w, r.URL.Path)
-		return
-	}
-
-	// Start transaction
-	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
+	// Prepare transaction
+	path, txn, err := proxy.preparePathCheckedTransaction(ctx, r.URL.Path, opa, w)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
-		return
-	}
-
-	// Check path scope before start
-	if err := proxy.checkPathScope(ctx, txn, path); err != nil {
-		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 
@@ -144,21 +130,7 @@ func (proxy restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check path conflicts
-	if err := ast.CheckPathConflicts(opa.GetCompiler(), storage.NonEmpty(ctx, opa.Store, txn)); len(err) > 0 {
-		proxy.abortWithBadRequest(ctx, opa, txn, w, err)
-		return
-	}
-
-	// Commit the transaction
-	if err := opa.Store.Commit(ctx, txn); err != nil {
-		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
-		return
-	}
-
-	// Write result
-	log.Infof("Created Data at path: %s", path.String())
-	writer.Bytes(w, 204, nil)
+	proxy.checkPathConflictsCommitAndRespond(ctx, txn, opa, w, path)
 }
 
 // Migration from github.com/open-policy-agent/opa/server/server.go
@@ -208,21 +180,7 @@ func (proxy restProxy) handleV1DataPatch(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	// Check path conflicts
-	if err := ast.CheckPathConflicts(opa.GetCompiler(), storage.NonEmpty(ctx, opa.Store, txn)); len(err) > 0 {
-		proxy.abortWithBadRequest(ctx, opa, txn, w, err)
-		return
-	}
-
-	// Commit the transaction
-	if err := opa.Store.Commit(ctx, txn); err != nil {
-		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
-		return
-	}
-
-	// Write result
-	log.Infof("Patched Data at path: %s", path.String())
-	writer.Bytes(w, 204, nil)
+	proxy.checkPathConflictsCommitAndRespond(ctx, txn, opa, w, path)
 }
 
 // Migration from github.com/open-policy-agent/opa/server/server.go
@@ -230,23 +188,9 @@ func (proxy restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Request
 	ctx := r.Context()
 	opa := (*proxy.config.Compiler).GetEngine()
 
-	// Parse Path
-	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
-	if !ok {
-		writeBadPath(w, r.URL.Path)
-		return
-	}
-
-	// Start transaction
-	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
+	// Prepare transaction
+	path, txn, err := proxy.preparePathCheckedTransaction(ctx, r.URL.Path, opa, w)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
-		return
-	}
-
-	// Check path scope before start
-	if err := proxy.checkPathScope(ctx, txn, path); err != nil {
-		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
 
@@ -508,6 +452,43 @@ func (proxy restProxy) prepareV1PatchSlice(root string, ops []types.PatchV1) (re
 	}
 
 	return result, nil
+}
+
+func (proxy restProxy) preparePathCheckedTransaction(ctx context.Context, rawPath string, opa *plugins.Manager, w http.ResponseWriter) (storage.Path, storage.Transaction, error) {
+	// Parse Path
+	path, ok := storage.ParsePathEscaped("/" + strings.Trim(rawPath, "/"))
+	if !ok {
+		writeBadPath(w, rawPath)
+		return nil, nil, errors.New("Error while parsing path")
+	}
+	// Start transaction
+	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
+		return nil, nil, err
+	}
+	// Check path scope before start
+	if err := proxy.checkPathScope(ctx, txn, path); err != nil {
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
+		return nil, nil, err
+	}
+	return path, txn, nil
+}
+
+func (proxy restProxy) checkPathConflictsCommitAndRespond(ctx context.Context, txn storage.Transaction, opa *plugins.Manager, w http.ResponseWriter, path storage.Path) {
+	// Check path conflicts
+	if err := ast.CheckPathConflicts(opa.GetCompiler(), storage.NonEmpty(ctx, opa.Store, txn)); len(err) > 0 {
+		proxy.abortWithBadRequest(ctx, opa, txn, w, err)
+		return
+	}
+	// Commit the transaction
+	if err := opa.Store.Commit(ctx, txn); err != nil {
+		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
+		return
+	}
+	// Write result
+	log.Infof("Created Data at path: %s", path.String())
+	writer.Bytes(w, 204, nil)
 }
 
 // Migration from github.com/open-policy-agent/opa/server/server.go
