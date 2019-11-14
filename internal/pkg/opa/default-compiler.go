@@ -36,6 +36,11 @@ func NewPolicyCompiler() opa.PolicyCompiler {
 
 // See Configure() from opa.PolicyCompiler
 func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *opa.PolicyCompilerConfig) error {
+	// Exit if already configured
+	if compiler.configured {
+		return nil
+	}
+
 	if e := initDependencies(compConf, appConf); e != nil {
 		return errors.Wrap(e, "PolicyCompiler: Error while initializing dependencies.")
 	}

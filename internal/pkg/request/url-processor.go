@@ -34,6 +34,11 @@ func NewURLProcessor() request.PathProcessor {
 
 // See request.PathProcessor.
 func (processor *urlProcessor) Configure(appConf *configs.AppConfig, processorConf *request.PathProcessorConfig) error {
+	// Exit if already configured
+	if processor.configured {
+		return nil
+	}
+
 	// Configure subcomponents
 	if processorConf.PathMapper == nil {
 		return errors.New("UrlProcessor: PathMapper not configured! ")

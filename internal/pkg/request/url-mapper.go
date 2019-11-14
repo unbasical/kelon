@@ -42,6 +42,11 @@ func NewPathMapper() request.PathMapper {
 
 // See request.PathMapper.
 func (mapper *pathMapper) Configure(appConf *configs.AppConfig) error {
+	// Exit if already configured
+	if mapper.configured {
+		return nil
+	}
+
 	if appConf == nil {
 		return errors.New("PathMapper: AppConfig not configured! ")
 	}

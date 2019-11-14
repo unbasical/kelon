@@ -23,7 +23,7 @@ import (
 
 // Config represents the plugin configuration.
 type EnvoyConfig struct {
-	Addr             string `json:"addr"`
+	Port             uint32 `json:"port"`
 	DryRun           bool   `json:"dry-run"`
 	EnableReflection bool   `json:"enable-reflection"`
 }
@@ -44,11 +44,11 @@ type envoyProxy struct {
 
 // Implements api.ClientProxy by providing OPA's Data-REST-API.
 func NewEnvoyProxy(config EnvoyConfig) api.ClientProxy {
-	if config.Addr == "" {
+	if config.Port == 0 {
 		log.Warnln("EnvoyProxy was initialized with default properties! You may have missed some arguments when creating it!")
-		config.Addr = ":9191"
+		config.Port = 9191
 		config.DryRun = false
-		config.EnableReflection = false
+		config.EnableReflection = true
 	}
 
 	return &envoyProxy{
@@ -66,6 +66,11 @@ func NewEnvoyProxy(config EnvoyConfig) api.ClientProxy {
 
 // See Configure() of api.ClientProxy
 func (proxy *envoyProxy) Configure(appConf *configs.AppConfig, serverConf *api.ClientProxyConfig) error {
+	// Exit if already configured
+	if proxy.configured {
+		return nil
+	}
+
 	// Configure subcomponents
 	if serverConf.Compiler == nil {
 		return errors.New("EnvoyProxy: Compiler not configured! ")
@@ -87,7 +92,7 @@ func (proxy *envoyProxy) Configure(appConf *configs.AppConfig, serverConf *api.C
 // See Start() of api.ClientProxy
 func (proxy *envoyProxy) Start() error {
 	if !proxy.configured {
-		return errors.New("RestProxy was not configured! Please call Configure(). ")
+		return errors.New("EnvoyProxy was not configured! Please call Configure(). ")
 	}
 
 	// Init grpc server
@@ -100,14 +105,17 @@ func (proxy *envoyProxy) Start() error {
 		reflection.Register(proxy.envoy.server)
 	}
 
+	log.Infof("Starting envoy grpc-server at: http://0.0.0.0:%d", proxy.envoy.cfg.Port)
 	return proxy.envoy.Start(context.Background())
 }
 
 // See Stop() of api.ClientProxy
 func (proxy *envoyProxy) Stop(deadline time.Duration) error {
 	if proxy.envoy.server == nil {
-		return errors.New("RestProxy has not bin started yet")
+		return errors.New("EnvoyProxy has not bin started yet")
 	}
+
+	log.Infof("Stopping envoy grpc-server at: http://0.0.0.0:%d", proxy.envoy.cfg.Port)
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()
 
@@ -132,13 +140,13 @@ func (p *envoyExtAuthzGrpcServer) Reconfigure(ctx context.Context, config interf
 
 func (p *envoyExtAuthzGrpcServer) listen() {
 	// The listener is closed automatically by Serve when it returns.
-	l, err := net.Listen("tcp", p.cfg.Addr)
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", p.cfg.Port))
 	if err != nil {
 		log.WithField("err", err).Fatal("EnvoyProxy: Unable to create listener.")
 	}
 
 	log.WithFields(log.Fields{
-		"addr":              p.cfg.Addr,
+		"port":              p.cfg.Port,
 		"dry-run":           p.cfg.DryRun,
 		"enable-reflection": p.cfg.EnableReflection,
 	}).Info("EnvoyProxy: Starting gRPC server.")

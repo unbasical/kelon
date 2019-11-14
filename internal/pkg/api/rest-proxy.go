@@ -39,6 +39,11 @@ func NewRestProxy(pathPrefix string, port int32) api.ClientProxy {
 
 // See Configure() of api.ClientProxy
 func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *api.ClientProxyConfig) error {
+	// Exit if already configured
+	if proxy.configured {
+		return nil
+	}
+
 	// Configure subcomponents
 	if serverConf.Compiler == nil {
 		return errors.New("RestProxy: Compiler not configured! ")
@@ -76,7 +81,7 @@ func (proxy *restProxy) Start() error {
 
 	// Start Server
 	go func() {
-		log.Infof("Starting server at: http://localhost:%d%s", proxy.port, proxy.pathPrefix)
+		log.Infof("Starting server at: http://0.0.0.0:%d%s", proxy.port, proxy.pathPrefix)
 		if err := proxy.server.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
@@ -89,6 +94,7 @@ func (proxy *restProxy) Stop(deadline time.Duration) error {
 	if proxy.server == nil {
 		return errors.New("RestProxy has not bin started yet")
 	}
+
 	log.Infof("Stopping server at: http://localhost:%d%s", proxy.port, proxy.pathPrefix)
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()

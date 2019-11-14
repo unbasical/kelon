@@ -77,7 +77,7 @@ func TestCheckAllow(t *testing.T) {
 	}
 
 	proxy := NewEnvoyProxy(EnvoyConfig{
-		Addr:             ":9191",
+		Port:             9191,
 		DryRun:           false,
 		EnableReflection: true,
 	})
