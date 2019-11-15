@@ -3,7 +3,7 @@ datastores:
   mysql:
     type: mysql
     connection:
-      host: localhost
+      host: mysql
       port: 3306
       database: appstore
       user: You
@@ -12,14 +12,24 @@ datastores:
   pg:
     type: postgres
     connection:
-      host: localhost
+      host: mysql
       port: 5432
+      database: appstore
+      user: You
+      password: SuperSecure
+
+  mongo:
+    type: mongo
+    connection:
+      host: mongo
+      port: 27017
       database: appstore
       user: You
       password: SuperSecure
 
 # Entity-Schemas define the structure of the entities of one schema inside a datastore
 entity_schemas:
+
   mysql:                                # Target datastore
     appstore:                           # Target schema
       entities:                         # List of all entities of the schema
@@ -28,6 +38,7 @@ entity_schemas:
         - name: apps
         - name: app_tags
         - name: tags
+
   pg:
     appstore:
       entities:
@@ -36,3 +47,14 @@ entity_schemas:
         - name: apps
         - name: app_tags
         - name: tags
+
+  mongo:
+    appstore:
+      entities:
+        - name: users
+        - name: apps
+          entities:
+            - name: rights
+              meta_type: array
+              entities:
+                - name: user
