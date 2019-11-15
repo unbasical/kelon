@@ -57,6 +57,11 @@ func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 		return nil, errors.New("Unable to parse api config: " + err.Error())
 	}
 
+	// Validate configs
+	if err := result.Data.validate(); err != nil {
+		return nil, errors.Wrap(err, "Loaded invalid datastore config")
+	}
+
 	return result, nil
 }
 

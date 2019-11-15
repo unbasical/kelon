@@ -276,15 +276,3 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 
 	return result
 }
-
-func (ds mongoDatastore) findSchemaForEntity(search string) string {
-	// Find custom mapping
-	for schema, es := range ds.schemas {
-		for _, entity := range es.Entities {
-			if search == entity {
-				return schema
-			}
-		}
-	}
-	panic(fmt.Sprintf("No schema found for entity %s in datastore with alias %s", search, ds.alias))
-}

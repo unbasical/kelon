@@ -79,6 +79,13 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 		if len(schemas) == 0 {
 			return errors.Errorf("SqlDatastore: Datastore with alias [%s] has no schemas configured!", alias)
 		}
+
+		for schemaName, schema := range schemas {
+			log.Infoln(schemaName)
+			if schema.HasNestedEntities() {
+				return errors.Errorf("SqlDatastore: Schema %q in datastore with alias [%s] contains nested entities which is not supported by SQL-Datastores yet!", schemaName, alias)
+			}
+		}
 	} else {
 		return errors.Errorf("SqlDatastore: Datastore with alias [%s] has no entity-schema-mapping configured!", alias)
 	}
@@ -267,15 +274,13 @@ func (ds sqlDatastore) translate(input *data.Node) string {
 			operands = operands.Push([]string{})
 			operands.AppendToTop(v.String())
 		case data.Entity:
-			entity := v.String()
-			schema := ds.findSchemaForEntity(entity)
-
+			schema, entity := ds.findSchemaForEntity(v.String())
 			if schema == "public" && ds.appConf.Data.Datastores[ds.alias].Type == "postgres" {
 				// Special handle when datastore is postgres and schema is public
-				entities = entities.Push(entity)
+				entities = entities.Push(entity.Name)
 			} else {
 				// Normal case for all entities
-				entities = entities.Push(fmt.Sprintf("%s.%s", schema, entity))
+				entities = entities.Push(fmt.Sprintf("%s.%s", schema, entity.Name))
 			}
 
 		case data.Constant:
@@ -288,13 +293,11 @@ func (ds sqlDatastore) translate(input *data.Node) string {
 	return strings.Join(query, "")
 }
 
-func (ds sqlDatastore) findSchemaForEntity(search string) string {
+func (ds sqlDatastore) findSchemaForEntity(search string) (string, *configs.Entity) {
 	// Find custom mapping
 	for schema, es := range ds.schemas {
-		for _, entity := range es.Entities {
-			if search == entity {
-				return schema
-			}
+		if found, entity := es.ContainsEntity(search); found {
+			return schema, entity
 		}
 	}
 	panic(fmt.Sprintf("No schema found for entity %s in datastore with alias %s", search, ds.alias))

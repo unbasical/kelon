@@ -20,6 +20,7 @@ require (
 	github.com/prometheus/client_golang v1.1.0
 	github.com/rcrowley/go-metrics v0.0.0-20190826022208-cac0b30c2563 // indirect
 	github.com/sirupsen/logrus v1.4.2
+	github.com/stretchr/testify v1.4.0
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
 	github.com/xdg/stringprep v1.0.0 // indirect
 	github.com/yashtewari/glob-intersection v0.0.0-20180916065949-5c77d914dd0b // indirect

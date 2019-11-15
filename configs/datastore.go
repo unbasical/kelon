@@ -1,5 +1,11 @@
 package configs
 
+import (
+	"strings"
+
+	"github.com/pkg/errors"
+)
+
 // Configuration for the Datastore-mappings used by kelon to map incoming requests to datastores.
 //
 // This mapping is needed to set schemas for entities (coming from compiled regos) as well as using the datastore's alias as
@@ -20,5 +26,92 @@ type Datastore struct {
 
 // List of entities of a schema
 type EntitySchema struct {
-	Entities []string
+	Entities []*Entity
+}
+
+// Entity inside a schema
+type Entity struct {
+	Name     string
+	Alias    string
+	MetaType string `yaml:"meta_type"`
+	Entities []*Entity
+}
+
+// Check if a entity is contained inside a schema.
+// The entity is searched by its alias which is either its name, or a specified alias!
+//
+// Returns a boolean indicating if the entity was found and the entity itself.
+func (schema EntitySchema) ContainsEntity(search string) (bool, *Entity) {
+	// Find custom mapping
+	for _, entity := range schema.Entities {
+		mapped := entity.getMappedName()
+		if search == mapped {
+			return true, entity
+		}
+	}
+	return false, nil
+}
+
+// Returns true if the schema contains entities with nested entities
+func (schema EntitySchema) HasNestedEntities() bool {
+	// Find custom mapping
+	for _, entity := range schema.Entities {
+		if len(entity.Entities) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (entity Entity) getMappedName() string {
+	if entity.Alias != "" {
+		return entity.Alias
+	}
+	return entity.Name
+}
+
+func (conf DatastoreConfig) validate() error {
+	// Find custom mapping
+	for dsAlias, ds := range conf.DatastoreSchemas {
+		duplicatesCache := make(map[string]*Entity)
+		for schemaName, schema := range ds {
+			for _, entity := range schema.Entities {
+				// Search for duplicated entities inside all schemas for a datastore
+				search := entity.getMappedName()
+				if match, ok := duplicatesCache[search]; ok {
+					return errors.Errorf("The entity with name %q collides with entity %q inside all entitiy_schemas of the datastore %q!", entity.Name, match.Name, dsAlias)
+				}
+				duplicatesCache[search] = entity
+
+				// Search for any ambiguity inside each level of nested entities
+				if err := findEntityAmbiguity(*entity, []string{}); err != nil {
+					return errors.Wrapf(err, "Found ambiguous nested entities in datastore %q schema %q", dsAlias, schemaName)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func findEntityAmbiguity(entity Entity, pathHistory []string) error {
+	// Reached end of recursion
+	if entity.Entities == nil {
+		return nil
+	}
+
+	// Crawl all nested entities and check for ambiguity on each level
+	duplicatesCache := make(map[string]*Entity)
+	for _, child := range entity.Entities {
+		search := child.getMappedName()
+		if match, ok := duplicatesCache[search]; ok {
+			return errors.Errorf("The entity with name %q collides with entity %q inside path %q!", child.Name, match.Name, strings.Join(pathHistory, " -> "))
+		}
+		duplicatesCache[search] = child
+
+		// Descend one level in entity tree
+		if err := findEntityAmbiguity(*child, append(pathHistory, search)); err != nil {
+			return err
+		}
+	}
+	return nil
 }

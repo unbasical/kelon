@@ -19,9 +19,11 @@ datastores:
 
 # Entity-Schemas define the structure of the entities of one schema inside a datastore
 entity_schemas:
-  mysql:                             # Target datastore
-    appstore:                           # Target schema
-      entities:                         # List of all entities of the schema
-        - name: users
+  mysql:
+    appstore:
+      entities:
+        - name: users                 # This collides with irrelevant
         - name: user_followers
           alias: followers
+        - name: irrelevant
+          alias: users                # This alias collides with users

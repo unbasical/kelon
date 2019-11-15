@@ -3,7 +3,7 @@ datastores:
   mysql:
     type: mysql
     connection:
-      host: mysql
+      host: localhost
       port: 3306
       database: appstore
       user: You
@@ -12,7 +12,7 @@ datastores:
   pg:
     type: postgres
     connection:
-      host: postgres
+      host: localhost
       port: 5432
       database: appstore
       user: You
@@ -23,16 +23,16 @@ entity_schemas:
   mysql:                                # Target datastore
     appstore:                           # Target schema
       entities:                         # List of all entities of the schema
-        - users
-        - app_rights
-        - apps
-        - app_tags
-        - tags
+        - name: users
+        - name: app_rights
+        - name: apps
+        - name: app_tags
+        - name: tags
   pg:
     appstore:
       entities:
-        - users
-        - app_rights
-        - apps
-        - app_tags
-        - tags
+        - name: users
+        - name: app_rights
+        - name: apps
+        - name: app_tags
+        - name: tags
