@@ -81,7 +81,6 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 		}
 
 		for schemaName, schema := range schemas {
-			log.Infoln(schemaName)
 			if schema.HasNestedEntities() {
 				return errors.Errorf("SqlDatastore: Schema %q in datastore with alias [%s] contains nested entities which is not supported by SQL-Datastores yet!", schemaName, alias)
 			}

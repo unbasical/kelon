@@ -9,16 +9,16 @@ call-operands:
     mapping: "$0: $1"
   - op: neq
     args: 2
-    mapping: "$0: { $ne: $1 }"
+    mapping: "$0: { \"$ne\": $1 }"
   - op: lt
     args: 2
-    mapping: "$0: { $lt: $1 }"
+    mapping: "$0: { \"$lt\": $1 }"
   - op: gt
     args: 2
-    mapping: "$0: { $gt: $1 }"
+    mapping: "$0: { \"$gt\": $1 }"
   - op: lte
     args: 2
-    mapping: "$0: { $lte: $1 }"
+    mapping: "$0: { \"$lte\": $1 }"
   - op: gte
     args: 2
-    mapping: "$0: { $gte: $1 }"
+    mapping: "$0: { \"$gte\": $1 }"

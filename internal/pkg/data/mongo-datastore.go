@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -76,7 +77,9 @@ func (ds *mongoDatastore) Configure(appConf *configs.AppConfig, alias string) er
 
 	// Connect client
 	conn := conf.Connection
-	ctx, _ := context.WithTimeout(context.TODO(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
+
 	clientOptions := options.Client().ApplyURI(fmt.Sprintf("mongodb://%s:%s@%s:%s/%s", conn[userKey], conn[pwKey], conn[hostKey], conn[portKey], conn[dbKey]))
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
@@ -85,7 +88,9 @@ func (ds *mongoDatastore) Configure(appConf *configs.AppConfig, alias string) er
 
 	// Ping mongodb for 60 seconds every 3 seconds
 	var pingFailure error
-	ctx, _ = context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
 	for i := 0; i < 20; i++ {
 		if pingFailure = client.Ping(ctx, readpref.Primary()); pingFailure == nil {
 			// Ping succeeded
@@ -128,31 +133,59 @@ func (ds mongoDatastore) Execute(query *data.Node) (bool, error) {
 	}
 	log.Debugf("TRANSLATING QUERY: ==================%+v==================", (*query).String())
 
-	// Translate query to into sql statement
-	// TODO handle multiple queries
-	statement := ds.translate(query)["apps"]
-	log.Debugf("EXECUTING STATEMENT: ==================%s==================", statement)
+	// Translate to map: collection -> filter
+	statements := ds.translate(query)
+	queryResults := make([]int64, len(statements))
 
-	// Declare an empty BSON Map object
-	var filter bson.M
-	// Use the JSON package's Unmarshal() method
-	unmarschallErr := json.Unmarshal([]byte(statement), &filter)
-	if unmarschallErr != nil {
-		log.Fatal("json.Unmarshal() ERROR:", unmarschallErr)
+	// Execute all statements parallel and store resulting counts
+	var wg sync.WaitGroup
+	writeIndex := 0
+	wg.Add(len(queryResults))
+	for collection, filterString := range statements {
+		log.Debugf("EXECUTING Filter: ==================%s.find( %s )==================", collection, filterString)
+
+		// Execute each of the resulting queries for each collection parallel
+		go func(wait *sync.WaitGroup, index int, coll string, fString string) {
+			// Unmarshal generated json string
+			var filter bson.M
+			unmarshalErr := json.Unmarshal([]byte(fString), &filter)
+			if unmarshalErr != nil {
+				log.Fatal("json.Unmarshal() ERROR:", unmarshalErr)
+			}
+
+			// Execute query
+			collection := ds.client.Database(ds.conn[dbKey]).Collection(coll)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			count, searchErr := collection.CountDocuments(ctx, filter)
+			if searchErr != nil {
+				panic(searchErr)
+			}
+
+			// Store result
+			queryResults[index] = count
+			wait.Done()
+		}(&wg, writeIndex, collection, filterString)
+
+		// Increase write-index to avoid parallel write conflicts
+		writeIndex++
 	}
 
-	collection := ds.client.Database("appstore").Collection("apps")
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	// Wait till all queries returned
+	wg.Wait()
 
-	log.Debugln("Count collection: ====================================")
-	count, searchErr := collection.CountDocuments(ctx, filter)
-	if searchErr != nil {
-		log.Fatal(searchErr)
+	// Recover from any occurred error during transaction
+	if err := recover(); err != nil {
+		return false, errors.Errorf("Error while executing MongoDB query: %+v", err)
 	}
 
-	if count > 0 {
-		log.Infof("Result row with count %d found! -> ALLOWED", count)
-		return true, nil
+	log.Debugf("RECEIVED RESULTS: %+v", queryResults)
+	for _, count := range queryResults {
+		if count > 0 {
+			log.Infof("Result row with count %d found! -> ALLOWED", count)
+			return true, nil
+		}
 	}
 	log.Infof("No resulting row with count > 0 found! -> DENIED")
 	return false, nil
@@ -164,6 +197,7 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 		filter     string
 	}
 
+	entityMarker := "#ENTITY ->"
 	result := make(map[string]string)
 	filtersByCollection := make(map[string][]string)
 	var filters []colFilter
@@ -192,8 +226,12 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 
 				// Postprocessing
 				// If the collection is i.e. apps, then remove all occurrences of 'apps.' in the mapped filters
-				search := fmt.Sprintf("%s.", collection)
-				result[collection] = strings.ReplaceAll(combinedFilter, search, "")
+
+				// TODO handle access to nested entities
+				// TODO handle access to array entities
+				search := fmt.Sprintf("%s\"%s.", entityMarker, collection)
+				combinedFilterWithoutBaseEntity := strings.ReplaceAll(strings.ReplaceAll(combinedFilter, search, "\""), entityMarker, "")
+				result[collection] = combinedFilterWithoutBaseEntity
 			}
 		case data.Query:
 			// Expected stack: entities-top -> [singleEntity] relations-top -> [singleCondition]
@@ -233,19 +271,29 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 			// Expected stack:  top -> [entity, ...]
 			var entity string
 			entities, entity = entities.Pop()
-			operands.AppendToTop(fmt.Sprintf("\"%s.%s\"", entity, v.Name))
+			operands.AppendToTop(fmt.Sprintf("%s\"%s.%s\"", entityMarker, entity, v.Name))
 		case data.Call:
 			// Expected stack:  top -> [args..., call-op]
 			var ops []string
 			operands, ops = operands.Pop()
 			op := ops[0]
 
+			// Sort call operands in case of eq operation
+			// This has to be done because MongoDB maps equality to normal JSON-Attributes.
+			if len(ops) == 3 {
+				// Check if first operand is not an entity
+				if !strings.HasPrefix(ops[1], entityMarker) {
+					// Swap operands
+					ops[1], ops[2] = ops[2], ops[1]
+				}
+			}
+
 			// Handle Call
 			var nextRel string
-			if sqlCallOp, ok := ds.callOps[op]; ok {
+			if mongoCallOp, ok := ds.callOps[op]; ok {
 				// Expected stack:  top -> [args..., call-op]
 				log.Debugln("NEW FUNCTION CALL")
-				nextRel = sqlCallOp(ops[1:]...)
+				nextRel = mongoCallOp(ops[1:]...)
 			} else {
 				panic(fmt.Sprintf("Datastores: Operator [%s] is not supported!", op))
 			}

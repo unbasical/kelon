@@ -9,7 +9,19 @@ allow = true {
     input.method = "GET"
     input.path = ["api", "mongo", "apps", appId]
 
-    [appId, "OWNER"] = appRights[_]
+    # This query fires against collection -> apps
+    data.mongo.apps[app].id = appId
+
+    # Nest elements
+    data.mongo.rights[right].id = app.id
+    data.mongo.users[user].id = right.id
+
+    # Query root
+    app.stars > 2
+
+    # Query nested
+    right.right = "OWNER"
+    user.name = input.user
 }
 
 # Path: GET /api/mongo/apps/:app_id
@@ -19,6 +31,7 @@ allow = true {
     input.method = "GET"
     input.path = ["api", "mongo", "apps", appId]
 
+    # This query fires against collection -> apps
     data.mongo.apps[app].stars = 5
     app.id = appId
 }
@@ -35,14 +48,7 @@ allow = true {
 allow = true {
     input.method = "GET"
 
-    # Query
+    # This query fires against collection -> users
     data.mongo.users[user].name = input.user
     user.friend = "Kevin"
-}
-
-appRights[[appId, right]] {
-    data.mongo.users[u].name = input.user
-    right := data.mongo.app_rights[r].right
-    appId := r.app_id
-    u.id = r.user_id
 }
