@@ -58,7 +58,7 @@ func main() {
 		// Flags
 		datastorePath     = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
 		apiPath           = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
-		configWatcherPath = app.Flag("config-watcher-path", "Path where the config watcher should listen for changes.").Default("./").Envar("CONFIG_WATCHER_PATH").ExistingDir()
+		configWatcherPath = app.Flag("config-watcher-path", "Path where the config watcher should listen for changes.").Default("./conf").Envar("CONFIG_WATCHER_PATH").ExistingDir()
 	)
 
 	app.HelpFlag.Short('h')

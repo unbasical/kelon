@@ -12,7 +12,7 @@ datastores:
   pg:
     type: postgres
     connection:
-      host: mysql
+      host: postgres
       port: 5432
       database: appstore
       user: You
@@ -55,6 +55,6 @@ entity_schemas:
         - name: apps
           entities:
             - name: rights
-              meta_type: array
               entities:
                 - name: user
+                  alias: users

@@ -33,7 +33,6 @@ type EntitySchema struct {
 type Entity struct {
 	Name     string
 	Alias    string
-	MetaType string `yaml:"meta_type"`
 	Entities []*Entity
 }
 
@@ -61,6 +60,37 @@ func (schema EntitySchema) HasNestedEntities() bool {
 		}
 	}
 	return false
+}
+
+// Returns search structure for fast finding of paths from a source to a destination
+// returned map of maps has the semantic pathBegin -> pathEnd -> path
+func (schema EntitySchema) GenerateEntityPaths() map[string]map[string][]string {
+	result := make(map[string]map[string][]string)
+	for _, entity := range schema.Entities {
+		crawlEntityPaths(entity, entity, []string{}, result)
+	}
+	return result
+}
+
+func crawlEntityPaths(start *Entity, curr *Entity, pathHistory []string, path map[string]map[string][]string) {
+	if start == nil {
+		panic("Cannot crawl start which is nil!")
+	}
+	if curr == nil {
+		panic("Curr mustn't be nil!")
+	}
+
+	if path[start.getMappedName()] == nil {
+		path[start.getMappedName()] = make(map[string][]string)
+	}
+	pathHistory = append(pathHistory, curr.Name)
+	path[start.getMappedName()][curr.getMappedName()] = append(pathHistory[:0:0], pathHistory...)
+
+	// Exits if there are no more children
+	for _, child := range curr.Entities {
+		// Recursion
+		crawlEntityPaths(start, child, append(pathHistory[:0:0], pathHistory...), path)
+	}
 }
 
 func (entity Entity) getMappedName() string {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -24,13 +25,13 @@ import (
 )
 
 type mongoDatastore struct {
-	appConf    *configs.AppConfig
-	alias      string
-	conn       map[string]string
-	schemas    map[string]*configs.EntitySchema
-	client     *mongo.Client
-	callOps    map[string]func(args ...string) string
-	configured bool
+	appConf     *configs.AppConfig
+	alias       string
+	conn        map[string]string
+	entityPaths map[string]map[string][]string
+	client      *mongo.Client
+	callOps     map[string]func(args ...string) string
+	configured  bool
 }
 
 // Return a new data.Datastore which is able to connect to PostgreSQL and MySQL databases.
@@ -116,10 +117,18 @@ func (ds *mongoDatastore) Configure(appConf *configs.AppConfig, alias string) er
 		ds.callOps[handler.Handles()] = handler.Map
 	}
 
+	// Load entity schemas
+	ds.entityPaths = make(map[string]map[string][]string)
+	for _, schema := range appConf.Data.DatastoreSchemas[alias] {
+		paths := schema.GenerateEntityPaths()
+		for k, v := range paths {
+			ds.entityPaths[k] = v
+		}
+	}
+
 	// Assign values
 	ds.conn = conf.Connection
 	ds.client = client
-	ds.schemas = appConf.Data.DatastoreSchemas[alias]
 	ds.appConf = appConf
 	ds.alias = alias
 	ds.configured = true
@@ -196,8 +205,7 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 		collection string
 		filter     string
 	}
-
-	entityMarker := "#ENTITY ->"
+	entityMatcher := regexp.MustCompile(`\{\{(.*?)\}\}`)
 	result := make(map[string]string)
 	filtersByCollection := make(map[string][]string)
 	var filters []colFilter
@@ -226,12 +234,24 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 
 				// Postprocessing
 				// If the collection is i.e. apps, then remove all occurrences of 'apps.' in the mapped filters
+				collection := collection // pin!
+				finalFilter := entityMatcher.ReplaceAllStringFunc(combinedFilter, func(match string) string {
+					entity := match[2 : len(match)-3] // Extract entity. Each match has format: {{<entity>.}}
 
-				// TODO handle access to nested entities
-				// TODO handle access to array entities
-				search := fmt.Sprintf("%s\"%s.", entityMarker, collection)
-				combinedFilterWithoutBaseEntity := strings.ReplaceAll(strings.ReplaceAll(combinedFilter, search, "\""), entityMarker, "")
-				result[collection] = combinedFilterWithoutBaseEntity
+					// the collection is root level and therefore entirely removed
+					if entity == collection {
+						return ""
+					}
+
+					// All other entities are mapped to final paths
+					if path, found := ds.entityPaths[collection][entity]; found {
+						// Skip collection in path
+						return strings.Join(path[1:], ".") + "."
+					}
+					panic(fmt.Sprintf("MongoDatastore: Unable to find mapping for entity %q in collection %q", entity, collection))
+				})
+
+				result[collection] = finalFilter
 			}
 		case data.Query:
 			// Expected stack: entities-top -> [singleEntity] relations-top -> [singleCondition]
@@ -271,7 +291,8 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 			// Expected stack:  top -> [entity, ...]
 			var entity string
 			entities, entity = entities.Pop()
-			operands.AppendToTop(fmt.Sprintf("%s\"%s.%s\"", entityMarker, entity, v.Name))
+			// Mark entity with . to be replaced in finished query
+			operands.AppendToTop(fmt.Sprintf("\"{{%s.}}%s\"", entity, v.Name))
 		case data.Call:
 			// Expected stack:  top -> [args..., call-op]
 			var ops []string
@@ -282,7 +303,7 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 			// This has to be done because MongoDB maps equality to normal JSON-Attributes.
 			if len(ops) == 3 {
 				// Check if first operand is not an entity
-				if !strings.HasPrefix(ops[1], entityMarker) {
+				if !entityMatcher.MatchString(ops[1]) {
 					// Swap operands
 					ops[1], ops[2] = ops[2], ops[1]
 				}

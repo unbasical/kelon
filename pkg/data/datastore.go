@@ -8,6 +8,13 @@ import (
 	"github.com/Foundato/kelon/configs"
 )
 
+// Datastore constant types
+const (
+	TypePostgres = "postgres"
+	TypeMysql    = "mysql"
+	TypeMongo    = "mongo"
+)
+
 // Datastore is the interface that maps a generic designed AST returned by translate.AstTranslator to a final decision (Allow/Deny).
 // This should be generally be done by first translating the Query-AST into the datasore's native query language and then
 // executing the query. If the query returns any result, the datastore should return true, otherwise false.

@@ -329,9 +329,9 @@ func getConnectionStringForPlatform(platform string, conn map[string]string) str
 	dbname := conn[dbKey]
 
 	switch platform {
-	case "postgres":
+	case data.TypePostgres:
 		return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
-	case "mysql":
+	case data.TypeMysql:
 		return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", user, password, host, port, dbname)
 	default:
 		panic(fmt.Sprintf("Platform [%s] is not a supported SQL-Datastore!", platform))
