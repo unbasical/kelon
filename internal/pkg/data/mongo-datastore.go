@@ -2,7 +2,6 @@ package data
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -50,23 +49,10 @@ func (ds *mongoDatastore) Configure(appConf *configs.AppConfig, alias string) er
 		return nil
 	}
 
-	if appConf == nil {
-		return errors.New("MongoDatastore: AppConfig not configured! ")
-	}
-	if alias == "" {
-		return errors.New("MongoDatastore: Empty alias provided! ")
-	}
-
-	// Validate configuration
-	conf, ok := appConf.Data.Datastores[alias]
-	if !ok {
-		return errors.Errorf("MongoDatastore: No datastore with alias [%s] configured!", alias)
-	}
-	if strings.ToLower(conf.Type) == "" {
-		return errors.Errorf("MongoDatastore: Alias of datastore is empty! Must be one of %+v!", sql.Drivers())
-	}
-	if err := validateConnection(alias, conf.Connection); err != nil {
-		return err
+	// Validate config
+	conf, err := extractAndValidateDatastore(appConf, alias)
+	if err != nil {
+		return errors.Wrap(err, "MongoDatastore:")
 	}
 	if schemas, ok := appConf.Data.DatastoreSchemas[alias]; ok {
 		if len(schemas) == 0 {
@@ -77,45 +63,32 @@ func (ds *mongoDatastore) Configure(appConf *configs.AppConfig, alias string) er
 	}
 
 	// Connect client
-	conn := conf.Connection
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
 
-	clientOptions := options.Client().ApplyURI(fmt.Sprintf("mongodb://%s:%s@%s:%s/%s", conn[userKey], conn[pwKey], conn[hostKey], conn[portKey], conn[dbKey]))
+	clientOptions := options.Client().ApplyURI(getConnectionStringForPlatform(conf.Type, conf.Connection))
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		return errors.Wrap(err, "MongoDatastore: Error while connecting client")
 	}
 
 	// Ping mongodb for 60 seconds every 3 seconds
-	var pingFailure error
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-
-	for i := 0; i < 20; i++ {
-		if pingFailure = client.Ping(ctx, readpref.Primary()); pingFailure == nil {
-			// Ping succeeded
-			break
-		}
-		log.Infof("Waiting for [%s] to be reachable...", alias)
-		<-time.After(3 * time.Second)
-	}
-	if pingFailure != nil {
-		return errors.Wrap(err, "MongoDatastore: Unable to ping database")
+	err = pingUntilReachable(alias, func() error {
+		return client.Ping(ctx, readpref.Primary())
+	})
+	if err != nil {
+		return errors.Wrap(err, "MongoDatastore:")
 	}
 
 	// Load call handlers
-	callOpsFile := fmt.Sprintf("./call-operands/%s.yml", strings.ToLower(conf.Type))
-	handlers, err := LoadDatastoreCallOpsFile(callOpsFile)
+	operands, err := loadCallOperands(conf)
 	if err != nil {
-		return errors.Wrap(err, "MongoDatastore: Unable to load call operands as handlers")
+		return errors.Wrap(err, "MongoDatastore:")
 	}
-	log.Infof("MongoDatastore [%s] laoded call operands [%s]", alias, callOpsFile)
-
-	ds.callOps = map[string]func(args ...string) string{}
-	for _, handler := range handlers {
-		ds.callOps[handler.Handles()] = handler.Map
-	}
+	ds.callOps = operands
+	log.Infof("MongoDatastore [%s] laoded call operands", alias)
 
 	// Load entity schemas
 	ds.entityPaths = make(map[string]map[string][]string)

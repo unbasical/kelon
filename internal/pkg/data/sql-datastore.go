@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/util"
@@ -28,19 +27,6 @@ type sqlDatastore struct {
 	configured bool
 }
 
-var (
-	//nolint:gochecknoglobals
-	hostKey = "host"
-	//nolint:gochecknoglobals
-	portKey = "port"
-	//nolint:gochecknoglobals
-	dbKey = "database"
-	//nolint:gochecknoglobals
-	userKey = "user"
-	//nolint:gochecknoglobals
-	pwKey = "password"
-)
-
 // Return a new data.Datastore which is able to connect to PostgreSQL and MySQL databases.
 func NewSQLDatastore() data.Datastore {
 	return &sqlDatastore{
@@ -57,23 +43,10 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 		return nil
 	}
 
-	if appConf == nil {
-		return errors.New("SqlDatastore: AppConfig not configured! ")
-	}
-	if alias == "" {
-		return errors.New("SqlDatastore: Empty alias provided! ")
-	}
-
-	// Validate configuration
-	conf, ok := appConf.Data.Datastores[alias]
-	if !ok {
-		return errors.Errorf("SqlDatastore: No datastore with alias [%s] configured!", alias)
-	}
-	if strings.ToLower(conf.Type) == "" {
-		return errors.Errorf("SqlDatastore: Alias of datastore is empty! Must be one of %+v!", sql.Drivers())
-	}
-	if err := validateConnection(alias, conf.Connection); err != nil {
-		return err
+	// Validate config
+	conf, e := extractAndValidateDatastore(appConf, alias)
+	if e != nil {
+		return errors.Wrap(e, "SqlDatastore:")
 	}
 	if schemas, ok := appConf.Data.DatastoreSchemas[alias]; ok {
 		if len(schemas) == 0 {
@@ -96,31 +69,18 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	}
 
 	// Ping database for 60 seconds every 3 seconds
-	var pingFailure error
-	for i := 0; i < 20; i++ {
-		if pingFailure = db.Ping(); pingFailure == nil {
-			// Ping succeeded
-			break
-		}
-		log.Infof("Waiting for [%s] to be reachable...", alias)
-		<-time.After(3 * time.Second)
-	}
-	if pingFailure != nil {
-		return errors.Wrap(err, "SqlDatastore: Unable to ping database")
+	err = pingUntilReachable(alias, db.Ping)
+	if err != nil {
+		return errors.Wrap(err, "SqlDatastore:")
 	}
 
 	// Load call handlers
-	callOpsFile := fmt.Sprintf("./call-operands/%s.yml", strings.ToLower(conf.Type))
-	handlers, err := LoadDatastoreCallOpsFile(callOpsFile)
+	operands, err := loadCallOperands(conf)
 	if err != nil {
-		return errors.Wrap(err, "SqlDatastore: Unable to load call operands as handlers")
+		return errors.Wrap(err, "SqlDatastore:")
 	}
-	log.Infof("SqlDatastore [%s] laoded call operands [%s]", alias, callOpsFile)
-
-	ds.callOps = map[string]func(args ...string) string{}
-	for _, handler := range handlers {
-		ds.callOps[handler.Handles()] = handler.Map
-	}
+	ds.callOps = operands
+	log.Infof("SqlDatastore [%s] laoded call operands", alias)
 
 	// Assign values
 	ds.conn = conf.Connection
@@ -300,40 +260,4 @@ func (ds sqlDatastore) findSchemaForEntity(search string) (string, *configs.Enti
 		}
 	}
 	panic(fmt.Sprintf("No schema found for entity %s in datastore with alias %s", search, ds.alias))
-}
-
-func validateConnection(alias string, conn map[string]string) error {
-	if _, ok := conn[hostKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", hostKey, alias)
-	}
-	if _, ok := conn[portKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", portKey, alias)
-	}
-	if _, ok := conn[dbKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", dbKey, alias)
-	}
-	if _, ok := conn[userKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", userKey, alias)
-	}
-	if _, ok := conn[pwKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", pwKey, alias)
-	}
-	return nil
-}
-
-func getConnectionStringForPlatform(platform string, conn map[string]string) string {
-	host := conn[hostKey]
-	port := conn[portKey]
-	user := conn[userKey]
-	password := conn[pwKey]
-	dbname := conn[dbKey]
-
-	switch platform {
-	case data.TypePostgres:
-		return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
-	case data.TypeMysql:
-		return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", user, password, host, port, dbname)
-	default:
-		panic(fmt.Sprintf("Platform [%s] is not a supported SQL-Datastore!", platform))
-	}
 }
