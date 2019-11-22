@@ -25,3 +25,9 @@ entity_schemas:
         - name: users
         - name: user_followers
           alias: followers
+          entities:
+            - name: level1
+              entities:
+                - name: a             # Collides with alias in same level
+                - name: b
+                  alias: a            # Collides with entity a

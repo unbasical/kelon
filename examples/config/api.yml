@@ -11,6 +11,14 @@ apis:
         package: applications.mysql
         methods:
           - GET
+      - path: /.*
+        package: test
+  # Route all requests starting with /api/mongo to MongoDB
+  - path-prefix: /api/mongo
+    datastore: mongo
+    mappings:
+      - path: /apps/.*
+        package: applications.mongo
   # All other requests are routed to postgres
   - path-prefix: /api/.*?
     datastore: pg

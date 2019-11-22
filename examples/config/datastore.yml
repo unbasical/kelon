@@ -18,21 +18,43 @@ datastores:
       user: You
       password: SuperSecure
 
+  mongo:
+    type: mongo
+    connection:
+      host: mongo
+      port: 27017
+      database: appstore
+      user: You
+      password: SuperSecure
+
 # Entity-Schemas define the structure of the entities of one schema inside a datastore
 entity_schemas:
+
   mysql:                                # Target datastore
     appstore:                           # Target schema
       entities:                         # List of all entities of the schema
-        - users
-        - app_rights
-        - apps
-        - app_tags
-        - tags
+        - name: users
+        - name: app_rights
+        - name: apps
+        - name: app_tags
+        - name: tags
+
   pg:
     appstore:
       entities:
-        - users
-        - app_rights
-        - apps
-        - app_tags
-        - tags
+        - name: users
+        - name: app_rights
+        - name: apps
+        - name: app_tags
+        - name: tags
+
+  mongo:
+    appstore:
+      entities:
+        - name: users
+        - name: apps
+          entities:
+            - name: rights
+              entities:
+                - name: user
+                  alias: users

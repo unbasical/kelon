@@ -8,6 +8,7 @@ services:
       - postgres
     ports:
       - "8181:8181"
+      - "9191:9191"
     volumes:
       - ./examples/config/:/conf
       - ./call-operands/:/call-operands
@@ -15,7 +16,8 @@ services:
       - DATASTORE_CONF=/conf/datastore.yml
       - API_CONF=/conf/api.yml
       - OPA_CONF=/conf/opa.yml
-      - REGO_DIR=/conf
+      - REGO_DIR=/conf/policies
+      - CONFIG_WATCHER_PATH=/conf/policies
 
   mysql:
     image: mysql:5.7
@@ -41,6 +43,18 @@ services:
       - '5432:5432'
     volumes:
       - ./examples/init/Init-Postgres.sql:/docker-entrypoint-initdb.d/Init-Postgres.sql
+
+  mongo:
+    image: mongo
+    restart: always
+    ports:
+      - "27017-27019:27017-27019"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: Root
+      MONGO_INITDB_ROOT_PASSWORD: RootPwd
+      MONGO_INITDB_DATABASE: appstore
+    volumes:
+      - ./examples/init/Init-Mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
 
   adminer:
     image: adminer

@@ -5,6 +5,7 @@ import (
 
 	"github.com/Foundato/kelon/configs"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 )
 
 //nolint:gochecknoglobals
@@ -36,7 +37,15 @@ var wantDatatoreConfig = configs.DatastoreConfig{
 	DatastoreSchemas: map[string]map[string]*configs.EntitySchema{
 		"mysql": {
 			"appstore": {
-				Entities: []string{"users", "followers"},
+				Entities: []*configs.Entity{
+					{
+						Name: "users",
+					},
+					{
+						Name:  "user_followers",
+						Alias: "followers",
+					},
+				},
 			},
 		},
 	},
@@ -106,10 +115,23 @@ func TestLoadNotExistingDatastoreFile(t *testing.T) {
 		DatastoreConfigPath: "./datastore-not-existing.yml",
 		APIConfigPath:       "./api-not-existing.yml",
 	}.Load()
+	assert.EqualError(t, err, "open ./datastore-not-existing.yml: no such file or directory")
+}
 
-	if err == nil || err.Error() != "open ./datastore-not-existing.yml: no such file or directory" {
-		t.Error("File not found error not thrown!")
-	}
+func TestLoadAmbiguousEntitiesDatastoreFile(t *testing.T) {
+	_, err := configs.FileConfigLoader{
+		DatastoreConfigPath: "./testdata/datastore_ambiguous_entities.yml",
+		APIConfigPath:       "./testdata/api.yml",
+	}.Load()
+	assert.EqualError(t, err, "Loaded invalid datastore config: The entity with name \"irrelevant\" collides with entity \"users\" inside all entitiy_schemas of the datastore \"mysql\"!")
+}
+
+func TestLoadAmbiguousNestedEntitiesDatastoreFile(t *testing.T) {
+	_, err := configs.FileConfigLoader{
+		DatastoreConfigPath: "./testdata/datastore_ambiguous_nested_entities.yml",
+		APIConfigPath:       "./testdata/api.yml",
+	}.Load()
+	assert.EqualError(t, err, "Loaded invalid datastore config: Found ambiguous nested entities in datastore \"mysql\" schema \"appstore\": The entity with name \"b\" collides with entity \"a\" inside path \"level1\"!")
 }
 
 func TestLoadNotExistingApiFile(t *testing.T) {

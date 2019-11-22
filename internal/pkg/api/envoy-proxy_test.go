@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/open-policy-agent/opa/plugins"
+
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/pkg/api"
 	"github.com/Foundato/kelon/pkg/opa"
@@ -51,6 +53,10 @@ type mockCompiler struct {
 	failOnConfigure bool
 	failOnProcess   bool
 	decision        bool
+}
+
+func (c mockCompiler) GetEngine() *plugins.Manager {
+	panic("implement me")
 }
 
 func (c mockCompiler) Configure(appConfig *configs.AppConfig, compConfig *opa.PolicyCompilerConfig) error {
