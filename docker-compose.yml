@@ -16,7 +16,8 @@ services:
       - DATASTORE_CONF=/conf/datastore.yml
       - API_CONF=/conf/api.yml
       - OPA_CONF=/conf/opa.yml
-      - REGO_DIR=/conf
+      - REGO_DIR=/conf/policies
+      - CONFIG_WATCHER_PATH=/conf/policies
 
   mysql:
     image: mysql:5.7
