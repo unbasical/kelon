@@ -3,29 +3,29 @@
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: opa-viewer
+  name: kelon-viewer
 roleRef:
   kind: ClusterRole
   name: view
   apiGroup: rbac.authorization.k8s.io
 subjects:
   - kind: Group
-    name: system:serviceaccounts:opa
+    name: system:serviceaccounts:kelon
     apiGroup: rbac.authorization.k8s.io
 ---
-# Create opa namespace
+# Create kelon namespace
 kind: Namespace
 apiVersion: "v1"
 metadata:
-   name: opa
+   name: kelon
    labels:
-     name: opa
+     name: kelon
 ---
 # Define role for OPA/kube-mgmt to update configmaps with policy status.
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  namespace: opa
+  namespace: kelon
   name: configmap-modifier
 rules:
   - apiGroups: [""]
@@ -36,7 +36,7 @@ rules:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  namespace: opa
+  namespace: kelon
   name: opa-configmap-modifier
 roleRef:
   kind: Role
@@ -44,7 +44,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 subjects:
   - kind: Group
-    name: system:serviceaccounts:opa
+    name: system:serviceaccounts:kelon
     apiGroup: rbac.authorization.k8s.io
 ---
 # Deploy OPA and kube-mgmt.
@@ -52,7 +52,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: kelon
-  namespace: opa
+  namespace: kelon
 spec:
   replicas: 1
   template:
