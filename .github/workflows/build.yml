@@ -72,7 +72,7 @@ jobs:
         run: docker login docker.pkg.github.com -u ${{ secrets.PACKAGE_USERNAME }} -p ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build container image
-        run: docker build -t docker.pkg.github.com/Foundato/kelon/kelon:${GITHUB_REF##*/} .
+        run: docker build -t docker.pkg.github.com/foundato/kelon/kelon:$(git rev-parse --short HEAD) .
 
       - name: Push image to github packages
-        run: docker push docker.pkg.github.com/Foundato/kelon/kelon:${GITHUB_REF##*/}
+        run: docker push docker.pkg.github.com/foundato/kelon/kelon:$(git rev-parse --short HEAD)
