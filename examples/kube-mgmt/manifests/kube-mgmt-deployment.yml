@@ -62,7 +62,7 @@ spec:
     spec:
       containers:
         - name: kelon
-          image: docker.pkg.github.com/foundato/kelon/kelon:ffbef2f
+          image: kelonio/kelon:latest
           args:
             - "--opa-conf=/conf/opa.yml"
             - "--api-conf=/conf/api.yml"
