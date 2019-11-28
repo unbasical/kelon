@@ -34,9 +34,9 @@ var (
 	//nolint:gochecknoglobals
 	pathPrefix = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
 	//nolint:gochecknoglobals
-	port = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
+	port = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Envar("PORT").Uint32()
 	//nolint:gochecknoglobals
-	envoyPort = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Default("9191").Envar("ENVOY_PORT").Uint32()
+	envoyPort = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
 	//nolint:gochecknoglobals
 	envoyDryRun = app.Flag("envoy-dry-run", "Enable/Disable the dry run feature of the envoy-proxy.").Default("false").Envar("ENVOY_DRY_RUN").Bool()
 	//nolint:gochecknoglobals
@@ -115,7 +115,7 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		startNewRestProxy(config, &serverConf)
 
 		// Start envoy proxy in addition to rest proxy as soon as a port was specified!
-		if envoyPort != nil {
+		if envoyPort != nil && *envoyPort != 0 {
 			startNewEnvoyProxy(config, &serverConf)
 		}
 	}
