@@ -34,7 +34,7 @@ var (
 	//nolint:gochecknoglobals
 	pathPrefix = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
 	//nolint:gochecknoglobals
-	port = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Envar("PORT").Uint32()
+	port = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
 	//nolint:gochecknoglobals
 	envoyPort = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
 	//nolint:gochecknoglobals
