@@ -1,6 +1,7 @@
 package main
 
 import (
+	envoy2 "github.com/Foundato/kelon/internal/pkg/api/envoy"
 	"os"
 	"os/signal"
 	"syscall"
@@ -139,7 +140,7 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 	}
 
 	// Create Rest proxy and start
-	envoy = apiInt.NewEnvoyProxy(apiInt.EnvoyConfig{
+	envoy = envoy2.NewEnvoyProxy(envoy2.EnvoyConfig{
 		Port:             *envoyPort,
 		DryRun:           *envoyDryRun,
 		EnableReflection: *envoyReflection,
