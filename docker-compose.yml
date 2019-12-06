@@ -3,21 +3,19 @@ services:
   kelon:
     build: .
     restart: always
-    depends_on:
-      - mysql
-      - postgres
     ports:
       - "8181:8181"
       - "9191:9191"
     volumes:
-      - ./examples/config/:/conf
+      - ./examples/docker-compose/config/:/conf
       - ./call-operands/:/call-operands
+      - ./examples/docker-compose/policies/:/policies
     environment:
       - DATASTORE_CONF=/conf/datastore.yml
       - API_CONF=/conf/api.yml
       - OPA_CONF=/conf/opa.yml
-      - REGO_DIR=/conf/policies
-      - CONFIG_WATCHER_PATH=/conf/policies
+      - REGO_DIR=/policies
+      - CONFIG_WATCHER_PATH=/policies
 
   mysql:
     image: mysql:5.7
@@ -30,7 +28,7 @@ services:
     ports:
       - '3306:3306'
     volumes:
-      - ./examples/init/Init-MySql.sql:/docker-entrypoint-initdb.d/Init-MySql.sql
+      - ./examples/docker-compose/init/Init-MySql.sql:/docker-entrypoint-initdb.d/Init-MySql.sql
 
   postgres:
     image: postgres
@@ -42,7 +40,7 @@ services:
     ports:
       - '5432:5432'
     volumes:
-      - ./examples/init/Init-Postgres.sql:/docker-entrypoint-initdb.d/Init-Postgres.sql
+      - ./examples/docker-compose/init/Init-Postgres.sql:/docker-entrypoint-initdb.d/Init-Postgres.sql
 
   mongo:
     image: mongo
@@ -54,10 +52,4 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: RootPwd
       MONGO_INITDB_DATABASE: appstore
     volumes:
-      - ./examples/init/Init-Mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
-
-  adminer:
-    image: adminer
-    restart: always
-    ports:
-      - 8080:8080
+      - ./examples/docker-compose/init/Init-Mongo.js:/docker-entrypoint-initdb.d/init-mongo.js

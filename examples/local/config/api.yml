@@ -1,0 +1,27 @@
+apis:
+  # Route all requests starting with /api/mysql to mysql database
+  - path-prefix: /api/mysql
+    datastore: mysql
+    mappings:
+      - path: /apps/.*                   # Matches [GET,POST,PUT,DELETE,PATCH] /api/mysql/apps/.*
+        package: applications.mysql
+      - path: /apps/[\d]+               # Matches [GET,POST,PUT,DELETE,PATCH] /api/mysql/apps/[\d]+
+        package: applications.mysql
+      - path: /apps/[\d]+               # Only matches GET /api/mysql/apps/[\d]+
+        package: applications.mysql
+        methods:
+          - GET
+      - path: /.*
+        package: test
+  # Route all requests starting with /api/mongo to MongoDB
+  - path-prefix: /api/mongo
+    datastore: mongo
+    mappings:
+      - path: /apps/.*
+        package: applications.mongo
+  # All other requests are routed to postgres
+  - path-prefix: /api/.*?
+    datastore: pg
+    mappings:
+      - path: /apps/.*
+        package: applications.pg
