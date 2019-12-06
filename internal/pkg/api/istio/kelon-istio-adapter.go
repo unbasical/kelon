@@ -9,7 +9,13 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
+	"strings"
 	"time"
+
+	google_rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+
+	"github.com/Foundato/kelon/pkg/opa"
 
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/pkg/api"
@@ -33,6 +39,7 @@ type (
 		configured bool
 		appConf    *configs.AppConfig
 		config     *api.ClientProxyConfig
+		compiler   *opa.PolicyCompiler
 		listener   net.Listener
 		server     *grpc.Server
 	}
@@ -63,6 +70,7 @@ func (s *KelonIstioAdapter) Configure(appConf *configs.AppConfig, serverConf *ap
 	// Assign variables
 	s.appConf = appConf
 	s.config = serverConf
+	s.compiler = &compiler
 	s.configured = true
 	log.Infoln("Configured IstioProxy")
 	return nil
@@ -105,7 +113,27 @@ func (s *KelonIstioAdapter) Stop(deadline time.Duration) error {
 // Handle Authorization
 func (s *KelonIstioAdapter) HandleAuthorization(ctx context.Context, req *authorization.HandleAuthorizationRequest) (*v1beta1.CheckResult, error) {
 	log.Infof("IstioProxy received request %v", *req)
-	return &v1beta1.CheckResult{}, nil
+	action := req.Instance.Action
+	httpRequest, err := http.NewRequest(action.Method, action.Path, strings.NewReader(""))
+	if err != nil {
+		return nil, errors.Wrap(err, "IstioProxy: error while creating fake http request")
+	}
+
+	decision, err := (*s.compiler).Process(httpRequest)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnvoyProxy: Error during request compilation")
+	}
+	log.Infof("Handle opa decision %+v", decision)
+
+	return &v1beta1.CheckResult{
+		Status: google_rpc.Status{
+			Code:    10,
+			Message: "Error",
+			Details: nil,
+		},
+		ValidDuration: 0,
+		ValidUseCount: 0,
+	}, nil
 }
 
 // ==============================================================

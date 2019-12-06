@@ -36,5 +36,6 @@ require (
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/yaml.v3 v3.0.0-20190905181640-827449938966
 	istio.io/api v0.0.0-20191205234547-d2b87eef5659
+	istio.io/gogo-genproto v0.0.0-20191024203824-d079cc8b1d55
 	istio.io/istio v0.0.0-20191206055447-032be5b1ecfd
 )
