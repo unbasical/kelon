@@ -17,6 +17,7 @@ require (
 	github.com/envoyproxy/go-control-plane v0.9.1
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-sql-driver/mysql v1.4.1
+	github.com/gogo/protobuf v1.3.0
 	github.com/google/go-cmp v0.3.1
 	github.com/gorilla/mux v1.7.3
 	github.com/lib/pq v1.2.0
