@@ -136,16 +136,13 @@ func (s *KelonIstioAdapter) Close() error {
 }
 
 // NewKelonIstioAdapter creates a new IBP adapter that listens at provided port.
-func NewKelonIstioAdapter(addr string) (Server, error) {
-	if addr == "" {
-		addr = "0"
-	}
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", addr))
+func NewKelonIstioAdapter(port uint32) api.ClientProxy {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		return nil, errors.Errorf("unable to listen on socket: %v", err)
+		log.Fatalf("unable to listen on socket: %v", err)
 	}
 	s := &KelonIstioAdapter{
 		listener: listener,
 	}
-	return s, nil
+	return s
 }

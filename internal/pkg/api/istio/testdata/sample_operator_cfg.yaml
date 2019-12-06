@@ -7,21 +7,28 @@ metadata:
 spec:
   adapter: kelonistioadapter
   connection:
-    address: "{ADDRESS}" #replaces at runtime by the test
+    address: "[::]:7777"
 ---
 
 # instance for template authorization
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
-  name: i1authorization
+  name: i1auth
   namespace: istio-system
 spec:
   template: authorization
   params:
-    value: request.size | 0
-    dimensions:
-      response_code: "200"
+    subject:
+      user: source.principal | request.auth.principal | ""
+      groups: request.auth.claims["groups"] | ""
+      properties:
+        iss: request.auth.claims["iss"]
+    action:
+      namespace: destination.namespace | "default"
+      service: destination.service.host | ""
+      path: request.path | "/"
+      method: request.method | "post"
 ---
 
 # rule to dispatch to handler h1
@@ -31,8 +38,9 @@ metadata:
   name: r1
   namespace: istio-system
 spec:
+  match: destination.service.host == "svc.cluster.local"
   actions:
     - handler: h1.istio-system
       instances:
-        - i1authorization
+        - i1auth
 ---
