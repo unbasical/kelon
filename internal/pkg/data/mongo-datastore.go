@@ -173,6 +173,7 @@ func (ds mongoDatastore) Execute(query *data.Node) (bool, error) {
 	return false, nil
 }
 
+// nolint:gocyclo
 func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 	type colFilter struct {
 		collection string

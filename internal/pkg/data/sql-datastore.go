@@ -128,6 +128,7 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 	return false, nil
 }
 
+// nolint:gocyclo
 func (ds sqlDatastore) translate(input *data.Node) string {
 	var query util.SStack
 	var selects util.SStack
