@@ -38,7 +38,7 @@ func extractAndValidateDatastore(appConf *configs.AppConfig, alias string) (*con
 	if !ok {
 		return nil, errors.Errorf("No datastore with alias [%s] configured!", alias)
 	}
-	if strings.ToLower(conf.Type) == "" {
+	if strings.EqualFold(conf.Type, "") {
 		return nil, errors.Errorf("Alias of datastore is empty! Must be one of %+v!", sql.Drivers())
 	}
 	if err := validateConnection(alias, conf.Connection); err != nil {
