@@ -45,7 +45,7 @@ var (
 	//nolint:gochecknoglobals
 	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
 	//nolint:gochecknoglobals
-	istioPort = app.Flag("istio-port", "Also start Istio Mixer Out of Tree Adapter  on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
+	istioPort = app.Flag("istio-port", "Also start Istio Mixer Out of Tree Adapter  on specified port so integrate kelon with Istio.").Envar("ISTIO_PORT").Uint32()
 	//nolint:gochecknoglobals
 	proxy api.ClientProxy = nil
 	//nolint:gochecknoglobals
@@ -86,6 +86,7 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 		log.Infoln("Kelon starting in debug-mode...")
 	}
+	log.Infof("Rego-dir is %s", *regoDir)
 
 	// Init config loader
 	configLoader := configs.FileConfigLoader{

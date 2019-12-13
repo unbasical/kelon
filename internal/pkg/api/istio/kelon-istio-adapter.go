@@ -133,7 +133,7 @@ func (s *KelonIstioAdapter) HandleAuthorization(ctx context.Context, req *author
 		},
 		ValidDuration: 0,
 		ValidUseCount: 0,
-	}, nil
+	}, errors.New("This failed")
 }
 
 // ==============================================================

@@ -6,7 +6,7 @@ metadata:
   name: kelonistioadapter
   namespace: istio-system
 spec:
-  description: 
+  description: istio adapter for kelon
   session_based: false
   templates:
   - authorization
