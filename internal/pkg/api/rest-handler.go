@@ -264,7 +264,7 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := proxy.checkPolicyPackageScope(ctx, txn, parsedMod.Package); err != nil {
+	if err = proxy.checkPolicyPackageScope(ctx, txn, parsedMod.Package); err != nil {
 		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}
@@ -321,7 +321,7 @@ func (proxy restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Check policy scope
-	if err := proxy.checkPolicyIDScope(ctx, txn, path.String()); err != nil {
+	if err = proxy.checkPolicyIDScope(ctx, txn, path.String()); err != nil {
 		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
 	}

@@ -6,6 +6,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Foundato/kelon/internal/pkg/api/istio"
+
 	apiInt "github.com/Foundato/kelon/internal/pkg/api"
 	opaInt "github.com/Foundato/kelon/internal/pkg/opa"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
@@ -14,6 +16,7 @@ import (
 
 	"github.com/Foundato/kelon/common"
 	"github.com/Foundato/kelon/configs"
+	"github.com/Foundato/kelon/internal/pkg/api/envoy"
 	"github.com/Foundato/kelon/internal/pkg/data"
 	"github.com/Foundato/kelon/pkg/api"
 	"github.com/Foundato/kelon/pkg/opa"
@@ -43,11 +46,15 @@ var (
 	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
 	//nolint:gochecknoglobals
 	respondWithStatusCode = app.Flag("respond-with-status-code", "Communicate Decision via status code 200 (ALLOW) or 403 (DENY).").Default("false").Envar("RESPOND_WITH_STATUS_CODE").Bool()
+	//nolint:gochecknoglobals
+  istioPort = app.Flag("istio-port", "Also start Istio Mixer Out of Tree Adapter  on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
 
 	//nolint:gochecknoglobals
 	proxy api.ClientProxy = nil
 	//nolint:gochecknoglobals
-	envoy api.ClientProxy = nil
+	envoyProxy api.ClientProxy = nil
+	//nolint:gochecknoglobals
+	istioProxy api.ClientProxy = nil
 	//nolint:gochecknoglobals
 	configWatcher watcher.ConfigWatcher = nil
 )
@@ -117,9 +124,14 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		// Start rest proxy
 		startNewRestProxy(config, &serverConf)
 
-		// Start envoy proxy in addition to rest proxy as soon as a port was specified!
+		// Start envoyProxy proxy in addition to rest proxy as soon as a port was specified!
 		if envoyPort != nil && *envoyPort != 0 {
 			startNewEnvoyProxy(config, &serverConf)
+		}
+
+		// Start istio adapter in addition to rest proxy as soon as a port was specified!
+		if istioPort != nil && *istioPort != 0 {
+			startNewIstioAdapter(config, &serverConf)
 		}
 	}
 }
@@ -138,20 +150,42 @@ func startNewRestProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxy
 
 func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
 	if *envoyPort == *port {
-		panic("Cannot start envoy proxy and rest proxy on same port!")
+		panic("Cannot start envoyProxy proxy and rest proxy on same port!")
+	}
+	if *envoyPort == *istioPort {
+		panic("Cannot start envoyProxy proxy and istio adapter on same port!")
 	}
 
 	// Create Rest proxy and start
-	envoy = apiInt.NewEnvoyProxy(apiInt.EnvoyConfig{
+	envoyProxy = envoy.NewEnvoyProxy(envoy.EnvoyConfig{
 		Port:             *envoyPort,
 		DryRun:           *envoyDryRun,
 		EnableReflection: *envoyReflection,
 	})
-	if err := envoy.Configure(appConfig, serverConf); err != nil {
+	if err := envoyProxy.Configure(appConfig, serverConf); err != nil {
 		log.Fatalln(err.Error())
 	}
 	// Start proxy
-	if err := envoy.Start(); err != nil {
+	if err := envoyProxy.Start(); err != nil {
+		log.Fatalln(err.Error())
+	}
+}
+
+func startNewIstioAdapter(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
+	if *istioPort == *port {
+		panic("Cannot start istio adapter and rest proxy on same port!")
+	}
+	if *envoyPort == *istioPort {
+		panic("Cannot start envoyProxy proxy and istio adapter on same port!")
+	}
+
+	// Create Rest proxy and start
+	istioProxy = istio.NewKelonIstioAdapter(*istioPort)
+	if err := istioProxy.Configure(appConfig, serverConf); err != nil {
+		log.Fatalln(err.Error())
+	}
+	// Start proxy
+	if err := istioProxy.Start(); err != nil {
 		log.Fatalln(err.Error())
 	}
 }
@@ -187,9 +221,9 @@ func stopOnSIGTERM() {
 	<-interruptChan
 
 	log.Infoln("Caught SIGTERM...")
-	// Stop envoy proxy if started
-	if envoy != nil {
-		if err := envoy.Stop(time.Second * 10); err != nil {
+	// Stop envoyProxy proxy if started
+	if envoyProxy != nil {
+		if err := envoyProxy.Stop(time.Second * 10); err != nil {
 			log.Warnln(err.Error())
 		}
 	}

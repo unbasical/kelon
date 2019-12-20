@@ -170,7 +170,7 @@ func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query st
 			Metrics:    m,
 		}
 
-		if err := logger.Log(ctx, record); err != nil {
+		if err = logger.Log(ctx, record); err != nil {
 			return partialResult, errors.Wrap(err, "failed to log decision")
 		}
 	}

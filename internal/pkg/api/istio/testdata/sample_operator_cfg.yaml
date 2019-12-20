@@ -1,0 +1,46 @@
+# handler for adapter kelonistioadapter
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: h1
+  namespace: istio-system
+spec:
+  adapter: kelonistioadapter
+  connection:
+    address: "[::]:7777"
+---
+
+# instance for template authorization
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: i1auth
+  namespace: istio-system
+spec:
+  template: authorization
+  params:
+    subject:
+      user: source.principal | request.auth.principal | ""
+      groups: request.auth.claims["groups"] | ""
+      properties:
+        iss: request.auth.claims["iss"]
+    action:
+      namespace: destination.namespace | "default"
+      service: destination.service.host | ""
+      path: request.path | "/"
+      method: request.method | "post"
+---
+
+# rule to dispatch to handler h1
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r1
+  namespace: istio-system
+spec:
+  match: destination.service.host == "svc.cluster.local"
+  actions:
+    - handler: h1.istio-system
+      instances:
+        - i1auth
+---
