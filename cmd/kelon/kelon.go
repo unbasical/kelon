@@ -45,7 +45,10 @@ var (
 	//nolint:gochecknoglobals
 	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
 	//nolint:gochecknoglobals
+	respondWithStatusCode = app.Flag("respond-with-status-code", "Communicate Decision via status code 200 (ALLOW) or 403 (DENY).").Default("false").Envar("RESPOND_WITH_STATUS_CODE").Bool()
+	//nolint:gochecknoglobals
 	istioPort = app.Flag("istio-port", "Also start Istio Mixer Out of Tree Adapter  on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
+
 	//nolint:gochecknoglobals
 	proxy api.ClientProxy = nil
 	//nolint:gochecknoglobals
@@ -190,7 +193,8 @@ func startNewIstioAdapter(appConfig *configs.AppConfig, serverConf *api.ClientPr
 func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
 	// Build server config
 	serverConf := api.ClientProxyConfig{
-		Compiler: &compiler,
+		Compiler:              &compiler,
+		RespondWithStatusCode: *respondWithStatusCode,
 		PolicyCompilerConfig: opa.PolicyCompilerConfig{
 			Prefix:        pathPrefix,
 			OpaConfigPath: opaPath,
