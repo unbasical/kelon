@@ -47,7 +47,7 @@ var (
 	//nolint:gochecknoglobals
 	respondWithStatusCode = app.Flag("respond-with-status-code", "Communicate Decision via status code 200 (ALLOW) or 403 (DENY).").Default("false").Envar("RESPOND_WITH_STATUS_CODE").Bool()
 	//nolint:gochecknoglobals
-  istioPort = app.Flag("istio-port", "Also start Istio Mixer Out of Tree Adapter  on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
+	istioPort = app.Flag("istio-port", "Also start Istio Mixer Out of Tree Adapter  on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
 
 	//nolint:gochecknoglobals
 	proxy api.ClientProxy = nil
