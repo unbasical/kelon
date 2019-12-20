@@ -67,14 +67,20 @@ func (proxy restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request) 
 	// Compile
 	compiler := *proxy.config.Compiler
 	if decision, err := compiler.Process(r); err == nil {
+		// Compute status code if configured
+		responseStatus := http.StatusOK
+		if !decision && proxy.config.RespondWithStatusCode {
+			responseStatus = http.StatusForbidden
+		}
+
 		// Send decision to client
 		switch decision {
 		case true:
 			log.Infoln("Decision: ALLOW")
-			writeJSON(w, http.StatusOK, apiResponse{Result: true})
+			writeJSON(w, responseStatus, apiResponse{Result: true})
 		case false:
 			log.Infoln("Decision: DENY")
-			writeJSON(w, http.StatusOK, apiResponse{Result: false})
+			writeJSON(w, responseStatus, apiResponse{Result: false})
 		}
 	} else {
 		// Handle error returned by compiler
