@@ -87,7 +87,7 @@ func (processor *astPreprocessor) transformRefs(value interface{}) (interface{},
 		// Keep track of iterators used for each table. We do not support
 		// self-links currently. Self-links require namespacing in the SQL
 		// value.
-		if _, ok := processor.tableNames[tableName]; ok {
+		if match, ok := processor.tableNames[tableName]; ok && match != rowID.String() {
 			return nil, errors.New("invalid reference: self-links not supported")
 		}
 		processor.tableNames[tableName] = rowID.String()

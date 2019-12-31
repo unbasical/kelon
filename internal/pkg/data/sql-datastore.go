@@ -171,15 +171,11 @@ func (ds sqlDatastore) translate(input *data.Node) string {
 			joins = joins[:0]
 			relations = relations[:0]
 		case data.Link:
-			// Expected stack: entities-top -> [entities] relations-top -> [relations]
-			if len(entities) != len(relations) {
-				log.Errorf("Error while creating Link: Entities and relations are not balanced! Lengths are Entities[%d:%d]Relations", len(entities), len(relations))
-			}
-			for i, entity := range entities {
-				joins = joins.Push(fmt.Sprintf(" INNER JOIN %s ON %s", entity, strings.Replace(relations[i], "WHERE", "", 1)))
+			// Expected stack: entities-top -> [entities]
+			for _, entity := range entities {
+				joins = joins.Push(fmt.Sprintf(", %s", entity))
 			}
 			entities = entities[:0]
-			relations = relations[:0]
 		case data.Condition:
 			// Expected stack: relations-top -> [singleRelation]
 			if len(relations) > 0 {

@@ -25,10 +25,8 @@ type Query struct {
 }
 
 // Link between a parent entity and a list of entities with corresponding conditions.
-// Note that len(Entities) == len(conditions)
 type Link struct {
-	Entities   []Entity
-	Conditions []Node
+	Entities []Entity
 }
 
 // A single root condition.
@@ -187,16 +185,13 @@ func (c Condition) Walk(vis func(v Node)) {
 func (l Link) String() string {
 	links := make([]string, len(l.Entities))
 	for i, e := range l.Entities {
-		links[i] = fmt.Sprintf("(%s ON %s)", e, l.Conditions[i])
+		links[i] = fmt.Sprintf("%s, ", e)
 	}
 	return fmt.Sprintf("link(%+v)", links)
 }
 
 // Implements data.Node
 func (l Link) Walk(vis func(v Node)) {
-	for _, c := range l.Conditions {
-		c.Walk(vis)
-	}
 	for _, e := range l.Entities {
 		e.Walk(vis)
 	}
