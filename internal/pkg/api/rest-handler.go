@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	utilInt "github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/request"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
@@ -238,6 +239,9 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		return
 	}
+
+	// Translate
+	buf = []byte(utilInt.PreprocessPolicy(proxy.appConf, string(buf)))
 
 	// Parse Path
 	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
