@@ -3,6 +3,7 @@ package configs
 
 import (
 	"io/ioutil"
+	"os"
 
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
@@ -47,6 +48,8 @@ func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 
 	// Load datastore config
 	result.Data = new(DatastoreConfig)
+	// Expand datastore config with environment variables
+	l.DatastoreConfigBytes = []byte(os.ExpandEnv(string(l.DatastoreConfigBytes)))
 	if err := yaml.Unmarshal(l.DatastoreConfigBytes, result.Data); err != nil {
 		return nil, errors.New("Unable to parse datastore config: " + err.Error())
 	}
