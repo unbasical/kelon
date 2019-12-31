@@ -6,6 +6,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Foundato/kelon/internal/pkg/util"
+
 	"github.com/Foundato/kelon/internal/pkg/api/istio"
 
 	apiInt "github.com/Foundato/kelon/internal/pkg/api"
@@ -48,6 +50,8 @@ var (
 	respondWithStatusCode = app.Flag("respond-with-status-code", "Communicate Decision via status code 200 (ALLOW) or 403 (DENY).").Default("false").Envar("RESPOND_WITH_STATUS_CODE").Bool()
 	//nolint:gochecknoglobals
 	istioPort = app.Flag("istio-port", "Also start Istio Mixer Out of Tree Adapter  on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
+	//nolint:gochecknoglobals
+	preprocessRegos = app.Flag("preprocess-policies", "Preprocess incoming policies for internal use-case (EXPERIMENTAL FEATURE! DO NOT USE!).").Default("false").Envar("PREPROCESS_POLICIES").Bool()
 
 	//nolint:gochecknoglobals
 	proxy api.ClientProxy = nil
@@ -120,6 +124,10 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		config.Data = loadedConf.Data
 		// Build server config
 		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
+
+		if *preprocessRegos {
+			*regoDir = util.PrepocessPoliciesInDir(config, *regoDir)
+		}
 
 		// Start rest proxy
 		startNewRestProxy(config, &serverConf)
