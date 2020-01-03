@@ -35,18 +35,20 @@ var (
 	regoDir               = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Short('r').Envar("REGO_DIR").ExistingDir()
 	pathPrefix            = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
 	port                  = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
-	envoyPort             = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
-	envoyDryRun           = app.Flag("envoy-dry-run", "Enable/Disable the dry run feature of the envoy-proxy.").Default("false").Envar("ENVOY_DRY_RUN").Bool()
-	envoyReflection       = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
 	respondWithStatusCode = app.Flag("respond-with-status-code", "Communicate Decision via status code 200 (ALLOW) or 403 (DENY).").Default("false").Envar("RESPOND_WITH_STATUS_CODE").Bool()
+	preprocessRegos       = app.Flag("preprocess-policies", "Preprocess incoming policies for internal use-case (EXPERIMENTAL FEATURE! DO NOT USE!).").Default("false").Envar("PREPROCESS_POLICIES").Bool()
+	logLevel              = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
 
+	// Configs for envoy external auth
+	envoyPort       = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
+	envoyDryRun     = app.Flag("envoy-dry-run", "Enable/Disable the dry run feature of the envoy-proxy.").Default("false").Envar("ENVOY_DRY_RUN").Bool()
+	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
+
+	// Configs for Istio Mixer Adapter
 	istioPort            = app.Flag("istio-port", "Also start Istio Mixer Out of Tree Adapter  on specified port so integrate kelon with Istio.").Envar("ISTIO_PORT").Uint32()
-	istioCredentialFile  = app.Flag("istio-credential-file", ".").Envar("ISTIO_CREDENTIAL_FILE").ExistingFile()
-	istioPrivateKeyFile  = app.Flag("istio-private-key-file", ".").Envar("ISTIO_PRIVATE_KEY_FILE").ExistingFile()
-	istioCertificateFile = app.Flag("istio-certificate-file", ".").Envar("ISTIO_CERTIFICATE_FILE").ExistingFile()
-
-	preprocessRegos = app.Flag("preprocess-policies", "Preprocess incoming policies for internal use-case (EXPERIMENTAL FEATURE! DO NOT USE!).").Default("false").Envar("PREPROCESS_POLICIES").Bool()
-	logLevel        = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
+	istioCredentialFile  = app.Flag("istio-credential-file", "Filepath containing istio credentials for mTLS (i.e. adapter.crt).").Envar("ISTIO_CREDENTIAL_FILE").ExistingFile()
+	istioPrivateKeyFile  = app.Flag("istio-private-key-file", "Filepath containing istio private key for mTLS (i.e. adapter.key).").Envar("ISTIO_PRIVATE_KEY_FILE").ExistingFile()
+	istioCertificateFile = app.Flag("istio-certificate-file", "Filepath containing istio certificate for mTLS (i.e. ca.pem).").Envar("ISTIO_CERTIFICATE_FILE").ExistingFile()
 
 	proxy         api.ClientProxy       = nil
 	envoyProxy    api.ClientProxy       = nil
