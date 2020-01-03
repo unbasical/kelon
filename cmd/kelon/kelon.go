@@ -104,7 +104,7 @@ func main() {
 			APIConfigPath:       *apiPath,
 		}
 		// Start app after config is present
-		configWatcher = watcherInt.NewFileWatcher(configLoader, *configWatcherPath)
+		makeConfigWatcher(configLoader, configWatcherPath)
 		configWatcher.Watch(onConfigLoaded)
 		stopOnSIGTERM()
 	}
