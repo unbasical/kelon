@@ -21,9 +21,7 @@ import (
 	"github.com/open-policy-agent/opa/metrics"
 	"github.com/open-policy-agent/opa/plugins"
 	"github.com/open-policy-agent/opa/plugins/discovery"
-	"github.com/open-policy-agent/opa/plugins/logs"
 	"github.com/open-policy-agent/opa/rego"
-	"github.com/open-policy-agent/opa/server"
 	"github.com/open-policy-agent/opa/storage"
 	"github.com/open-policy-agent/opa/storage/inmem"
 	"github.com/pkg/errors"
@@ -161,19 +159,6 @@ func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query st
 		partialResult = rs
 		return nil
 	})
-
-	if logger := logs.Lookup(opa.manager); logger != nil {
-		record := &server.Info{
-			DecisionID: decisionID,
-			Query:      query,
-			Error:      err,
-			Metrics:    m,
-		}
-
-		if err = logger.Log(ctx, record); err != nil {
-			return partialResult, errors.Wrap(err, "failed to log decision")
-		}
-	}
 
 	return partialResult, err
 }

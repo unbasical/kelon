@@ -1,6 +1,7 @@
 package opa
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -84,11 +85,27 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 
 	// Parse body of request
 	requestBody := make(map[string]map[string]interface{})
-	if marshalErr := json.NewDecoder(request.Body).Decode(&requestBody); marshalErr != nil {
-		return false, errors.Wrap(marshalErr, "PolicyCompiler: Error while parsing request body!")
+	if log.GetLevel() == log.DebugLevel {
+		log.Debugf("PolicyCompiler: Received request: %+v", request)
+
+		// Log body and decode already logged body
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(request.Body)
+		bodyString := buf.String()
+		log.Debugf("PolicyCompiler: Request had body: %s", bodyString)
+		if marshalErr := json.NewDecoder(strings.NewReader(bodyString)).Decode(&requestBody); marshalErr != nil {
+			return false, errors.Wrap(marshalErr, "PolicyCompiler: Error while parsing request body!")
+		}
+	} else {
+		// Decode raw body
+		if marshalErr := json.NewDecoder(request.Body).Decode(&requestBody); marshalErr != nil {
+			return false, errors.Wrap(marshalErr, "PolicyCompiler: Error while parsing request body!")
+		}
 	}
+
+	// Extract input
 	input := requestBody["input"]
-	log.Infof("Received input: %+v", input)
+	log.Debugf("PolicyCompiler: Received input: %+v", input)
 
 	// Process path
 	output, err := compiler.processPath(input)

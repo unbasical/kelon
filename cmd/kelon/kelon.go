@@ -6,10 +6,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Foundato/kelon/internal/pkg/util"
-
-	"github.com/Foundato/kelon/internal/pkg/api/istio"
-
 	apiInt "github.com/Foundato/kelon/internal/pkg/api"
 	opaInt "github.com/Foundato/kelon/internal/pkg/opa"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
@@ -19,7 +15,9 @@ import (
 	"github.com/Foundato/kelon/common"
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/api/envoy"
+	"github.com/Foundato/kelon/internal/pkg/api/istio"
 	"github.com/Foundato/kelon/internal/pkg/data"
+	"github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/api"
 	"github.com/Foundato/kelon/pkg/opa"
 	"github.com/Foundato/kelon/pkg/request"
