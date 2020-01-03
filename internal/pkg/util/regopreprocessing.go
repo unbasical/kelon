@@ -58,7 +58,7 @@ func preprocessPolicyFile(config *configs.AppConfig, inPath string, outPath stri
 }
 
 func PrepocessPoliciesInDir(config *configs.AppConfig, dir string) string {
-	outDir := strings.ReplaceAll(dir+"/preprocessed", "//", "/")
+	outDir := "/tmp/policies"
 	err := os.MkdirAll(outDir, 0777)
 	if err != nil {
 		panic(err)
