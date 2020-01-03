@@ -8,6 +8,11 @@ spec:
   adapter: kelonistioadapter
   connection:
     address: "[::]:7777"
+    authentication:
+      mutual:
+        private_key: "/Users/dseifert/go/src/github.com/Foundato/kelon/internal/pkg/api/istio/testdata/certs/mixer.key"
+        client_certificate: "/Users/dseifert/go/src/github.com/Foundato/kelon/internal/pkg/api/istio/testdata/certs/mixer.crt"
+        ca_certificates: "/Users/dseifert/go/src/github.com/Foundato/kelon/internal/pkg/api/istio/testdata/certs/ca.pem"
 ---
 
 # instance for template authorization

@@ -7,11 +7,16 @@ package istio
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/mixer/pkg/status"
 
@@ -34,8 +39,14 @@ type (
 		Run(shutdown chan error)
 	}
 
-	// KelonIstioAdapter supports metric template.
-	KelonIstioAdapter struct {
+	MutualTLSConfig struct {
+		CredentialFile  string
+		PrivateKeyFile  string
+		CertificateFile string
+	}
+
+	// Adapter supports metric template.
+	Adapter struct {
 		configured bool
 		appConf    *configs.AppConfig
 		config     *api.ClientProxyConfig
@@ -54,20 +65,21 @@ const (
 )
 
 // Mappings for properties (They should be loaded from external config later on)
+//nolint:gochecknoglobals
 var propertyTypeMappings map[string]PropertyType = map[string]PropertyType{
 	"authorization": PropHeader,
 }
 
-var _ authorization.HandleAuthorizationServiceServer = &KelonIstioAdapter{}
+var _ authorization.HandleAuthorizationServiceServer = &Adapter{}
 
 // ==============================================================
 // Implement interface `ClientProxy` from api
 // ==============================================================
 
 // Implement Configure of pkg.api.ClientProxy
-func (s *KelonIstioAdapter) Configure(appConf *configs.AppConfig, serverConf *api.ClientProxyConfig) error {
+func (adapter *Adapter) Configure(appConf *configs.AppConfig, serverConf *api.ClientProxyConfig) error {
 	// Exit if already configured
-	if s.configured {
+	if adapter.configured {
 		return nil
 	}
 
@@ -81,27 +93,27 @@ func (s *KelonIstioAdapter) Configure(appConf *configs.AppConfig, serverConf *ap
 	}
 
 	// Assign variables
-	s.appConf = appConf
-	s.config = serverConf
-	s.compiler = &compiler
-	s.configured = true
+	adapter.appConf = appConf
+	adapter.config = serverConf
+	adapter.compiler = &compiler
+	adapter.configured = true
 	log.Infoln("Configured IstioProxy")
 	return nil
 }
 
 // Implement Start of pkg.api.ClientProxy
-func (s *KelonIstioAdapter) Start() error {
-	if !s.configured {
+func (adapter *Adapter) Start() error {
+	if !adapter.configured {
 		return errors.New("IstioProxy was not configured! Please call Configure(). ")
 	}
 
-	log.Infof("IstioProxy listening on: %s", s.Addr())
-	s.server = grpc.NewServer()
-	authorization.RegisterHandleAuthorizationServiceServer(s.server, s)
+	log.Infof("IstioProxy listening on: %s", adapter.Addr())
+	adapter.server = grpc.NewServer()
+	authorization.RegisterHandleAuthorizationServiceServer(adapter.server, adapter)
 
 	go func() {
 		shutdown := make(chan error, 1)
-		s.Run(shutdown)
+		adapter.Run(shutdown)
 		if err := <-shutdown; err != nil {
 			log.Fatalf("IstioProxy stopped unexpected: %s", err.Error())
 		}
@@ -111,12 +123,12 @@ func (s *KelonIstioAdapter) Start() error {
 }
 
 // Implement Stop of pkg.api.ClientProxy
-func (s *KelonIstioAdapter) Stop(deadline time.Duration) error {
-	if s.server == nil {
+func (adapter *Adapter) Stop(deadline time.Duration) error {
+	if adapter.server == nil {
 		return errors.New("IstioProxy has not bin started yet")
 	}
 
-	return s.Close()
+	return adapter.Close()
 }
 
 // ==============================================================
@@ -124,7 +136,7 @@ func (s *KelonIstioAdapter) Stop(deadline time.Duration) error {
 // ==============================================================
 
 // Handle Authorization
-func (s *KelonIstioAdapter) HandleAuthorization(ctx context.Context, req *authorization.HandleAuthorizationRequest) (*v1beta1.CheckResult, error) {
+func (adapter *Adapter) HandleAuthorization(ctx context.Context, req *authorization.HandleAuthorizationRequest) (*v1beta1.CheckResult, error) {
 	// Write incoming parameters into request body
 	action := req.Instance.Action
 	log.Infof("IstioProxy: Handling incoming request: %s %s", action.Method, action.Path)
@@ -148,7 +160,7 @@ func (s *KelonIstioAdapter) HandleAuthorization(ctx context.Context, req *author
 		}
 	}
 
-	decision, err := (*s.compiler).Process(httpRequest)
+	decision, err := (*adapter.compiler).Process(httpRequest)
 	if err != nil {
 		return nil, errors.Wrap(err, "IstioProxy: Error during request compilation")
 	}
@@ -167,36 +179,74 @@ func (s *KelonIstioAdapter) HandleAuthorization(ctx context.Context, req *author
 // ==============================================================
 
 // Addr returns the listening address of the server
-func (s *KelonIstioAdapter) Addr() string {
-	return s.listener.Addr().String()
+func (adapter *Adapter) Addr() string {
+	return adapter.listener.Addr().String()
 }
 
 // Run starts the server run
-func (s *KelonIstioAdapter) Run(shutdown chan error) {
-	shutdown <- s.server.Serve(s.listener)
+func (adapter *Adapter) Run(shutdown chan error) {
+	shutdown <- adapter.server.Serve(adapter.listener)
 }
 
 // Close gracefully shuts down the server; used for testing
-func (s *KelonIstioAdapter) Close() error {
-	if s.server != nil {
-		s.server.GracefulStop()
+func (adapter *Adapter) Close() error {
+	if adapter.server != nil {
+		adapter.server.GracefulStop()
 	}
 
-	if s.listener != nil {
-		_ = s.listener.Close()
+	if adapter.listener != nil {
+		_ = adapter.listener.Close()
 	}
 
 	return nil
 }
 
 // NewKelonIstioAdapter creates a new IBP adapter that listens at provided port.
-func NewKelonIstioAdapter(port uint32) api.ClientProxy {
+func NewKelonIstioAdapter(port uint32, creds *MutualTLSConfig) (api.ClientProxy, error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatalf("unable to listen on socket: %v", err)
 	}
-	s := &KelonIstioAdapter{
+	s := &Adapter{
 		listener: listener,
 	}
-	return s
+
+	if creds != nil {
+		so, err := getServerTLSOption(creds.CredentialFile, creds.PrivateKeyFile, creds.CertificateFile)
+		if err != nil {
+			return nil, err
+		}
+		log.Infof("IstioProxy: configured mutual TLS with credentials: %q, privateKey: %q, certificate: %q", creds.CredentialFile, creds.PrivateKeyFile, creds.CertificateFile)
+		s.server = grpc.NewServer(so)
+	} else {
+		s.server = grpc.NewServer()
+	}
+	return s, nil
+}
+
+func getServerTLSOption(credential, privateKey, caCertificate string) (grpc.ServerOption, error) {
+	certificate, err := tls.LoadX509KeyPair(
+		credential,
+		privateKey,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load key cert pair")
+	}
+	certPool := x509.NewCertPool()
+	bs, err := ioutil.ReadFile(caCertificate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read client ca cert: %s", err)
+	}
+
+	ok := certPool.AppendCertsFromPEM(bs)
+	if !ok {
+		return nil, fmt.Errorf("failed to append client certs")
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{certificate},
+		ClientCAs:    certPool,
+	}
+	tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+	return grpc.Creds(credentials.NewTLS(tlsConfig)), nil
 }
