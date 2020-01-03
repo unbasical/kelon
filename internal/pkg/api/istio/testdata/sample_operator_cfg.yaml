@@ -2,7 +2,7 @@
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
-  name: h1
+  name: kelonhandler
   namespace: istio-system
 spec:
   adapter: kelonistioadapter
@@ -14,21 +14,21 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
-  name: i1auth
+  name: authinfo
   namespace: istio-system
 spec:
   template: authorization
   params:
     subject:
-      user: source.principal | request.auth.principal | ""
-      groups: request.auth.claims["groups"] | ""
-      properties:
-        iss: request.auth.claims["iss"]
+      user: source.uid | ""
     action:
       namespace: destination.namespace | "default"
       service: destination.service.host | ""
-      path: request.path | "/"
-      method: request.method | "post"
+      path: request.path | "/api/mysql/apps/1"
+      method: request.method | "GET"
+      properties:
+        authorization: request.headers["authorization"] | ""
+
 ---
 
 # rule to dispatch to handler h1
@@ -38,9 +38,8 @@ metadata:
   name: r1
   namespace: istio-system
 spec:
-  match: destination.service.host == "svc.cluster.local"
+  match: "true"
   actions:
-    - handler: h1.istio-system
-      instances:
-        - i1auth
+  - handler:  kelonhandler.handler.istio-system
+    instances: [ authinfo.instance.istio-system ]
 ---

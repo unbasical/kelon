@@ -31,7 +31,7 @@ services:
       - ./examples/docker-compose/init/Init-MySql.sql:/docker-entrypoint-initdb.d/Init-MySql.sql
 
   postgres:
-    image: postgres
+    image: postgres:12
     restart: always
     environment:
       POSTGRES_DB: 'appstore'
@@ -43,7 +43,7 @@ services:
       - ./examples/docker-compose/init/Init-Postgres.sql:/docker-entrypoint-initdb.d/Init-Postgres.sql
 
   mongo:
-    image: mongo
+    image: mongo:4.2
     restart: always
     ports:
       - "27017-27019:27017-27019"
