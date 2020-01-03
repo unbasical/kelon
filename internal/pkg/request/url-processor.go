@@ -75,7 +75,7 @@ func (processor urlProcessor) Process(input interface{}) (*request.PathProcessor
 
 func (processor urlProcessor) handleInput(input *URLProcessorInput) (*request.PathProcessorOutput, error) {
 	// Parse base path
-	path := strings.Fields(strings.ReplaceAll(strings.ToLower(input.URL.Path), "/", " "))
+	path := strings.Fields(strings.ReplaceAll(input.URL.Path, "/", " "))
 	// Process query parameters
 	queries := make(map[string]interface{})
 	queryParams := input.URL.Query()
