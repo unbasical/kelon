@@ -76,6 +76,10 @@ func (proxy *restProxy) Start() error {
 	proxy.router.PathPrefix(proxy.pathPrefix + "/policies").HandlerFunc(proxy.handleV1PolicyPut).Methods("PUT")
 	proxy.router.PathPrefix(proxy.pathPrefix + "/policies").HandlerFunc(proxy.handleV1PolicyDelete).Methods("DELETE")
 	proxy.router.PathPrefix("/metrics").Handler(promhttp.Handler())
+	proxy.router.PathPrefix("/health").Methods("GET").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.WriteHeader(http.StatusOK)
+		_, _ = writer.Write([]byte("{\"status\": \"healthy\"}"))
+	})
 
 	proxy.server = &http.Server{
 		Handler:      proxy.router,
