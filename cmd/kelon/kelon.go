@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -50,6 +51,8 @@ var (
 	istioPort = app.Flag("istio-port", "Also start Istio Mixer Out of Tree Adapter  on specified port so integrate kelon with Istio.").Envar("ISTIO_PORT").Uint32()
 	//nolint:gochecknoglobals
 	preprocessRegos = app.Flag("preprocess-policies", "Preprocess incoming policies for internal use-case (EXPERIMENTAL FEATURE! DO NOT USE!).").Default("false").Envar("PREPROCESS_POLICIES").Bool()
+	//nolint:gochecknoglobals
+	logLevel = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
 
 	//nolint:gochecknoglobals
 	proxy api.ClientProxy = nil
@@ -65,8 +68,7 @@ func main() {
 	// Configure kingpin
 	var (
 		// Commands
-		start = app.Command("start", "Start kelon in production mode.")
-		debug = app.Command("debug", "Enable debug mode.")
+		run = app.Command("run", "Run kelon in production mode.")
 		// Flags
 		datastorePath     = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
 		apiPath           = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
@@ -80,28 +82,32 @@ func main() {
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp: true,
 	})
+
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
-	case start.FullCommand():
+	case run.FullCommand():
 		log.SetOutput(os.Stdout)
-		log.SetLevel(log.InfoLevel)
-		log.Infoln("Kelon starting...")
+		log.Infof("Kelon starting with log level %q...", *logLevel)
+		switch strings.ToUpper(*logLevel) {
+		case "INFO":
+			log.SetLevel(log.InfoLevel)
+		case "DEBUG":
+			log.SetLevel(log.DebugLevel)
+		case "WARN":
+			log.SetLevel(log.WarnLevel)
+		case "ERROR":
+			log.SetLevel(log.ErrorLevel)
+		}
 
-	case debug.FullCommand():
-		log.SetOutput(os.Stdout)
-		log.SetLevel(log.DebugLevel)
-		log.Infoln("Kelon starting in debug-mode...")
+		// Init config loader
+		configLoader := configs.FileConfigLoader{
+			DatastoreConfigPath: *datastorePath,
+			APIConfigPath:       *apiPath,
+		}
+		// Start app after config is present
+		makeConfigWatcher(configLoader, configWatcherPath)
+		configWatcher.Watch(onConfigLoaded)
+		stopOnSIGTERM()
 	}
-
-	// Init config loader
-	configLoader := configs.FileConfigLoader{
-		DatastoreConfigPath: *datastorePath,
-		APIConfigPath:       *apiPath,
-	}
-
-	// Start app after config is present
-	makeConfigWatcher(configLoader, configWatcherPath)
-	configWatcher.Watch(onConfigLoaded)
-	stopOnSIGTERM()
 }
 
 func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfig, err error) {
