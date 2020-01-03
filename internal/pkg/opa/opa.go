@@ -91,6 +91,11 @@ func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*O
 }
 
 func (opa *OPA) LoadRegosFromPath(ctx context.Context, regosPath string) error {
+	// Return with no error on empty path
+	if regosPath == "" {
+		return nil
+	}
+
 	store := opa.manager.Store
 
 	log.Debugf("Loading regos from dir: %s", regosPath)
