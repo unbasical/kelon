@@ -84,7 +84,7 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	}
 
 	// Parse body of request
-	requestBody := make(map[string]map[string]interface{})
+	requestBody := make(map[string]interface{})
 	if log.GetLevel() == log.DebugLevel {
 		log.Debugf("PolicyCompiler: Received request: %+v", request)
 
@@ -107,7 +107,17 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	}
 
 	// Extract input
-	input := requestBody["input"]
+	for rootKey := range requestBody {
+		if rootKey != "input" {
+			log.Warnf("PolicyCompiler: Request field %q which will be ignored!", rootKey)
+		}
+	}
+
+	rawInput, exists := requestBody["input"]
+	if !exists {
+		return false, errors.Errorf("PolicyCompiler: Incoming request had no field 'input'!")
+	}
+	input := rawInput.(map[string]interface{})
 	log.Debugf("PolicyCompiler: Received input: %+v", input)
 
 	// Process path
