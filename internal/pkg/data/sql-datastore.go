@@ -3,7 +3,9 @@ package data
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/util"
@@ -68,6 +70,12 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 		return errors.Wrap(err, "SqlDatastore: Error while connecting to database")
 	}
 
+	// Configure metadata
+	metadataError := applyMetadataConfigs(conf, db)
+	if metadataError != nil {
+		return errors.Wrap(err, "SqlDatastore: Error while configuring metadata")
+	}
+
 	// Ping database for 60 seconds every 3 seconds
 	err = pingUntilReachable(alias, db.Ping)
 	if err != nil {
@@ -90,6 +98,31 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	ds.alias = alias
 	ds.configured = true
 	log.Infof("Configured SqlDatastore [%s]", alias)
+	return nil
+}
+
+func applyMetadataConfigs(conf *configs.Datastore, db *sql.DB) error {
+	if maxOpenValue, ok := conf.Metadata["maxOpenConnections"]; ok {
+		maxOpen, err := strconv.Atoi(maxOpenValue)
+		if err != nil {
+			return errors.Wrap(err, "SqlDatastore: Error while setting maxOpenConnections")
+		}
+		db.SetMaxOpenConns(maxOpen)
+	}
+	if maxIdleValue, ok := conf.Metadata["maxIdleConnections"]; ok {
+		maxIdle, err := strconv.Atoi(maxIdleValue)
+		if err != nil {
+			return errors.Wrap(err, "SqlDatastore: Error while setting maxIdleConnections")
+		}
+		db.SetMaxIdleConns(maxIdle)
+	}
+	if maxLifetimeSecondsValue, ok := conf.Metadata["connectionMaxLifetimeSeconds"]; ok {
+		maxLifetimeSeconds, err := strconv.Atoi(maxLifetimeSecondsValue)
+		if err != nil {
+			return errors.Wrap(err, "SqlDatastore: Error while setting connectionMaxLifetimeSeconds")
+		}
+		db.SetConnMaxLifetime(time.Second * time.Duration(maxLifetimeSeconds))
+	}
 	return nil
 }
 

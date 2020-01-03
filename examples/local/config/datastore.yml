@@ -8,6 +8,10 @@ datastores:
       database: appstore
       user: You
       password: SuperSecure
+    metadata:
+      maxIdleConnections: 5
+      maxOpenConnections: 10
+      connectionMaxLifetimeSeconds: 1800
 
   pg:
     type: postgres
@@ -18,6 +22,10 @@ datastores:
       user: You
       password: SuperSecure
       sslmode: disable
+    metadata:
+      maxIdleConnections: 5
+      maxOpenConnections: 10
+      connectionMaxLifetimeSeconds: 1800
 
   mongo:
     type: mongo
