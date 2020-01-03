@@ -187,15 +187,26 @@ func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input *m
 func extractURLFromRequestBody(input map[string]interface{}) (*url.URL, error) {
 	sentPath, hasPath := input["path"]
 	if hasPath {
-		sentURL, pathIsString := sentPath.(string)
-		if pathIsString {
+		switch sentURL := sentPath.(type) {
+		case string:
 			parsed, urlError := url.Parse(sentURL)
 			if urlError == nil {
 				return parsed, nil
 			}
 			return nil, errors.Wrap(urlError, "PolicyCompiler: Field 'path' from request body is no valid URL")
+		case []interface{}:
+			stringedURL := make([]string, len(sentURL))
+			for i, v := range sentURL {
+				stringedURL[i] = fmt.Sprint(v)
+			}
+			parsed, urlError := url.Parse("/" + strings.Join(stringedURL, "/"))
+			if urlError == nil {
+				return parsed, nil
+			}
+			return nil, errors.Wrap(urlError, "PolicyCompiler: Field 'path' from request body is no valid URL")
+		default:
+			return nil, errors.Errorf("PolicyCompiler: Attribute 'path' of request body was not of type string! Type was %T", sentURL)
 		}
-		return nil, errors.Errorf("PolicyCompiler: Attribute 'path' of request body was not of type string! Type was %T", sentURL)
 	}
 	return nil, errors.New("PolicyCompiler: Request body didn't contain a 'path'. ")
 }

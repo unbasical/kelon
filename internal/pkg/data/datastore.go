@@ -97,20 +97,51 @@ func validateConnection(alias string, conn map[string]string) error {
 }
 
 func getConnectionStringForPlatform(platform string, conn map[string]string) string {
-	host := conn[hostKey]
-	port := conn[portKey]
-	user := conn[userKey]
-	password := conn[pwKey]
-	dbname := conn[dbKey]
+	host, port, user, password, dbname, options := extractAndSortConnectionParameters(conn)
 
 	switch platform {
 	case data.TypePostgres:
-		return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+		return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s%s", host, port, user, password, dbname, createConnOptionsString(options, " ", " "))
 	case data.TypeMysql:
-		return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", user, password, host, port, dbname)
+		return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", user, password, host, port, dbname, createConnOptionsString(options, "&", "?"))
 	case data.TypeMongo:
-		return fmt.Sprintf("mongodb://%s:%s@%s:%s/%s", user, password, host, port, dbname)
+		return fmt.Sprintf("mongodb://%s:%s@%s:%s/%s%s", user, password, host, port, dbname, createConnOptionsString(options, "&", "?"))
 	default:
 		panic(fmt.Sprintf("Platform [%s] is not a supported Datastore!", platform))
 	}
+}
+
+// Extract and sort all connection parameters by importance.
+// Output: host, port, user, password, dbname, []options
+// Each option has the format <key>=<value>
+func extractAndSortConnectionParameters(conn map[string]string) (string, string, string, string, string, []string) {
+	var host, port, user, password, dbname string
+	var options []string
+
+	for key, value := range conn {
+		switch key {
+		case hostKey:
+			host = value
+		case portKey:
+			port = value
+		case userKey:
+			user = value
+		case pwKey:
+			password = value
+		case dbKey:
+			dbname = value
+		default:
+			options = append(options, fmt.Sprintf("%s=%s", key, value))
+		}
+	}
+
+	return host, port, user, password, dbname, options
+}
+
+func createConnOptionsString(options []string, delimiter string, prefix string) string {
+	optionString := strings.Join(options, delimiter)
+	if len(options) > 0 {
+		optionString = prefix + optionString
+	}
+	return optionString
 }

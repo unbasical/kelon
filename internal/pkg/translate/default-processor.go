@@ -12,7 +12,7 @@ import (
 
 type astProcessor struct {
 	fromEntity   *data.Entity
-	link         data.Link
+	link         map[string]interface{}
 	conjunctions []data.Node
 	entities     map[string]interface{}
 	relations    []data.Node
@@ -25,7 +25,7 @@ func newAstProcessor() *astProcessor {
 
 // See translate.AstTranslator.
 func (p *astProcessor) Process(queries []ast.Body) (*data.Node, error) {
-	p.link = data.Link{}
+	p.link = make(map[string]interface{})
 	p.conjunctions = []data.Node{}
 	p.entities = make(map[string]interface{})
 	p.relations = []data.Node{}
@@ -38,20 +38,29 @@ func (p *astProcessor) Process(queries []ast.Body) (*data.Node, error) {
 		condition := data.Condition{Clause: data.Conjunction{Clauses: append(p.conjunctions[:0:0], p.conjunctions...)}}
 
 		// Add new Query
+		delete(p.link, p.fromEntity.String())
 		clauses[i] = data.Query{
 			From:      *p.fromEntity,
-			Link:      p.link,
+			Link:      toDataLink(p.link),
 			Condition: condition,
 		}
 
 		// Cleanup
 		p.conjunctions = p.conjunctions[:0]
 		p.fromEntity = nil
-		p.link = data.Link{}
+		p.link = make(map[string]interface{})
 	}
 
 	var result data.Node = data.Union{Clauses: clauses}
 	return &result, nil
+}
+
+func toDataLink(linkedEntities map[string]interface{}) data.Link {
+	entities := make([]data.Entity, len(linkedEntities))
+	for i, e := range keys(linkedEntities) {
+		entities[i] = data.Entity{Value: e}
+	}
+	return data.Link{Entities: entities}
 }
 
 // Implementation of the visitor pattern to crawl the AST.
@@ -102,27 +111,17 @@ func (p *astProcessor) translateExpr(node ast.Expr) ast.Visitor {
 	var functionOperands []data.Node
 	p.operands, functionOperands = p.operands.Pop()
 	if len(p.entities) > 1 {
-		p.removeAlreadyJoinedEntities()
-		if len(p.entities) > 1 {
-			panic("Multi join not supported!")
+		for _, entity := range keys(p.entities) {
+			p.link[entity] = true
 		}
-
-		joinEntity := data.Entity{Value: keys(p.entities)[0]}
-
-		p.link.Entities = append(p.link.Entities, joinEntity)
-		p.link.Conditions = append(p.link.Conditions, data.Call{
-			Operator: op,
-			Operands: functionOperands,
-		})
 		log.Debugf("%30sLink: %+v", "", p.link)
-	} else {
-		// Append new relation for conjunction
-		p.relations = append(p.relations, data.Call{
-			Operator: op,
-			Operands: functionOperands,
-		})
-		log.Debugf("%30sRelations: %+v", "", p.relations)
 	}
+	// Append new relation for conjunction
+	p.relations = append(p.relations, data.Call{
+		Operator: op,
+		Operands: functionOperands,
+	})
+	log.Debugf("%30sRelations: %+v", "", p.relations)
 
 	// Cleanup
 	p.entities = make(map[string]interface{})
@@ -208,13 +207,6 @@ func makeConstant(value string) *data.Constant {
 
 func normalizeString(value string) string {
 	return strings.ReplaceAll(value, "\"", "")
-}
-
-func (p *astProcessor) removeAlreadyJoinedEntities() {
-	delete(p.entities, p.fromEntity.String())
-	for _, e := range p.link.Entities {
-		delete(p.entities, e.Value)
-	}
 }
 
 func keys(input map[string]interface{}) []string {

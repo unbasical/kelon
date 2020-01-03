@@ -17,6 +17,7 @@ datastores:
       database: appstore
       user: You
       password: SuperSecure
+      sslmode: disable
 
   mongo:
     type: mongo

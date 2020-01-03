@@ -9,18 +9,15 @@ import (
 	"sync"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-
-	"go.mongodb.org/mongo-driver/mongo/readpref"
-
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/data"
-
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 type mongoDatastore struct {
@@ -250,9 +247,8 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 			})
 			relations = relations[:0]
 		case data.Link:
-			// Reset entities and relations because mongo does not join, but can only access directly nested elements!
+			// Reset entities because mongo does not join, but can only access directly nested elements!
 			entities = entities[:0]
-			relations = relations[:0]
 		case data.Condition:
 			// Skip condition
 		case data.Conjunction:

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	utilInt "github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/request"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
@@ -67,14 +68,20 @@ func (proxy restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request) 
 	// Compile
 	compiler := *proxy.config.Compiler
 	if decision, err := compiler.Process(r); err == nil {
+		// Compute status code if configured
+		responseStatus := http.StatusOK
+		if !decision && proxy.config.RespondWithStatusCode {
+			responseStatus = http.StatusForbidden
+		}
+
 		// Send decision to client
 		switch decision {
 		case true:
 			log.Infoln("Decision: ALLOW")
-			writeJSON(w, http.StatusOK, apiResponse{Result: true})
+			writeJSON(w, responseStatus, apiResponse{Result: true})
 		case false:
 			log.Infoln("Decision: DENY")
-			writeJSON(w, http.StatusOK, apiResponse{Result: false})
+			writeJSON(w, responseStatus, apiResponse{Result: false})
 		}
 	} else {
 		// Handle error returned by compiler
@@ -232,6 +239,9 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		return
 	}
+
+	// Translate
+	buf = []byte(utilInt.PreprocessPolicy(proxy.appConf, string(buf)))
 
 	// Parse Path
 	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
