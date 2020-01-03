@@ -139,15 +139,10 @@ func (opa *OPA) Start(ctx context.Context) error {
 // Bool returns a boolean policy decision.
 func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query string, opts ...func(*rego.Rego)) (*rego.PartialQueries, error) {
 	m := metrics.New()
-	var decisionID string
 	var partialResult *rego.PartialQueries
 
 	err := storage.Txn(ctx, opa.manager.Store, storage.TransactionParams{}, func(txn storage.Transaction) error {
 		var err error
-		decisionID, err = uuid4()
-		if err != nil {
-			return err
-		}
 
 		r := rego.New(append(opts,
 			rego.Metrics(m),

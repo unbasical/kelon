@@ -90,7 +90,10 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 
 		// Log body and decode already logged body
 		buf := new(bytes.Buffer)
-		buf.ReadFrom(request.Body)
+		if _, parseErr := buf.ReadFrom(request.Body); parseErr != nil {
+			return false, errors.Wrap(parseErr, "PolicyCompiler: Error while parsing request body!")
+		}
+
 		bodyString := buf.String()
 		log.Debugf("PolicyCompiler: Request had body: %s", bodyString)
 		if marshalErr := json.NewDecoder(strings.NewReader(bodyString)).Decode(&requestBody); marshalErr != nil {
