@@ -28,39 +28,29 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
+//nolint:gochecknoglobals
 var (
-	//nolint:gochecknoglobals
-	app = kingpin.New("kelon", "Kelon policy enforcer.")
-	//nolint:gochecknoglobals
-	opaPath = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
-	//nolint:gochecknoglobals
-	regoDir = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Short('r').Envar("REGO_DIR").ExistingDir()
-	//nolint:gochecknoglobals
-	pathPrefix = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
-	//nolint:gochecknoglobals
-	port = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
-	//nolint:gochecknoglobals
-	envoyPort = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
-	//nolint:gochecknoglobals
-	envoyDryRun = app.Flag("envoy-dry-run", "Enable/Disable the dry run feature of the envoy-proxy.").Default("false").Envar("ENVOY_DRY_RUN").Bool()
-	//nolint:gochecknoglobals
-	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
-	//nolint:gochecknoglobals
+	app                   = kingpin.New("kelon", "Kelon policy enforcer.")
+	opaPath               = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
+	regoDir               = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Short('r').Envar("REGO_DIR").ExistingDir()
+	pathPrefix            = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
+	port                  = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
+	envoyPort             = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
+	envoyDryRun           = app.Flag("envoy-dry-run", "Enable/Disable the dry run feature of the envoy-proxy.").Default("false").Envar("ENVOY_DRY_RUN").Bool()
+	envoyReflection       = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
 	respondWithStatusCode = app.Flag("respond-with-status-code", "Communicate Decision via status code 200 (ALLOW) or 403 (DENY).").Default("false").Envar("RESPOND_WITH_STATUS_CODE").Bool()
-	//nolint:gochecknoglobals
-	istioPort = app.Flag("istio-port", "Also start Istio Mixer Out of Tree Adapter  on specified port so integrate kelon with Istio.").Envar("ISTIO_PORT").Uint32()
-	//nolint:gochecknoglobals
-	preprocessRegos = app.Flag("preprocess-policies", "Preprocess incoming policies for internal use-case (EXPERIMENTAL FEATURE! DO NOT USE!).").Default("false").Envar("PREPROCESS_POLICIES").Bool()
-	//nolint:gochecknoglobals
-	logLevel = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
 
-	//nolint:gochecknoglobals
-	proxy api.ClientProxy = nil
-	//nolint:gochecknoglobals
-	envoyProxy api.ClientProxy = nil
-	//nolint:gochecknoglobals
-	istioProxy api.ClientProxy = nil
-	//nolint:gochecknoglobals
+	istioPort            = app.Flag("istio-port", "Also start Istio Mixer Out of Tree Adapter  on specified port so integrate kelon with Istio.").Envar("ISTIO_PORT").Uint32()
+	istioCredentialFile  = app.Flag("istio-credential-file", ".").Envar("ISTIO_CREDENTIAL_FILE").ExistingFile()
+	istioPrivateKeyFile  = app.Flag("istio-private-key-file", ".").Envar("ISTIO_PRIVATE_KEY_FILE").ExistingFile()
+	istioCertificateFile = app.Flag("istio-certificate-file", ".").Envar("ISTIO_CERTIFICATE_FILE").ExistingFile()
+
+	preprocessRegos = app.Flag("preprocess-policies", "Preprocess incoming policies for internal use-case (EXPERIMENTAL FEATURE! DO NOT USE!).").Default("false").Envar("PREPROCESS_POLICIES").Bool()
+	logLevel        = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
+
+	proxy         api.ClientProxy       = nil
+	envoyProxy    api.ClientProxy       = nil
+	istioProxy    api.ClientProxy       = nil
 	configWatcher watcher.ConfigWatcher = nil
 )
 
@@ -204,8 +194,31 @@ func startNewIstioAdapter(appConfig *configs.AppConfig, serverConf *api.ClientPr
 		panic("Cannot start envoyProxy proxy and istio adapter on same port!")
 	}
 
+	var tlsConfig *istio.MutualTLSConfig = nil
+	if *istioCertificateFile != "" || *istioPrivateKeyFile != "" || *istioCredentialFile != "" {
+		if *istioCertificateFile == "" {
+			log.Fatalf("Isito mutual TLS configured, but no istioCertificateFile specified!")
+		}
+		if *istioPrivateKeyFile == "" {
+			log.Fatalf("Isito mutual TLS configured, but no istioPrivateKeyFile specified!")
+		}
+		if *istioCredentialFile == "" {
+			log.Fatalf("Isito mutual TLS configured, but no istioCredentialFile specified!")
+		}
+
+		tlsConfig = &istio.MutualTLSConfig{
+			CredentialFile:  *istioCredentialFile,
+			PrivateKeyFile:  *istioPrivateKeyFile,
+			CertificateFile: *istioCertificateFile,
+		}
+	}
+
 	// Create Rest proxy and start
-	istioProxy = istio.NewKelonIstioAdapter(*istioPort)
+	if createdProxy, err := istio.NewKelonIstioAdapter(*istioPort, tlsConfig); err != nil {
+		log.Fatalln(err.Error())
+	} else {
+		istioProxy = createdProxy
+	}
 	if err := istioProxy.Configure(appConfig, serverConf); err != nil {
 		log.Fatalln(err.Error())
 	}
