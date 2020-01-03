@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	google_rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	"istio.io/istio/mixer/pkg/status"
 
 	"github.com/Foundato/kelon/pkg/opa"
 
@@ -44,6 +44,19 @@ type (
 		server     *grpc.Server
 	}
 )
+
+// Mapped type of a configured kelon-istio property
+type PropertyType string
+
+const (
+	// Set configured property as request header
+	PropHeader PropertyType = "header"
+)
+
+// Mappings for properties (They should be loaded from external config later on)
+var propertyTypeMappings map[string]PropertyType = map[string]PropertyType{
+	"authorization": PropHeader,
+}
 
 var _ authorization.HandleAuthorizationServiceServer = &KelonIstioAdapter{}
 
@@ -112,28 +125,41 @@ func (s *KelonIstioAdapter) Stop(deadline time.Duration) error {
 
 // Handle Authorization
 func (s *KelonIstioAdapter) HandleAuthorization(ctx context.Context, req *authorization.HandleAuthorizationRequest) (*v1beta1.CheckResult, error) {
-	log.Infof("IstioProxy received request %v", *req)
+	// Write incoming parameters into request body
 	action := req.Instance.Action
-	httpRequest, err := http.NewRequest(action.Method, action.Path, strings.NewReader(""))
+	log.Infof("IstioProxy: Handling incoming request: %s %s", action.Method, action.Path)
+
+	httpRequest, err := http.NewRequest("POST", "/v1/data", strings.NewReader(fmt.Sprintf("{\"input\": {\"method\": \"%s\", \"path\": \"%s\"}}", action.Method, action.Path)))
 	if err != nil {
 		return nil, errors.Wrap(err, "IstioProxy: error while creating fake http request")
 	}
 
+	// Set property values
+	if action.Properties != nil {
+		for propertyKey, propertyValue := range action.Properties {
+			mapping, exists := propertyTypeMappings[propertyKey]
+			if !exists {
+				return nil, errors.Errorf("IstioProxy: Incoming request had property [action.properties.%s] which was not mapped via configuration!", propertyKey)
+			}
+			switch mapping {
+			case PropHeader:
+				httpRequest.Header.Set(propertyKey, propertyValue.String())
+			}
+		}
+	}
+
 	decision, err := (*s.compiler).Process(httpRequest)
 	if err != nil {
-		return nil, errors.Wrap(err, "EnvoyProxy: Error during request compilation")
+		return nil, errors.Wrap(err, "IstioProxy: Error during request compilation")
 	}
-	log.Infof("Handle opa decision %+v", decision)
+	if !decision {
+		return &v1beta1.CheckResult{
+			Status: status.WithPermissionDenied("Kelon: request was rejected"),
+		}, nil
+	}
 
-	return &v1beta1.CheckResult{
-		Status: google_rpc.Status{
-			Code:    10,
-			Message: "Error",
-			Details: nil,
-		},
-		ValidDuration: 0,
-		ValidUseCount: 0,
-	}, errors.New("This failed")
+	// Accepted
+	return &v1beta1.CheckResult{Status: status.OK}, nil
 }
 
 // ==============================================================

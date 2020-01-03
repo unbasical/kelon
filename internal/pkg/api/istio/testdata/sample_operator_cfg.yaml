@@ -20,15 +20,14 @@ spec:
   template: authorization
   params:
     subject:
-      user: source.principal | request.auth.principal | ""
-      groups: request.auth.claims["groups"] | ""
-      properties:
-        iss: request.auth.claims["iss"]
+      user: source.uid | ""
     action:
       namespace: destination.namespace | "default"
       service: destination.service.host | ""
-      path: request.path | "/"
-      method: request.method | "post"
+      path: request.path | "/api/mysql/apps/1"
+      method: request.method | "GET"
+      properties:
+        authorization: request.headers["authorization"] | ""
 
 ---
 
@@ -39,7 +38,7 @@ metadata:
   name: r1
   namespace: istio-system
 spec:
-  match: request.size == 1
+  match: "true"
   actions:
   - handler:  kelonhandler.handler.istio-system
     instances: [ authinfo.instance.istio-system ]
