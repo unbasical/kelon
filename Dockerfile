@@ -13,4 +13,4 @@ ARG PORT=8181
 
 COPY --from=builder /go/bin/app /
 EXPOSE $PORT
-ENTRYPOINT ["/app", "start"]
+ENTRYPOINT ["/app", "run"]
