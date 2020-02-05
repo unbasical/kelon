@@ -152,12 +152,12 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 			return false, errors.Wrap(err, "SqlDatastore: Unable to read result")
 		}
 		if count > 0 {
-			log.Infof("Result row with count %d found! -> ALLOWED", count)
+			log.Debugf("Result row with count %d found! -> ALLOWED", count)
 			return true, nil
 		}
 	}
 
-	log.Infof("No resulting row with count > 0 found! -> DENIED")
+	log.Debugf("No resulting row with count > 0 found! -> DENIED")
 	return false, nil
 }
 
