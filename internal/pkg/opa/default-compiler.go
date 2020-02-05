@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/Foundato/kelon/internal/pkg/util"
+
 	"github.com/open-policy-agent/opa/plugins"
 
 	"github.com/Foundato/kelon/pkg/watcher"
@@ -82,11 +84,13 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	if !compiler.configured {
 		return false, errors.New("PolicyCompiler was not configured! Please call Configure(). ")
 	}
+	// Extract uid from request
+	uid := util.GetRequestUID(request)
 
 	// Parse body of request
 	requestBody := make(map[string]interface{})
 	if log.GetLevel() == log.DebugLevel {
-		log.Debugf("PolicyCompiler: Received request: %+v", request)
+		log.WithField("UID", uid).Debugf("PolicyCompiler: Received request: %+v", request)
 
 		// Log body and decode already logged body
 		buf := new(bytes.Buffer)
@@ -95,7 +99,7 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 		}
 
 		bodyString := buf.String()
-		log.Debugf("PolicyCompiler: Request had body: %s", bodyString)
+		log.WithField("UID", uid).Debugf("PolicyCompiler: Request had body: %s", bodyString)
 		if marshalErr := json.NewDecoder(strings.NewReader(bodyString)).Decode(&requestBody); marshalErr != nil {
 			return false, errors.Wrap(marshalErr, "PolicyCompiler: Error while parsing request body!")
 		}
@@ -109,7 +113,7 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	// Extract input
 	for rootKey := range requestBody {
 		if rootKey != "input" {
-			log.Warnf("PolicyCompiler: Request field %q which will be ignored!", rootKey)
+			log.WithField("UID", uid).Warnf("PolicyCompiler: Request field %q which will be ignored!", rootKey)
 		}
 	}
 
@@ -118,7 +122,7 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 		return false, errors.Errorf("PolicyCompiler: Incoming request had no field 'input'!")
 	}
 	input := rawInput.(map[string]interface{})
-	log.Debugf("PolicyCompiler: Received input: %+v", input)
+	log.WithField("UID", uid).Debugf("PolicyCompiler: Received input: %+v", input)
 
 	// Process path
 	output, err := compiler.processPath(input)
@@ -194,19 +198,22 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 }
 
 func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input *map[string]interface{}, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
+	// Extract uid from request
+	uid := util.GetRequestUID(clientRequest)
+
 	// Extract parameters for partial evaluation
 	opts := compiler.extractOpaOpts(output)
 	extractedInput := extractOpaInput(output, input)
 	query := fmt.Sprintf("data.%s.allow == true", output.Package)
-	log.Debugf("Sending query=%s", query)
+	log.WithField("UID", uid).Debugf("Sending query=%s", query)
 
 	// Compile clientRequest and return answer
 	queries, err := compiler.engine.PartialEvaluate(clientRequest.Context(), extractedInput, query, opts...)
 	if err == nil {
-		log.Infof("Partial Evaluation for %q with extractedInput: %+vReturned %d queries:", query, extractedInput, len(queries.Queries))
+		log.WithField("UID", uid).Infof("Partial Evaluation for %q with extractedInput: %+vReturned %d queries:", query, extractedInput, len(queries.Queries))
 		if log.IsLevelEnabled(log.DebugLevel) {
 			for _, q := range queries.Queries {
-				log.Debugf("[%+v]", q)
+				log.WithField("UID", uid).Debugf("[%+v]", q)
 			}
 		}
 		return queries, nil
