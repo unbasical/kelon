@@ -65,6 +65,11 @@ func (proxy restProxy) handleV1DataGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (proxy restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request) {
+	// Add unique identifier for logging purpose
+	r = utilInt.AssignRequestUID(r)
+	uid := utilInt.GetRequestUID(r)
+	log.WithField("UID", uid).Infof("Received OPA Data-API POST to URL: %s", r.RequestURI)
+
 	// Compile
 	compiler := *proxy.config.Compiler
 	if decision, err := compiler.Process(r); err == nil {
@@ -77,15 +82,15 @@ func (proxy restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request) 
 		// Send decision to client
 		switch decision {
 		case true:
-			log.Infoln("Decision: ALLOW")
+			log.WithField("UID", uid).Infoln("Decision: ALLOW")
 			writeJSON(w, responseStatus, apiResponse{Result: true})
 		case false:
-			log.Infoln("Decision: DENY")
+			log.WithField("UID", uid).Infoln("Decision: DENY")
 			writeJSON(w, responseStatus, apiResponse{Result: false})
 		}
 	} else {
 		// Handle error returned by compiler
-		log.Errorf("RestProxy: Unable to compile request: %s", err.Error())
+		log.WithField("UID", uid).Errorf("RestProxy: Unable to compile request: %s", err.Error())
 		switch errors.Cause(err).(type) {
 		case *request.PathAmbiguousError:
 			writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)

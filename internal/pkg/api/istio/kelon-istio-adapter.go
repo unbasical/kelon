@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	utilInt "github.com/Foundato/kelon/internal/pkg/util"
+
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/mixer/pkg/status"
@@ -139,12 +141,15 @@ func (adapter *Adapter) Stop(deadline time.Duration) error {
 func (adapter *Adapter) HandleAuthorization(ctx context.Context, req *authorization.HandleAuthorizationRequest) (*v1beta1.CheckResult, error) {
 	// Write incoming parameters into request body
 	action := req.Instance.Action
-	log.Infof("IstioProxy: Handling incoming request: %s %s", action.Method, action.Path)
-
 	httpRequest, err := http.NewRequest("POST", "/v1/data", strings.NewReader(fmt.Sprintf("{\"input\": {\"method\": \"%s\", \"path\": \"%s\"}}", action.Method, action.Path)))
 	if err != nil {
 		return nil, errors.Wrap(err, "IstioProxy: error while creating fake http request")
 	}
+
+	// Add unique identifier for logging purpose
+	httpRequest = utilInt.AssignRequestUID(httpRequest)
+	uid := utilInt.GetRequestUID(httpRequest)
+	log.WithField("UID", uid).Infof("Received Istio-Authorization-Request to URL: %s", httpRequest.RequestURI)
 
 	// Set property values
 	if action.Properties != nil {
@@ -164,14 +169,16 @@ func (adapter *Adapter) HandleAuthorization(ctx context.Context, req *authorizat
 	if err != nil {
 		return nil, errors.Wrap(err, "IstioProxy: Error during request compilation")
 	}
-	if !decision {
+
+	if decision {
+		log.WithField("UID", uid).Infoln("Decision: ALLOW")
+		return &v1beta1.CheckResult{Status: status.OK}, nil
+	} else {
+		log.WithField("UID", uid).Infoln("Decision: DENY")
 		return &v1beta1.CheckResult{
 			Status: status.WithPermissionDenied("Kelon: request was rejected"),
 		}, nil
 	}
-
-	// Accepted
-	return &v1beta1.CheckResult{Status: status.OK}, nil
 }
 
 // ==============================================================

@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	utilInt "github.com/Foundato/kelon/internal/pkg/util"
+
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/pkg/api"
 	"github.com/Foundato/kelon/pkg/opa"
@@ -174,10 +176,16 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 	if err != nil {
 		return nil, errors.Wrap(err, "EnvoyProxy: Unable to reconstruct HTTP-Request")
 	}
+
 	// Set headers
 	for headerKey, headerValue := range r.GetHeaders() {
 		httpRequest.Header.Set(headerKey, headerValue)
 	}
+
+	// Add unique identifier for logging purpose
+	httpRequest = utilInt.AssignRequestUID(httpRequest)
+	uid := utilInt.GetRequestUID(httpRequest)
+	log.WithField("UID", uid).Infof("Received Envoy-Ext-Auth-Check to URL: %s", httpRequest.RequestURI)
 
 	decision, err := (*p.compiler).Process(httpRequest)
 	if err != nil {
@@ -185,9 +193,12 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 	}
 
 	resp := &ext_authz.CheckResponse{}
-	resp.Status = &rpc_status.Status{Code: int32(code.Code_PERMISSION_DENIED)}
 	if decision {
+		log.WithField("UID", uid).Infoln("Decision: ALLOW")
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
+	} else {
+		log.WithField("UID", uid).Infoln("Decision: DENY")
+		resp.Status = &rpc_status.Status{Code: int32(code.Code_PERMISSION_DENIED)}
 	}
 
 	if log.IsLevelEnabled(log.DebugLevel) {
