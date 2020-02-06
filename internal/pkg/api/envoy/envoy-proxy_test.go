@@ -22,10 +22,10 @@ const exampleAllowedRequest = `{
 	  "request": {
 		"http": {
 		  "id": "13359530607844510314",
-		  "method": "GET",
+		  "method": "POST",
 		  "headers": {
 			":authority": "192.168.99.100:31380",
-			":method": "GET",
+			":method": "POST",
 			":path": "/api/v1/products",
 			"accept": "*/*",
 			"authorization": "Basic Ym9iOnBhc3N3b3Jk",

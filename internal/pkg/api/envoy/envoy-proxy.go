@@ -164,15 +164,30 @@ func (p *envoyExtAuthzGrpcServer) listen() {
 func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.CheckRequest) (*ext_authz.CheckResponse, error) {
 	// Rebuild http request
 	r := req.GetAttributes().GetRequest().GetHttp()
-	protocol := "http"
-	if strings.HasPrefix(r.Protocol, "HTTPS") {
-		protocol = "https"
-	}
-	stringURL := fmt.Sprintf("%s://%s%s", protocol, r.GetHost(), r.GetPath())
+	path := r.GetPath()
 	if r.Query != "" {
-		stringURL = fmt.Sprintf("%s?%s", stringURL, r.GetQuery())
+		path = fmt.Sprintf("%s?%s", path, r.GetQuery())
 	}
-	httpRequest, err := http.NewRequest(r.GetMethod(), stringURL, strings.NewReader(r.GetBody()))
+	body := r.GetBody()
+	if body == "" {
+		body = "{}"
+	}
+
+	token := ""
+	if tokenHeader, ok := r.GetHeaders()["authorization"]; ok {
+		token = tokenHeader
+	}
+
+	inputBody := fmt.Sprintf(`{
+		"input": {
+			"method": "%s",
+			"path": "%s",
+			"token": "%s",
+			"payload": %s
+		}
+	}`, r.GetMethod(), path, token, body)
+
+	httpRequest, err := http.NewRequest("POST", "http://envoy.ext.auth.proxy/v1/data", strings.NewReader(inputBody))
 	if err != nil {
 		return nil, errors.Wrap(err, "EnvoyProxy: Unable to reconstruct HTTP-Request")
 	}
