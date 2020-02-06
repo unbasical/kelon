@@ -1,4 +1,4 @@
-name: Lint, Test, Build and Publish latest
+name: Lint, Test and Publish latest
 on:
   push:
     branches:
@@ -13,9 +13,8 @@ jobs:
         uses: actions/checkout@v1
 
       - name: Run GolangCI-Lint Action by building from repository
-        uses: matoous/golangci-lint-action@v1.1.0
-        with:
-          config: .golangci.yml
+        uses: actions-contrib/golangci-lint@master
+        args: "run -c .golangci.yml"
 
   test:
     name: Test
