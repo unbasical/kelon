@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 
+	internalErrors "github.com/Foundato/kelon/pkg/errors"
+
 	utilInt "github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/request"
 	"github.com/open-policy-agent/opa/ast"
@@ -92,8 +94,12 @@ func (proxy restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request) 
 		// Handle error returned by compiler
 		log.WithField("UID", uid).Errorf("RestProxy: Unable to compile request: %s", err.Error())
 		switch errors.Cause(err).(type) {
-		case *request.PathAmbiguousError:
+		case request.PathAmbiguousError:
 			writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
+		case request.PathNotFoundError:
+			writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
+		case internalErrors.InvalidInput:
+			writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		default:
 			writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 		}
