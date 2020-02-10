@@ -51,6 +51,10 @@ var (
 	istioPrivateKeyFile  = app.Flag("istio-private-key-file", "Filepath containing istio private key for mTLS (i.e. adapter.key).").Envar("ISTIO_PRIVATE_KEY_FILE").ExistingFile()
 	istioCertificateFile = app.Flag("istio-certificate-file", "Filepath containing istio certificate for mTLS (i.e. ca.pem).").Envar("ISTIO_CERTIFICATE_FILE").ExistingFile()
 
+	// Configs for monitoring
+	metricsService         = app.Flag("metrics-service", "Service that is used for monitoring [Prometheus, ApplicationInsights]").Envar("METRICS_SERVICE").Enum("Prometheus", "prometheus", "ApplicationInsights", "applicationinsights")
+	applicationInsightsKey = app.Flag("application-insights-key", "The ApplicationInsights-InstrumentationKey that is used to connect to the API.").Envar("APPLICATION_INSIGHTS_KEY").String()
+
 	proxy         api.ClientProxy       = nil
 	envoyProxy    api.ClientProxy       = nil
 	istioProxy    api.ClientProxy       = nil
@@ -116,13 +120,26 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 			parser          = requestInt.NewURLProcessor()
 			mapper          = requestInt.NewPathMapper()
 			translator      = translateInt.NewAstTranslator()
-			metricsProvider = monitoring.Prometheus{}
+			metricsProvider monitoring.MetricsProvider
 		)
+
+		if metricsService != nil {
+			switch strings.ToLower(*metricsService) {
+			case "prometheus":
+				metricsProvider = &monitoring.Prometheus{}
+			case "applicationinsights":
+				if applicationInsightsKey == nil {
+					log.Fatalln("Kelon was started with ApplicationInsights as --metrics-service but no option --application-insights-key was provided!")
+				}
+				metricsProvider = &monitoring.ApplicationInsights{AppInsightsInstrumentationKey: *applicationInsightsKey}
+			}
+		}
+
 		// Build app config
 		config.API = loadedConf.API
 		config.Data = loadedConf.Data
 		// Build server config
-		serverConf := makeServerConfig(compiler, parser, mapper, translator, &metricsProvider, loadedConf)
+		serverConf := makeServerConfig(compiler, parser, mapper, translator, metricsProvider, loadedConf)
 
 		if *preprocessRegos {
 			*regoDir = util.PrepocessPoliciesInDir(config, *regoDir)

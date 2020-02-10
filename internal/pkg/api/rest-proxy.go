@@ -56,7 +56,7 @@ func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 	}
 
 	// Configure monitoring (if set)
-	if serverConf.MetricsProvider != nil {
+	if *serverConf.MetricsProvider != nil {
 		if err := (*serverConf.MetricsProvider).Configure(); err != nil {
 			return err
 		}
@@ -101,6 +101,7 @@ func (proxy *restProxy) Start() error {
 	proxy.router.PathPrefix(proxy.pathPrefix + "/policies").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1PolicyPut)).Methods("PUT")
 	proxy.router.PathPrefix(proxy.pathPrefix + "/policies").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1PolicyDelete)).Methods("DELETE")
 	if proxy.metricsHandler != nil {
+		log.Infoln("Registered /metrics endpoint")
 		proxy.router.PathPrefix("/metrics").Handler(proxy.metricsHandler)
 	}
 	proxy.router.PathPrefix("/health").Methods("GET").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -135,7 +136,7 @@ func (proxy restProxy) applyHandlerMiddlewareIfSet(handlerFunc func(http.Respons
 }
 
 func (proxy restProxy) handleErrorMetrics(err error) {
-	if proxy.config.MetricsProvider != nil {
+	if *proxy.config.MetricsProvider != nil {
 		(*proxy.config.MetricsProvider).CheckError(err)
 	}
 }

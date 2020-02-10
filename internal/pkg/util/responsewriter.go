@@ -37,3 +37,39 @@ func (w *InMemResponseWriter) Write(b []byte) (int, error) {
 func (w *InMemResponseWriter) WriteHeader(statusCode int) {
 	w.statusCode = statusCode
 }
+
+type PassThroughResponseWriter struct {
+	body       []byte
+	statusCode int
+	header     http.Header
+	writer     http.ResponseWriter
+}
+
+func NewPassThroughResponseWriter(w http.ResponseWriter) *PassThroughResponseWriter {
+	return &PassThroughResponseWriter{
+		header: http.Header{},
+		writer: w,
+	}
+}
+
+func (w *PassThroughResponseWriter) Header() http.Header {
+	return w.writer.Header()
+}
+
+func (w *PassThroughResponseWriter) Body() string {
+	return string(w.body)
+}
+
+func (w *PassThroughResponseWriter) StatusCode() int {
+	return w.statusCode
+}
+
+func (w *PassThroughResponseWriter) Write(b []byte) (int, error) {
+	w.body = b
+	return w.writer.Write(b)
+}
+
+func (w *PassThroughResponseWriter) WriteHeader(statusCode int) {
+	w.statusCode = statusCode
+	w.writer.WriteHeader(statusCode)
+}

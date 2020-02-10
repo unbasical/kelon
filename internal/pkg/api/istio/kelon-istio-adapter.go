@@ -93,7 +93,7 @@ func (adapter *Adapter) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 	}
 
 	// Configure monitoring (if set)
-	if serverConf.MetricsProvider != nil {
+	if *serverConf.MetricsProvider != nil {
 		if err := (*serverConf.MetricsProvider).Configure(); err != nil {
 			return err
 		}
