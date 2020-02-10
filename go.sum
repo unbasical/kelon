@@ -381,6 +381,8 @@ github.com/open-policy-agent/opa v0.14.0 h1:3EKJJ8IvamhMJWTDEu1S8PcH+s1/Fy+g7LFK
 github.com/open-policy-agent/opa v0.14.0/go.mod h1:rlfeSeHuZmMEpmrcGla42AjkOUjP4rGIpS96H12un3o=
 github.com/open-policy-agent/opa v0.16.0 h1:VGyBInxJkrbZ2yNBGygnevnQFJgf/18ZbohvH7Xu9dw=
 github.com/open-policy-agent/opa v0.16.0/go.mod h1:P0xUE/GQAAgnvV537GzA0Ikw4+icPELRT327QJPkaKY=
+github.com/open-policy-agent/opa v0.17.1 h1:FchWeIevMohOKLM7oyFunUHEMp3gAOUCu+NNo/c6FjA=
+github.com/open-policy-agent/opa v0.17.1/go.mod h1:P0xUE/GQAAgnvV537GzA0Ikw4+icPELRT327QJPkaKY=
 github.com/opencontainers/go-digest v1.0.0-rc1/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/image-spec v1.0.1/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zMzWCbyJoFRP3s7yZA0=
 github.com/opencontainers/runc v0.1.1/go.mod h1:qT5XzbpPznkRYVz/mWwUaVBUv2rmF59PVA73FjuZG0U=
