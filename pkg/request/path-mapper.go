@@ -44,11 +44,11 @@ type MapperOutput struct {
 }
 
 // Textual representation of a PathAmbiguousError.
-func (e *PathAmbiguousError) Error() string {
+func (e PathAmbiguousError) Error() string {
 	return fmt.Sprintf("Path-mapping [%s] is ambiguous! Mapping [%s] also matches incoming path [%s]!", e.RequestURL, e.FirstMatch, e.OtherMatch)
 }
 
 // Textual representation of a PatNotFoundError.
-func (e *PathNotFoundError) Error() string {
+func (e PathNotFoundError) Error() string {
 	return fmt.Sprintf("PathMapper: There is no mapping which matches path [%s]!", e.RequestURL)
 }

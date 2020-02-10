@@ -97,7 +97,7 @@ func (mapper pathMapper) handleInput(input *pathMapperInput) (*request.MapperOut
 
 		// Throw error if ambiguous paths are matched
 		if len(matches) > 1 && matches[0].importance == matches[1].importance {
-			return nil, &request.PathAmbiguousError{
+			return nil, request.PathAmbiguousError{
 				RequestURL: requestString,
 				FirstMatch: matches[0].mapping.Path,
 				OtherMatch: matches[1].mapping.Path,
@@ -113,7 +113,7 @@ func (mapper pathMapper) handleInput(input *pathMapperInput) (*request.MapperOut
 	}
 
 	// No matches at all
-	return nil, &request.PathNotFoundError{
+	return nil, request.PathNotFoundError{
 		RequestURL: requestString,
 	}
 }

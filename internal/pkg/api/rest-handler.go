@@ -94,7 +94,9 @@ func (proxy restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request) 
 		// Handle error returned by compiler
 		log.WithField("UID", uid).Errorf("RestProxy: Unable to compile request: %s", err.Error())
 		switch errors.Cause(err).(type) {
-		case *request.PathAmbiguousError:
+		case request.PathAmbiguousError:
+			writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
+		case request.PathNotFoundError:
 			writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
 		case internalErrors.InvalidInput:
 			writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)

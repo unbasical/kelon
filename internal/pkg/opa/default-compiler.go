@@ -90,26 +90,9 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	uid := util.GetRequestUID(request)
 
 	// Parse body of request
-	requestBody := make(map[string]interface{})
-	if log.GetLevel() == log.DebugLevel {
-		log.WithField("UID", uid).Debugf("PolicyCompiler: Received request: %+v", request)
-
-		// Log body and decode already logged body
-		buf := new(bytes.Buffer)
-		if _, parseErr := buf.ReadFrom(request.Body); parseErr != nil {
-			return false, internalErrors.InvalidInput{Cause: parseErr, Msg: "PolicyCompiler: Error while parsing request body!"}
-		}
-
-		bodyString := buf.String()
-		log.WithField("UID", uid).Debugf("PolicyCompiler: Request had body: %s", bodyString)
-		if marshalErr := json.NewDecoder(strings.NewReader(bodyString)).Decode(&requestBody); marshalErr != nil {
-			return false, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
-		}
-	} else {
-		// Decode raw body
-		if marshalErr := json.NewDecoder(request.Body).Decode(&requestBody); marshalErr != nil {
-			return false, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
-		}
+	requestBody, bodyErr := compiler.parseRequestBody(uid, request)
+	if bodyErr != nil {
+		return false, bodyErr
 	}
 
 	// Extract input
@@ -123,13 +106,16 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 	if !exists {
 		return false, internalErrors.InvalidInput{Msg: "PolicyCompiler: Incoming request had no field 'input'!"}
 	}
-	input := rawInput.(map[string]interface{})
+	input, ok := rawInput.(map[string]interface{})
+	if !ok {
+		return false, internalErrors.InvalidInput{Msg: "PolicyCompiler: Field 'input' in request body was no nested JSON object!"}
+	}
 	log.WithField("UID", uid).Debugf("PolicyCompiler: Received input: %+v", input)
 
 	// Process path
 	output, err := compiler.processPath(input)
 	if err != nil {
-		return false, errors.Wrap(err, "PolicyCompiler: Error during path processing")
+		return false, err
 	}
 
 	// Compile mapped path
@@ -155,6 +141,34 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 
 	// If we receive something from the datastore, the query was successful
 	return result, nil
+}
+
+func (compiler policyCompiler) parseRequestBody(uid string, request *http.Request) (map[string]interface{}, error) {
+	requestBody := make(map[string]interface{})
+	if log.GetLevel() == log.DebugLevel {
+		log.WithField("UID", uid).Debugf("PolicyCompiler: Received request: %+v", request)
+
+		// Log body and decode already logged body
+		buf := new(bytes.Buffer)
+		if _, parseErr := buf.ReadFrom(request.Body); parseErr != nil {
+			return nil, internalErrors.InvalidInput{Cause: parseErr, Msg: "PolicyCompiler: Error while parsing request body!"}
+		}
+
+		bodyString := buf.String()
+		if bodyString == "" {
+			return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Request had empty body!"}
+		}
+		log.WithField("UID", uid).Debugf("PolicyCompiler: Request had body: %s", bodyString)
+		if marshalErr := json.NewDecoder(strings.NewReader(bodyString)).Decode(&requestBody); marshalErr != nil {
+			return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
+		}
+	} else {
+		// Decode raw body
+		if marshalErr := json.NewDecoder(request.Body).Decode(&requestBody); marshalErr != nil {
+			return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
+		}
+	}
+	return requestBody, nil
 }
 
 func anyQuerySucceeded(queries *rego.PartialQueries) bool {
@@ -185,7 +199,7 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 			return nil, internalErrors.InvalidInput{Msg: fmt.Sprintf("PolicyCompiler: Attribute 'method' of request body was not of type string! Type was %T", sentMethod)}
 		}
 	} else {
-		return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Request body didn't contain a 'method'"}
+		return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Object 'input' of request body didn't contain a 'method'"}
 	}
 
 	output, err := (*compiler.config.PathProcessor).Process(&requestInt.URLProcessorInput{
@@ -247,7 +261,7 @@ func extractURLFromRequestBody(input map[string]interface{}) (*url.URL, error) {
 			return nil, internalErrors.InvalidInput{Msg: fmt.Sprintf("PolicyCompiler: Attribute 'path' of request body was not of type string! Type was %T", sentURL)}
 		}
 	}
-	return nil, errors.New("PolicyCompiler: Request body didn't contain a 'path'. ")
+	return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Object 'input' of request body didn't contain a 'path'. "}
 }
 
 func (compiler *policyCompiler) extractOpaOpts(output *request.PathProcessorOutput) []func(*rego.Rego) {
