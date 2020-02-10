@@ -27,7 +27,10 @@ var (
 		Name: "http_requests_total",
 		Help: "Count of all HTTP requests",
 	}, []string{"code", "method"})
-
+	errorsCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "errors_total",
+		Help: "A gauge of non-fatal errors.",
+	})
 	inFlightRequests = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "in_flight_requests",
 		Help: "A gauge of requests currently being served by the wrapped handler.",
@@ -60,7 +63,7 @@ func (p *Prometheus) Configure() error {
 		// System stats
 		p.registry.MustRegister(version, prometheus.NewGoCollector(), prometheus.NewBuildInfoCollector())
 		// Http
-		p.registry.MustRegister(httpRequestsTotal, inFlightRequests, duration, requestSize)
+		p.registry.MustRegister(httpRequestsTotal, inFlightRequests, duration, requestSize, errorsCount)
 	}
 	return nil
 }
@@ -87,4 +90,8 @@ func (p *Prometheus) GetHTTPMiddleware() (func(handler http.Handler) http.Handle
 
 func (p *Prometheus) GetHTTPMetricsHandler() (http.Handler, error) {
 	return promhttp.HandlerFor(p.registry, promhttp.HandlerOpts{}), nil
+}
+
+func (p *Prometheus) CheckError(err error) {
+	errorsCount.Inc()
 }

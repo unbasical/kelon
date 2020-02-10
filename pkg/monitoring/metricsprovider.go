@@ -17,4 +17,6 @@ type MetricsProvider interface {
 	GetHTTPMiddleware() (func(handler http.Handler) http.Handler, error)
 	// Get a handler which can be exposed as "/metrics" endpoint
 	GetHTTPMetricsHandler() (http.Handler, error)
+	// Check errors for additional metrics
+	CheckError(err error)
 }
