@@ -4,6 +4,8 @@ package api
 import (
 	"time"
 
+	"github.com/Foundato/kelon/pkg/monitoring"
+
 	"github.com/Foundato/kelon/pkg/opa"
 
 	"github.com/Foundato/kelon/configs"
@@ -17,6 +19,7 @@ import (
 // to run in parallel.
 type ClientProxyConfig struct {
 	Compiler              *opa.PolicyCompiler
+	MetricsProvider       *monitoring.MetricsProvider
 	RespondWithStatusCode bool
 	opa.PolicyCompilerConfig
 }

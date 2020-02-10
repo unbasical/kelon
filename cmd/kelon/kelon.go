@@ -7,6 +7,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Foundato/kelon/pkg/monitoring"
+
 	apiInt "github.com/Foundato/kelon/internal/pkg/api"
 	opaInt "github.com/Foundato/kelon/internal/pkg/opa"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
@@ -110,17 +112,18 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 	if change == watcher.ChangeAll {
 		// Configure application
 		var (
-			config     = new(configs.AppConfig)
-			compiler   = opaInt.NewPolicyCompiler()
-			parser     = requestInt.NewURLProcessor()
-			mapper     = requestInt.NewPathMapper()
-			translator = translateInt.NewAstTranslator()
+			config          = new(configs.AppConfig)
+			compiler        = opaInt.NewPolicyCompiler()
+			parser          = requestInt.NewURLProcessor()
+			mapper          = requestInt.NewPathMapper()
+			translator      = translateInt.NewAstTranslator()
+			metricsProvider = monitoring.Prometheus{}
 		)
 		// Build app config
 		config.API = loadedConf.API
 		config.Data = loadedConf.Data
 		// Build server config
-		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
+		serverConf := makeServerConfig(compiler, parser, mapper, translator, metricsProvider, loadedConf)
 
 		if *preprocessRegos {
 			*regoDir = util.PrepocessPoliciesInDir(config, *regoDir)
@@ -230,10 +233,11 @@ func startNewIstioAdapter(appConfig *configs.AppConfig, serverConf *api.ClientPr
 	}
 }
 
-func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
+func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, metricsProvider monitoring.MetricsProvider, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
 	// Build server config
 	serverConf := api.ClientProxyConfig{
 		Compiler:              &compiler,
+		MetricsProvider:       &metricsProvider,
 		RespondWithStatusCode: *respondWithStatusCode,
 		PolicyCompilerConfig: opa.PolicyCompilerConfig{
 			Prefix:        pathPrefix,

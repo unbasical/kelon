@@ -11,7 +11,6 @@ import (
 	"github.com/Foundato/kelon/configs"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -53,6 +52,13 @@ func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 		return err
 	}
 
+	// Configure monitoring (if set)
+	if serverConf.MetricsProvider != nil {
+		if _, err := (*serverConf.MetricsProvider).GetHTTPHandler(); err != nil {
+			return errors.Wrap(err, "RestProxy was configured with MetricsProvider that does not implement 'GetHTTPHandler()' correctly.")
+		}
+	}
+
 	// Assign variables
 	proxy.appConf = appConf
 	proxy.config = serverConf
@@ -75,7 +81,11 @@ func (proxy *restProxy) Start() error {
 	proxy.router.PathPrefix(proxy.pathPrefix + "/data").HandlerFunc(proxy.handleV1DataDelete).Methods("DELETE")
 	proxy.router.PathPrefix(proxy.pathPrefix + "/policies").HandlerFunc(proxy.handleV1PolicyPut).Methods("PUT")
 	proxy.router.PathPrefix(proxy.pathPrefix + "/policies").HandlerFunc(proxy.handleV1PolicyDelete).Methods("DELETE")
-	proxy.router.PathPrefix("/metrics").Handler(promhttp.Handler())
+	if proxy.config.MetricsProvider != nil {
+		// Existence of handler was already validated in Configure()
+		handler, _ := (*proxy.config.MetricsProvider).GetHTTPHandler()
+		proxy.router.PathPrefix("/metrics").Handler(handler)
+	}
 	proxy.router.PathPrefix("/health").Methods("GET").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusOK)
 		_, _ = writer.Write([]byte("{\"status\": \"healthy\"}"))
