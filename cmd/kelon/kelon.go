@@ -123,7 +123,7 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		config.API = loadedConf.API
 		config.Data = loadedConf.Data
 		// Build server config
-		serverConf := makeServerConfig(compiler, parser, mapper, translator, metricsProvider, loadedConf)
+		serverConf := makeServerConfig(compiler, parser, mapper, translator, &metricsProvider, loadedConf)
 
 		if *preprocessRegos {
 			*regoDir = util.PrepocessPoliciesInDir(config, *regoDir)
