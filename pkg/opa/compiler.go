@@ -48,11 +48,8 @@ type PolicyCompiler interface {
 	// If any sub-component or the PolicyCompiler itself fails during this process, the encountered error will be returned (otherwise nil).
 	Configure(appConfig *configs.AppConfig, compConfig *PolicyCompilerConfig) error
 
-	// Process an incoming request and return a decision.
-	//
-	// Returns the final decision or any error encountered while processing the decision.
-	Process(request *http.Request) (bool, error)
-
 	// Get the underlying open policy agent which is running inside the PolicyCompiler.
 	GetEngine() *plugins.Manager
+
+	http.Handler
 }

@@ -4,10 +4,8 @@ import (
 	"net/http"
 
 	"github.com/Foundato/kelon/common"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"google.golang.org/grpc"
 )
 
 type Prometheus struct {
@@ -66,14 +64,6 @@ func (p *Prometheus) Configure() error {
 		p.registry.MustRegister(httpRequestsTotal, inFlightRequests, duration, requestSize, errorsCount)
 	}
 	return nil
-}
-
-func (p *Prometheus) GetGrpcStreamInterceptor() (*grpc.StreamServerInterceptor, error) {
-	panic("implement me")
-}
-
-func (p *Prometheus) GetGrpcUnaryInterceptor() (*grpc.UnaryServerInterceptor, error) {
-	panic("implement me")
 }
 
 func (p *Prometheus) GetHTTPMiddleware() (func(handler http.Handler) http.Handler, error) {

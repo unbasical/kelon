@@ -8,10 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	internalErrors "github.com/Foundato/kelon/pkg/errors"
-
 	utilInt "github.com/Foundato/kelon/internal/pkg/util"
-	"github.com/Foundato/kelon/pkg/request"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
 	"github.com/open-policy-agent/opa/plugins"
@@ -28,10 +25,6 @@ type apiError struct {
 		Code    string `json:"code"`
 		Message string `json:"message,omitempty"`
 	} `json:"error"`
-}
-
-type apiResponse struct {
-	Result bool `json:"result"`
 }
 
 type patchImpl struct {
@@ -74,39 +67,7 @@ func (proxy restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request) 
 	log.WithField("UID", uid).Infof("Received OPA Data-API POST to URL: %s", r.RequestURI)
 
 	// Compile
-	compiler := *proxy.config.Compiler
-	if decision, err := compiler.Process(r); err == nil {
-		// Compute status code if configured
-		responseStatus := http.StatusOK
-		if !decision && proxy.config.RespondWithStatusCode {
-			responseStatus = http.StatusForbidden
-		}
-
-		// Send decision to client
-		switch decision {
-		case true:
-			log.WithField("UID", uid).Infoln("Decision: ALLOW")
-			writeJSON(w, responseStatus, apiResponse{Result: true})
-		case false:
-			log.WithField("UID", uid).Infoln("Decision: DENY")
-			writeJSON(w, responseStatus, apiResponse{Result: false})
-		}
-	} else {
-		// Handle error returned by compiler
-		log.WithField("UID", uid).Errorf("RestProxy: Unable to compile request: %s", err.Error())
-		proxy.handleErrorMetrics(err)
-
-		switch errors.Cause(err).(type) {
-		case request.PathAmbiguousError:
-			writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
-		case request.PathNotFoundError:
-			writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
-		case internalErrors.InvalidInput:
-			writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
-		default:
-			writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
-		}
-	}
+	(*proxy.config.Compiler).ServeHTTP(w, r)
 }
 
 // Migration from github.com/open-policy-agent/opa/server/server.go

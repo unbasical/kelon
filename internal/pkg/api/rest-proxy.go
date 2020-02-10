@@ -69,7 +69,7 @@ func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 
 		metricsMiddleware, middErr := (*serverConf.MetricsProvider).GetHTTPMiddleware()
 		if middErr != nil {
-			return errors.Wrap(handlerErr, "RestProxy was configured with MetricsProvider that does not implement 'GetHTTPMiddleware()' correctly.")
+			return errors.Wrap(middErr, "RestProxy was configured with MetricsProvider that does not implement 'GetHTTPMiddleware()' correctly.")
 		}
 		proxy.metricsMiddleware = metricsMiddleware
 	}

@@ -22,8 +22,6 @@ import (
 
 	"istio.io/istio/mixer/pkg/status"
 
-	"github.com/Foundato/kelon/pkg/opa"
-
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/pkg/api"
 	"github.com/pkg/errors"
@@ -52,7 +50,7 @@ type (
 		configured bool
 		appConf    *configs.AppConfig
 		config     *api.ClientProxyConfig
-		compiler   *opa.PolicyCompiler
+		compiler   *http.Handler
 		listener   net.Listener
 		server     *grpc.Server
 	}
@@ -94,10 +92,25 @@ func (adapter *Adapter) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 		return err
 	}
 
+	// Configure monitoring (if set)
+	if serverConf.MetricsProvider != nil {
+		if err := (*serverConf.MetricsProvider).Configure(); err != nil {
+			return err
+		}
+		metricsMiddleware, middErr := (*serverConf.MetricsProvider).GetHTTPMiddleware()
+		if middErr != nil {
+			return errors.Wrap(middErr, "IstioProxy was configured with MetricsProvider that does not implement 'GetHTTPMiddleware()' correctly.")
+		}
+		handler := metricsMiddleware(compiler)
+		adapter.compiler = &handler
+	} else {
+		var handler http.Handler = compiler
+		adapter.compiler = &handler
+	}
+
 	// Assign variables
 	adapter.appConf = appConf
 	adapter.config = serverConf
-	adapter.compiler = &compiler
 	adapter.configured = true
 	log.Infoln("Configured IstioProxy")
 	return nil
@@ -165,19 +178,20 @@ func (adapter *Adapter) HandleAuthorization(ctx context.Context, req *authorizat
 		}
 	}
 
-	decision, err := (*adapter.compiler).Process(httpRequest)
-	if err != nil {
-		return nil, errors.Wrap(err, "IstioProxy: Error during request compilation")
-	}
+	w := utilInt.NewInMemResponseWriter()
+	(*adapter.compiler).ServeHTTP(w, httpRequest)
 
-	if decision {
+	switch w.StatusCode() {
+	case http.StatusOK:
 		log.WithField("UID", uid).Infoln("Decision: ALLOW")
 		return &v1beta1.CheckResult{Status: status.OK}, nil
-	} else {
+	case http.StatusForbidden:
 		log.WithField("UID", uid).Infoln("Decision: DENY")
 		return &v1beta1.CheckResult{
 			Status: status.WithPermissionDenied("Kelon: request was rejected"),
 		}, nil
+	default:
+		return nil, errors.Wrap(err, "IstioProxy: Error during request compilation")
 	}
 }
 

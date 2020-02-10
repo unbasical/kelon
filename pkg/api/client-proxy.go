@@ -18,9 +18,8 @@ import (
 // As a result of that, two ClientProxies that proxy different types of requests (i.e. gRPC and HTTP) should be able
 // to run in parallel.
 type ClientProxyConfig struct {
-	Compiler              *opa.PolicyCompiler
-	MetricsProvider       *monitoring.MetricsProvider
-	RespondWithStatusCode bool
+	Compiler        *opa.PolicyCompiler
+	MetricsProvider *monitoring.MetricsProvider
 	opa.PolicyCompilerConfig
 }
 

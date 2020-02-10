@@ -9,11 +9,9 @@ import (
 	"sync"
 	"time"
 
-	utilInt "github.com/Foundato/kelon/internal/pkg/util"
-
 	"github.com/Foundato/kelon/configs"
+	utilInt "github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/api"
-	"github.com/Foundato/kelon/pkg/opa"
 	ext_authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -33,7 +31,7 @@ type EnvoyConfig struct {
 type envoyExtAuthzGrpcServer struct {
 	cfg                 EnvoyConfig
 	server              *grpc.Server
-	compiler            *opa.PolicyCompiler
+	compiler            *http.Handler
 	preparedQueryDoOnce *sync.Once
 }
 
@@ -82,10 +80,25 @@ func (proxy *envoyProxy) Configure(appConf *configs.AppConfig, serverConf *api.C
 		return err
 	}
 
+	// Configure monitoring (if set)
+	if serverConf.MetricsProvider != nil {
+		if err := (*serverConf.MetricsProvider).Configure(); err != nil {
+			return err
+		}
+		metricsMiddleware, middErr := (*serverConf.MetricsProvider).GetHTTPMiddleware()
+		if middErr != nil {
+			return errors.Wrap(middErr, "EnvoyProxy was configured with MetricsProvider that does not implement 'GetHTTPMiddleware()' correctly.")
+		}
+		handler := metricsMiddleware(compiler)
+		proxy.envoy.compiler = &handler
+	} else {
+		var handler http.Handler = compiler
+		proxy.envoy.compiler = &handler
+	}
+
 	// Assign variables
 	proxy.appConf = appConf
 	proxy.config = serverConf
-	proxy.envoy.compiler = serverConf.Compiler
 	proxy.configured = true
 	log.Infoln("Configured EnvoyProxy")
 	return nil
@@ -202,21 +215,26 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 	uid := utilInt.GetRequestUID(httpRequest)
 	log.WithField("UID", uid).Infof("Received Envoy-Ext-Auth-Check to URL: %s", httpRequest.RequestURI)
 
-	decision, err := (*p.compiler).Process(httpRequest)
-	if err != nil {
-		return nil, errors.Wrap(err, "EnvoyProxy: Error during request compilation")
-	}
+	w := utilInt.NewInMemResponseWriter()
+	(*p.compiler).ServeHTTP(w, httpRequest)
 
 	resp := &ext_authz.CheckResponse{}
-	if decision {
+	switch w.StatusCode() {
+	case http.StatusOK:
 		log.WithField("UID", uid).Infoln("Decision: ALLOW")
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
-	} else {
+	case http.StatusForbidden:
 		log.WithField("UID", uid).Infoln("Decision: DENY")
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_PERMISSION_DENIED)}
+	default:
+		return nil, errors.Wrap(errors.New(w.Body()), "EnvoyProxy: Error during request compilation")
 	}
 
 	if log.IsLevelEnabled(log.DebugLevel) {
+		decision := "DENY"
+		if w.StatusCode() == http.StatusOK {
+			decision = "ALLOW"
+		}
 		log.WithFields(log.Fields{
 			"dry-run":  p.cfg.DryRun,
 			"decision": decision,
