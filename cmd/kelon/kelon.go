@@ -7,6 +7,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Foundato/kelon/pkg/constants"
+
 	"github.com/Foundato/kelon/pkg/telemetry"
 
 	apiInt "github.com/Foundato/kelon/internal/pkg/api"
@@ -116,35 +118,17 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 	if change == watcher.ChangeAll {
 		// Configure application
 		var (
-			config            = new(configs.AppConfig)
-			compiler          = opaInt.NewPolicyCompiler()
-			parser            = requestInt.NewURLProcessor()
-			mapper            = requestInt.NewPathMapper()
-			translator        = translateInt.NewAstTranslator()
-			telemetryProvider telemetry.Provider
+			config     = new(configs.AppConfig)
+			compiler   = opaInt.NewPolicyCompiler()
+			parser     = requestInt.NewURLProcessor()
+			mapper     = requestInt.NewPathMapper()
+			translator = translateInt.NewAstTranslator()
 		)
-
-		if telemetryService != nil {
-			switch strings.ToLower(*telemetryService) {
-			case "prometheus":
-				telemetryProvider = &telemetry.Prometheus{}
-			case "applicationinsights":
-				telemetryProvider = &telemetry.ApplicationInsights{
-					AppInsightsInstrumentationKey: *instrumentationKey,
-					MaxBatchSize:                  *appInsightsMaxBatchSize,
-					MaxBatchIntervalSeconds:       *appInsightsMaxBatchInterval,
-				}
-			}
-
-			if err := telemetryProvider.Configure(); err != nil {
-				log.Fatalf("Error during configuration of TelemetryProvider %q: %s", *telemetryService, err.Error())
-			}
-		}
 
 		// Build configs
 		config.API = loadedConf.API
 		config.Data = loadedConf.Data
-		config.TelemetryProvider = telemetryProvider
+		config.TelemetryProvider = makeTelemetryProvider()
 		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
 
 		if *preprocessRegos {
@@ -164,6 +148,27 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 			startNewIstioAdapter(config, &serverConf)
 		}
 	}
+}
+
+func makeTelemetryProvider() telemetry.Provider {
+	var telemetryProvider telemetry.Provider
+	if telemetryService != nil {
+		switch strings.ToLower(*telemetryService) {
+		case string(constants.PrometheusTelemetry):
+			telemetryProvider = &telemetry.Prometheus{}
+		case string(constants.ApplicationInsightsTelemetry):
+			telemetryProvider = &telemetry.ApplicationInsights{
+				AppInsightsInstrumentationKey: *instrumentationKey,
+				MaxBatchSize:                  *appInsightsMaxBatchSize,
+				MaxBatchIntervalSeconds:       *appInsightsMaxBatchInterval,
+			}
+		}
+
+		if err := telemetryProvider.Configure(); err != nil {
+			log.Fatalf("Error during configuration of TelemetryProvider %q: %s", *telemetryService, err.Error())
+		}
+	}
+	return telemetryProvider
 }
 
 func makeConfigWatcher(configLoader configs.FileConfigLoader, configWatcherPath *string) {
