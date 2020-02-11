@@ -12,6 +12,7 @@ import (
 	"github.com/Foundato/kelon/configs"
 	utilInt "github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/api"
+	"github.com/Foundato/kelon/pkg/monitoring"
 	ext_authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -81,11 +82,11 @@ func (proxy *envoyProxy) Configure(appConf *configs.AppConfig, serverConf *api.C
 	}
 
 	// Configure monitoring (if set)
-	if *serverConf.MetricsProvider != nil {
-		if err := (*serverConf.MetricsProvider).Configure(); err != nil {
+	if appConf.MetricsProvider != nil {
+		if err := appConf.MetricsProvider.Configure(); err != nil {
 			return err
 		}
-		metricsMiddleware, middErr := (*serverConf.MetricsProvider).GetHTTPMiddleware()
+		metricsMiddleware, middErr := appConf.MetricsProvider.GetHTTPMiddleware()
 		if middErr != nil {
 			return errors.Wrap(middErr, "EnvoyProxy was configured with MetricsProvider that does not implement 'GetHTTPMiddleware()' correctly.")
 		}
@@ -215,7 +216,7 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 	uid := utilInt.GetRequestUID(httpRequest)
 	log.WithField("UID", uid).Infof("Received Envoy-Ext-Auth-Check to URL: %s", httpRequest.RequestURI)
 
-	w := utilInt.NewInMemResponseWriter()
+	w := monitoring.NewInMemResponseWriter()
 	(*p.compiler).ServeHTTP(w, httpRequest)
 
 	resp := &ext_authz.CheckResponse{}

@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Foundato/kelon/pkg/monitoring"
+
 	utilInt "github.com/Foundato/kelon/internal/pkg/util"
 
 	"google.golang.org/grpc/credentials"
@@ -93,11 +95,11 @@ func (adapter *Adapter) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 	}
 
 	// Configure monitoring (if set)
-	if *serverConf.MetricsProvider != nil {
-		if err := (*serverConf.MetricsProvider).Configure(); err != nil {
+	if appConf.MetricsProvider != nil {
+		if err := appConf.MetricsProvider.Configure(); err != nil {
 			return err
 		}
-		metricsMiddleware, middErr := (*serverConf.MetricsProvider).GetHTTPMiddleware()
+		metricsMiddleware, middErr := appConf.MetricsProvider.GetHTTPMiddleware()
 		if middErr != nil {
 			return errors.Wrap(middErr, "IstioProxy was configured with MetricsProvider that does not implement 'GetHTTPMiddleware()' correctly.")
 		}
@@ -178,7 +180,7 @@ func (adapter *Adapter) HandleAuthorization(ctx context.Context, req *authorizat
 		}
 	}
 
-	w := utilInt.NewInMemResponseWriter()
+	w := monitoring.NewInMemResponseWriter()
 	(*adapter.compiler).ServeHTTP(w, httpRequest)
 
 	switch w.StatusCode() {

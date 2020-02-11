@@ -2,21 +2,34 @@ package monitoring
 
 import (
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
-	"github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Microsoft/ApplicationInsights-Go/appinsights"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type ApplicationInsights struct {
 	AppInsightsInstrumentationKey string
 	client                        appinsights.TelemetryClient
+	MaxBatchSize                  int
+	MaxBatchIntervalSeconds       int
 }
 
 func (p *ApplicationInsights) Configure() error {
-	p.client = appinsights.NewTelemetryClient(os.Getenv("APPINSIGHTS_INSTRUMENTATIONKEY"))
+	if p.AppInsightsInstrumentationKey == "" {
+		return errors.New("ApplicationInsights: No Instrumentation-Key was provided before configuration!")
+	}
+	telemetryConfig := appinsights.NewTelemetryConfiguration(p.AppInsightsInstrumentationKey)
+	// Configure how many items can be sent in one call to the data collector:
+	telemetryConfig.MaxBatchSize = p.MaxBatchSize
+	// Configure the maximum delay before sending queued telemetry:
+	telemetryConfig.MaxBatchInterval = time.Second * time.Duration(p.MaxBatchIntervalSeconds)
+
+	p.client = appinsights.NewTelemetryClientFromConfig(telemetryConfig)
+	log.Infoln("Configured ApplicationInsights.")
+
 	return nil
 }
 
@@ -24,7 +37,7 @@ func (p *ApplicationInsights) GetHTTPMiddleware() (func(handler http.Handler) ht
 	return func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			startTime := time.Now()
-			passThroughWriter := util.NewPassThroughResponseWriter(writer)
+			passThroughWriter := NewPassThroughResponseWriter(writer)
 			handler.ServeHTTP(passThroughWriter, request)
 			duration := time.Since(startTime)
 			trace := appinsights.NewRequestTelemetry(request.Method, request.URL.Path, duration, strconv.Itoa(passThroughWriter.StatusCode()))

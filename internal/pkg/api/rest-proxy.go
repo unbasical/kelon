@@ -56,18 +56,18 @@ func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 	}
 
 	// Configure monitoring (if set)
-	if *serverConf.MetricsProvider != nil {
-		if err := (*serverConf.MetricsProvider).Configure(); err != nil {
+	if appConf.MetricsProvider != nil {
+		if err := appConf.MetricsProvider.Configure(); err != nil {
 			return err
 		}
 
-		metricsHandler, handlerErr := (*serverConf.MetricsProvider).GetHTTPMetricsHandler()
+		metricsHandler, handlerErr := appConf.MetricsProvider.GetHTTPMetricsHandler()
 		if handlerErr != nil {
 			return errors.Wrap(handlerErr, "RestProxy was configured with MetricsProvider that does not implement 'GetHTTPMetricsHandler()' correctly.")
 		}
 		proxy.metricsHandler = metricsHandler
 
-		metricsMiddleware, middErr := (*serverConf.MetricsProvider).GetHTTPMiddleware()
+		metricsMiddleware, middErr := appConf.MetricsProvider.GetHTTPMiddleware()
 		if middErr != nil {
 			return errors.Wrap(middErr, "RestProxy was configured with MetricsProvider that does not implement 'GetHTTPMiddleware()' correctly.")
 		}
@@ -136,8 +136,8 @@ func (proxy restProxy) applyHandlerMiddlewareIfSet(handlerFunc func(http.Respons
 }
 
 func (proxy restProxy) handleErrorMetrics(err error) {
-	if *proxy.config.MetricsProvider != nil {
-		(*proxy.config.MetricsProvider).CheckError(err)
+	if proxy.appConf.MetricsProvider != nil {
+		proxy.appConf.MetricsProvider.CheckError(err)
 	}
 }
 

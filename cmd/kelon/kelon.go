@@ -52,8 +52,10 @@ var (
 	istioCertificateFile = app.Flag("istio-certificate-file", "Filepath containing istio certificate for mTLS (i.e. ca.pem).").Envar("ISTIO_CERTIFICATE_FILE").ExistingFile()
 
 	// Configs for monitoring
-	metricsService         = app.Flag("metrics-service", "Service that is used for monitoring [Prometheus, ApplicationInsights]").Envar("METRICS_SERVICE").Enum("Prometheus", "prometheus", "ApplicationInsights", "applicationinsights")
-	applicationInsightsKey = app.Flag("application-insights-key", "The ApplicationInsights-InstrumentationKey that is used to connect to the API.").Envar("APPLICATION_INSIGHTS_KEY").String()
+	metricsService              = app.Flag("metrics-service", "Service that is used for monitoring [Prometheus, ApplicationInsights]").Envar("METRICS_SERVICE").Enum("Prometheus", "prometheus", "ApplicationInsights", "applicationinsights")
+	instrumentationKey          = app.Flag("instrumentation-key", "The ApplicationInsights-InstrumentationKey that is used to connect to the API.").Envar("INSTRUMENTATION_KEY").String()
+	appInsightsMaxBatchSize     = app.Flag("application-insights-max-batch-size", "Configure how many items can be sent in one call to the data collector.").Default("8192").Envar("APPLICATION_INSIGHTS_MAX_BATCH_SIZE").Int()
+	appInsightsMaxBatchInterval = app.Flag("application-insights-max-batch-interval-seconds", "Configure the maximum delay before sending queued telemetry.").Default("2").Envar("APPLICATION_INSIGHTS_MAX_BATCH_INTERVAL_SECONDS").Int()
 
 	proxy         api.ClientProxy       = nil
 	envoyProxy    api.ClientProxy       = nil
@@ -128,18 +130,22 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 			case "prometheus":
 				metricsProvider = &monitoring.Prometheus{}
 			case "applicationinsights":
-				if applicationInsightsKey == nil {
+				if instrumentationKey == nil {
 					log.Fatalln("Kelon was started with ApplicationInsights as --metrics-service but no option --application-insights-key was provided!")
 				}
-				metricsProvider = &monitoring.ApplicationInsights{AppInsightsInstrumentationKey: *applicationInsightsKey}
+				metricsProvider = &monitoring.ApplicationInsights{
+					AppInsightsInstrumentationKey: *instrumentationKey,
+					MaxBatchSize:                  *appInsightsMaxBatchSize,
+					MaxBatchIntervalSeconds:       *appInsightsMaxBatchInterval,
+				}
 			}
 		}
 
-		// Build app config
+		// Build configs
 		config.API = loadedConf.API
 		config.Data = loadedConf.Data
-		// Build server config
-		serverConf := makeServerConfig(compiler, parser, mapper, translator, metricsProvider, loadedConf)
+		config.MetricsProvider = metricsProvider
+		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
 
 		if *preprocessRegos {
 			*regoDir = util.PrepocessPoliciesInDir(config, *regoDir)
@@ -249,11 +255,10 @@ func startNewIstioAdapter(appConfig *configs.AppConfig, serverConf *api.ClientPr
 	}
 }
 
-func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, metricsProvider monitoring.MetricsProvider, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
+func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
 	// Build server config
 	serverConf := api.ClientProxyConfig{
-		Compiler:        &compiler,
-		MetricsProvider: &metricsProvider,
+		Compiler: &compiler,
 		PolicyCompilerConfig: opa.PolicyCompilerConfig{
 			Prefix:        pathPrefix,
 			OpaConfigPath: opaPath,
