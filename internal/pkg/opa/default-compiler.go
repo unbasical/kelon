@@ -30,6 +30,10 @@ type policyCompiler struct {
 	engine     *OPA
 }
 
+type apiResponse struct {
+	Result bool `json:"result"`
+}
+
 type apiError struct {
 	Error struct {
 		Code    string `json:"code"`
@@ -138,12 +142,12 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 
 	// OPA decided denied
 	if queries.Queries == nil {
-		writeDeny(w, uid)
+		compiler.writeDeny(w, uid)
 		return
 	}
 	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
-		writeAllow(w, uid)
+		compiler.writeAllow(w, uid)
 		return
 	}
 
@@ -156,9 +160,9 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 
 	// If we receive something from the datastore, the query was successful
 	if result {
-		writeAllow(w, uid)
+		compiler.writeAllow(w, uid)
 	} else {
-		writeDeny(w, uid)
+		compiler.writeDeny(w, uid)
 	}
 }
 
@@ -192,14 +196,22 @@ func writeError(w http.ResponseWriter, status int, code string, err error) {
 	writeJSON(w, status, resp)
 }
 
-func writeAllow(w http.ResponseWriter, requestID string) {
+func (compiler policyCompiler) writeAllow(w http.ResponseWriter, requestID string) {
 	log.WithField("UID", requestID).Infoln("Decision: ALLOW")
-	w.WriteHeader(http.StatusOK)
+	if compiler.config.RespondWithStatusCode {
+		w.WriteHeader(http.StatusOK)
+	} else {
+		writeJSON(w, http.StatusOK, apiResponse{Result: true})
+	}
 }
 
-func writeDeny(w http.ResponseWriter, requestID string) {
+func (compiler policyCompiler) writeDeny(w http.ResponseWriter, requestID string) {
 	log.WithField("UID", requestID).Infoln("Decision: DENY")
-	w.WriteHeader(http.StatusForbidden)
+	if compiler.config.RespondWithStatusCode {
+		w.WriteHeader(http.StatusForbidden)
+	} else {
+		writeJSON(w, http.StatusOK, apiResponse{Result: false})
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, x interface{}) {
