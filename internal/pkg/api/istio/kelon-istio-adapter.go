@@ -95,22 +95,13 @@ func (adapter *Adapter) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 	}
 
 	// Configure telemetry (if set)
-	if appConf.TelemetryProvider != nil {
-		if err := appConf.TelemetryProvider.Configure(); err != nil {
-			return err
-		}
-		telemetryMiddleware, middErr := appConf.TelemetryProvider.GetHTTPMiddleware()
-		if middErr != nil {
-			return errors.Wrap(middErr, "IstioProxy was configured with TelemetryProvider that does not implement 'GetHTTPMiddleware()' correctly.")
-		}
-		handler := telemetryMiddleware(compiler)
-		adapter.compiler = &handler
-	} else {
-		var handler http.Handler = compiler
-		adapter.compiler = &handler
+	handler, err := telemetry.ApplyTelemetryIfPresent(appConf.TelemetryProvider, compiler)
+	if err != nil {
+		return errors.Wrap(err, "IstioProxy encountered error during telemetry provider configuration")
 	}
 
 	// Assign variables
+	adapter.compiler = &handler
 	adapter.appConf = appConf
 	adapter.config = serverConf
 	adapter.configured = true

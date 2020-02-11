@@ -84,22 +84,13 @@ func (proxy *envoyProxy) Configure(appConf *configs.AppConfig, serverConf *api.C
 	}
 
 	// Configure telemetry (if set)
-	if appConf.TelemetryProvider != nil {
-		if err := appConf.TelemetryProvider.Configure(); err != nil {
-			return err
-		}
-		telemetryMiddleware, middErr := appConf.TelemetryProvider.GetHTTPMiddleware()
-		if middErr != nil {
-			return errors.Wrap(middErr, "EnvoyProxy was configured with TelemetryProvider that does not implement 'GetHTTPMiddleware()' correctly.")
-		}
-		handler := telemetryMiddleware(compiler)
-		proxy.envoy.compiler = &handler
-	} else {
-		var handler http.Handler = compiler
-		proxy.envoy.compiler = &handler
+	handler, err := telemetry.ApplyTelemetryIfPresent(appConf.TelemetryProvider, compiler)
+	if err != nil {
+		return errors.Wrap(err, "EnvoyProxy encountered error during telemetry provider configuration")
 	}
 
 	// Assign variables
+	proxy.envoy.compiler = &handler
 	proxy.appConf = appConf
 	proxy.config = serverConf
 	proxy.configured = true
