@@ -23,8 +23,8 @@ type restProxy struct {
 	router     *mux.Router
 	server     *http.Server
 
-	metricsHandler    http.Handler
-	metricsMiddleware func(handler http.Handler) http.Handler
+	telemetryHandler    http.Handler
+	telemetryMiddleware func(handler http.Handler) http.Handler
 }
 
 // Implements api.ClientProxy by providing OPA's Data-REST-API.
@@ -55,23 +55,23 @@ func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 		return err
 	}
 
-	// Configure monitoring (if set)
-	if appConf.MetricsProvider != nil {
-		if err := appConf.MetricsProvider.Configure(); err != nil {
+	// Configure telemetry (if set)
+	if appConf.TelemetryProvider != nil {
+		if err := appConf.TelemetryProvider.Configure(); err != nil {
 			return err
 		}
 
-		metricsHandler, handlerErr := appConf.MetricsProvider.GetHTTPMetricsHandler()
+		telemetryHandler, handlerErr := appConf.TelemetryProvider.GetHTTPMetricsHandler()
 		if handlerErr != nil {
-			return errors.Wrap(handlerErr, "RestProxy was configured with MetricsProvider that does not implement 'GetHTTPMetricsHandler()' correctly.")
+			return errors.Wrap(handlerErr, "RestProxy was configured with TelemetryProvider that does not implement 'GetHTTPMetricsHandler()' correctly.")
 		}
-		proxy.metricsHandler = metricsHandler
+		proxy.telemetryHandler = telemetryHandler
 
-		metricsMiddleware, middErr := appConf.MetricsProvider.GetHTTPMiddleware()
+		telemetryMiddleware, middErr := appConf.TelemetryProvider.GetHTTPMiddleware()
 		if middErr != nil {
-			return errors.Wrap(middErr, "RestProxy was configured with MetricsProvider that does not implement 'GetHTTPMiddleware()' correctly.")
+			return errors.Wrap(middErr, "RestProxy was configured with TelemetryProvider that does not implement 'GetHTTPMiddleware()' correctly.")
 		}
-		proxy.metricsMiddleware = metricsMiddleware
+		proxy.telemetryMiddleware = telemetryMiddleware
 	}
 
 	// Assign variables
@@ -100,9 +100,9 @@ func (proxy *restProxy) Start() error {
 	proxy.router.PathPrefix(proxy.pathPrefix + "/data").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataDelete)).Methods("DELETE")
 	proxy.router.PathPrefix(proxy.pathPrefix + "/policies").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1PolicyPut)).Methods("PUT")
 	proxy.router.PathPrefix(proxy.pathPrefix + "/policies").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1PolicyDelete)).Methods("DELETE")
-	if proxy.metricsHandler != nil {
+	if proxy.telemetryHandler != nil {
 		log.Infoln("Registered /metrics endpoint")
-		proxy.router.PathPrefix("/metrics").Handler(proxy.metricsHandler)
+		proxy.router.PathPrefix("/metrics").Handler(proxy.telemetryHandler)
 	}
 	proxy.router.PathPrefix("/health").Methods("GET").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusOK)
@@ -128,16 +128,16 @@ func (proxy *restProxy) Start() error {
 }
 
 func (proxy restProxy) applyHandlerMiddlewareIfSet(handlerFunc func(http.ResponseWriter, *http.Request)) http.Handler {
-	if proxy.metricsMiddleware != nil {
-		return proxy.metricsMiddleware(http.HandlerFunc(handlerFunc))
+	if proxy.telemetryMiddleware != nil {
+		return proxy.telemetryMiddleware(http.HandlerFunc(handlerFunc))
 	} else {
 		return http.HandlerFunc(handlerFunc)
 	}
 }
 
 func (proxy restProxy) handleErrorMetrics(err error) {
-	if proxy.appConf.MetricsProvider != nil {
-		proxy.appConf.MetricsProvider.CheckError(err)
+	if proxy.appConf.TelemetryProvider != nil {
+		proxy.appConf.TelemetryProvider.CheckError(err)
 	}
 }
 

@@ -9,21 +9,16 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/open-policy-agent/opa/server/types"
-
-	internalErrors "github.com/Foundato/kelon/pkg/errors"
-
-	"github.com/Foundato/kelon/internal/pkg/util"
-
-	"github.com/open-policy-agent/opa/plugins"
-
-	"github.com/Foundato/kelon/pkg/watcher"
-
 	"github.com/Foundato/kelon/configs"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
+	"github.com/Foundato/kelon/internal/pkg/util"
+	internalErrors "github.com/Foundato/kelon/pkg/errors"
 	"github.com/Foundato/kelon/pkg/opa"
 	"github.com/Foundato/kelon/pkg/request"
+	"github.com/Foundato/kelon/pkg/watcher"
+	"github.com/open-policy-agent/opa/plugins"
 	"github.com/open-policy-agent/opa/rego"
+	"github.com/open-policy-agent/opa/server/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )

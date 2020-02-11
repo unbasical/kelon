@@ -1,11 +1,11 @@
-package monitoring
+package telemetry
 
 import (
 	"net/http"
 )
 
-type MetricsProvider interface {
-	// Configure metrics provider
+type Provider interface {
+	// Configure telemetry provider
 	Configure() error
 	// Get a func which wraps a http Handler as Middleware
 	GetHTTPMiddleware() (func(handler http.Handler) http.Handler, error)

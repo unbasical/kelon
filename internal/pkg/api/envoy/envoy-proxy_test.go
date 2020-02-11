@@ -66,11 +66,12 @@ func (c mockCompiler) Configure(appConfig *configs.AppConfig, compConfig *opa.Po
 	return nil
 }
 
-func (c mockCompiler) Process(request *http.Request) (bool, error) {
+func (c mockCompiler) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 	if c.failOnProcess {
-		return false, errors.New("Mock process failure ")
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
+		w.WriteHeader(http.StatusOK)
 	}
-	return c.decision, nil
 }
 
 func TestCheckAllow(t *testing.T) {

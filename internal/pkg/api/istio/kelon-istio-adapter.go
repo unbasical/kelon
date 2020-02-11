@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Foundato/kelon/pkg/monitoring"
+	"github.com/Foundato/kelon/pkg/telemetry"
 
 	utilInt "github.com/Foundato/kelon/internal/pkg/util"
 
@@ -94,16 +94,16 @@ func (adapter *Adapter) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 		return err
 	}
 
-	// Configure monitoring (if set)
-	if appConf.MetricsProvider != nil {
-		if err := appConf.MetricsProvider.Configure(); err != nil {
+	// Configure telemetry (if set)
+	if appConf.TelemetryProvider != nil {
+		if err := appConf.TelemetryProvider.Configure(); err != nil {
 			return err
 		}
-		metricsMiddleware, middErr := appConf.MetricsProvider.GetHTTPMiddleware()
+		telemetryMiddleware, middErr := appConf.TelemetryProvider.GetHTTPMiddleware()
 		if middErr != nil {
-			return errors.Wrap(middErr, "IstioProxy was configured with MetricsProvider that does not implement 'GetHTTPMiddleware()' correctly.")
+			return errors.Wrap(middErr, "IstioProxy was configured with TelemetryProvider that does not implement 'GetHTTPMiddleware()' correctly.")
 		}
-		handler := metricsMiddleware(compiler)
+		handler := telemetryMiddleware(compiler)
 		adapter.compiler = &handler
 	} else {
 		var handler http.Handler = compiler
@@ -180,7 +180,7 @@ func (adapter *Adapter) HandleAuthorization(ctx context.Context, req *authorizat
 		}
 	}
 
-	w := monitoring.NewInMemResponseWriter()
+	w := telemetry.NewInMemResponseWriter()
 	(*adapter.compiler).ServeHTTP(w, httpRequest)
 
 	switch w.StatusCode() {

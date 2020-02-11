@@ -1,7 +1,9 @@
-package monitoring
+package telemetry
 
 import (
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/Foundato/kelon/common"
 	"github.com/prometheus/client_golang/prometheus"
@@ -62,6 +64,8 @@ func (p *Prometheus) Configure() error {
 		p.registry.MustRegister(version, prometheus.NewGoCollector(), prometheus.NewBuildInfoCollector())
 		// Http
 		p.registry.MustRegister(httpRequestsTotal, inFlightRequests, duration, requestSize, errorsCount)
+
+		log.Infoln("Configured Prometheus.")
 	}
 	return nil
 }

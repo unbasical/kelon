@@ -12,7 +12,7 @@ import (
 	"github.com/Foundato/kelon/configs"
 	utilInt "github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/api"
-	"github.com/Foundato/kelon/pkg/monitoring"
+	"github.com/Foundato/kelon/pkg/telemetry"
 	ext_authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -81,16 +81,16 @@ func (proxy *envoyProxy) Configure(appConf *configs.AppConfig, serverConf *api.C
 		return err
 	}
 
-	// Configure monitoring (if set)
-	if appConf.MetricsProvider != nil {
-		if err := appConf.MetricsProvider.Configure(); err != nil {
+	// Configure telemetry (if set)
+	if appConf.TelemetryProvider != nil {
+		if err := appConf.TelemetryProvider.Configure(); err != nil {
 			return err
 		}
-		metricsMiddleware, middErr := appConf.MetricsProvider.GetHTTPMiddleware()
+		telemetryMiddleware, middErr := appConf.TelemetryProvider.GetHTTPMiddleware()
 		if middErr != nil {
-			return errors.Wrap(middErr, "EnvoyProxy was configured with MetricsProvider that does not implement 'GetHTTPMiddleware()' correctly.")
+			return errors.Wrap(middErr, "EnvoyProxy was configured with TelemetryProvider that does not implement 'GetHTTPMiddleware()' correctly.")
 		}
-		handler := metricsMiddleware(compiler)
+		handler := telemetryMiddleware(compiler)
 		proxy.envoy.compiler = &handler
 	} else {
 		var handler http.Handler = compiler
@@ -216,7 +216,7 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 	uid := utilInt.GetRequestUID(httpRequest)
 	log.WithField("UID", uid).Infof("Received Envoy-Ext-Auth-Check to URL: %s", httpRequest.RequestURI)
 
-	w := monitoring.NewInMemResponseWriter()
+	w := telemetry.NewInMemResponseWriter()
 	(*p.compiler).ServeHTTP(w, httpRequest)
 
 	resp := &ext_authz.CheckResponse{}

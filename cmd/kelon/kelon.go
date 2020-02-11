@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Foundato/kelon/pkg/monitoring"
+	"github.com/Foundato/kelon/pkg/telemetry"
 
 	apiInt "github.com/Foundato/kelon/internal/pkg/api"
 	opaInt "github.com/Foundato/kelon/internal/pkg/opa"
@@ -32,13 +32,21 @@ import (
 
 //nolint:gochecknoglobals
 var (
-	app             = kingpin.New("kelon", "Kelon policy enforcer.")
-	opaPath         = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
-	regoDir         = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Short('r').Envar("REGO_DIR").ExistingDir()
-	pathPrefix      = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
-	port            = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
-	preprocessRegos = app.Flag("preprocess-policies", "Preprocess incoming policies for internal use-case (EXPERIMENTAL FEATURE! DO NOT USE!).").Default("false").Envar("PREPROCESS_POLICIES").Bool()
-	logLevel        = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
+	app = kingpin.New("kelon", "Kelon policy enforcer.")
+
+	// Commands
+	run = app.Command("run", "Run kelon in production mode.")
+
+	// Flags
+	datastorePath     = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
+	apiPath           = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
+	configWatcherPath = app.Flag("config-watcher-path", "Path where the config watcher should listen for changes.").Envar("CONFIG_WATCHER_PATH").ExistingDir()
+	opaPath           = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
+	regoDir           = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Short('r').Envar("REGO_DIR").ExistingDir()
+	pathPrefix        = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
+	port              = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
+	preprocessRegos   = app.Flag("preprocess-policies", "Preprocess incoming policies for internal use-case (EXPERIMENTAL FEATURE! DO NOT USE!).").Default("false").Envar("PREPROCESS_POLICIES").Bool()
+	logLevel          = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
 
 	// Configs for envoy external auth
 	envoyPort       = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
@@ -51,8 +59,8 @@ var (
 	istioPrivateKeyFile  = app.Flag("istio-private-key-file", "Filepath containing istio private key for mTLS (i.e. adapter.key).").Envar("ISTIO_PRIVATE_KEY_FILE").ExistingFile()
 	istioCertificateFile = app.Flag("istio-certificate-file", "Filepath containing istio certificate for mTLS (i.e. ca.pem).").Envar("ISTIO_CERTIFICATE_FILE").ExistingFile()
 
-	// Configs for monitoring
-	metricsService              = app.Flag("metrics-service", "Service that is used for monitoring [Prometheus, ApplicationInsights]").Envar("METRICS_SERVICE").Enum("Prometheus", "prometheus", "ApplicationInsights", "applicationinsights")
+	// Configs for telemetry
+	telemetryService            = app.Flag("telemetry-service", "Service that is used for telemetry [Prometheus, ApplicationInsights]").Envar("TELEMETRY_SERVICE").Enum("Prometheus", "prometheus", "ApplicationInsights", "applicationinsights")
 	instrumentationKey          = app.Flag("instrumentation-key", "The ApplicationInsights-InstrumentationKey that is used to connect to the API.").Envar("INSTRUMENTATION_KEY").String()
 	appInsightsMaxBatchSize     = app.Flag("application-insights-max-batch-size", "Configure how many items can be sent in one call to the data collector.").Default("8192").Envar("APPLICATION_INSIGHTS_MAX_BATCH_SIZE").Int()
 	appInsightsMaxBatchInterval = app.Flag("application-insights-max-batch-interval-seconds", "Configure the maximum delay before sending queued telemetry.").Default("2").Envar("APPLICATION_INSIGHTS_MAX_BATCH_INTERVAL_SECONDS").Int()
@@ -64,16 +72,6 @@ var (
 )
 
 func main() {
-	// Configure kingpin
-	var (
-		// Commands
-		run = app.Command("run", "Run kelon in production mode.")
-		// Flags
-		datastorePath     = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
-		apiPath           = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
-		configWatcherPath = app.Flag("config-watcher-path", "Path where the config watcher should listen for changes.").Envar("CONFIG_WATCHER_PATH").ExistingDir()
-	)
-
 	app.HelpFlag.Short('h')
 	app.Version(common.Version)
 
@@ -117,23 +115,23 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 	if change == watcher.ChangeAll {
 		// Configure application
 		var (
-			config          = new(configs.AppConfig)
-			compiler        = opaInt.NewPolicyCompiler()
-			parser          = requestInt.NewURLProcessor()
-			mapper          = requestInt.NewPathMapper()
-			translator      = translateInt.NewAstTranslator()
-			metricsProvider monitoring.MetricsProvider
+			config            = new(configs.AppConfig)
+			compiler          = opaInt.NewPolicyCompiler()
+			parser            = requestInt.NewURLProcessor()
+			mapper            = requestInt.NewPathMapper()
+			translator        = translateInt.NewAstTranslator()
+			telemetryProvider telemetry.Provider
 		)
 
-		if metricsService != nil {
-			switch strings.ToLower(*metricsService) {
+		if telemetryService != nil {
+			switch strings.ToLower(*telemetryService) {
 			case "prometheus":
-				metricsProvider = &monitoring.Prometheus{}
+				telemetryProvider = &telemetry.Prometheus{}
 			case "applicationinsights":
 				if instrumentationKey == nil {
 					log.Fatalln("Kelon was started with ApplicationInsights as --metrics-service but no option --application-insights-key was provided!")
 				}
-				metricsProvider = &monitoring.ApplicationInsights{
+				telemetryProvider = &telemetry.ApplicationInsights{
 					AppInsightsInstrumentationKey: *instrumentationKey,
 					MaxBatchSize:                  *appInsightsMaxBatchSize,
 					MaxBatchIntervalSeconds:       *appInsightsMaxBatchInterval,
@@ -144,7 +142,7 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		// Build configs
 		config.API = loadedConf.API
 		config.Data = loadedConf.Data
-		config.MetricsProvider = metricsProvider
+		config.TelemetryProvider = telemetryProvider
 		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
 
 		if *preprocessRegos {
