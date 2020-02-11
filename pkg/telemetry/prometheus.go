@@ -31,6 +31,14 @@ var (
 		Name: "errors_total",
 		Help: "A gauge of non-fatal errors.",
 	})
+	databaseRequestsTotal = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "datastore_requests_total",
+		Help: "Count of all Datastore requests",
+	})
+	databaseErrorsCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "datastore_errors_total",
+		Help: "A gauge of non-fatal errors during datastore requests errors.",
+	})
 	inFlightRequests = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "in_flight_requests",
 		Help: "A gauge of requests currently being served by the wrapped handler.",
@@ -44,6 +52,14 @@ var (
 			Buckets: []float64{.05, .1, .5, 1, 2.5, 10},
 		},
 		[]string{"handler", "method"},
+	)
+	datastoreRequestDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "datastore_request_duration_seconds",
+			Help:    "A histogram of latencies for datastore requests.",
+			Buckets: []float64{.05, .1, .5, 1, 2.5, 10},
+		},
+		[]string{"database"},
 	)
 	// responseSize has no labels, making it a zero-dimensional
 	// ObserverVec.
@@ -64,6 +80,8 @@ func (p *Prometheus) Configure() error {
 		p.registry.MustRegister(version, prometheus.NewGoCollector(), prometheus.NewBuildInfoCollector())
 		// Http
 		p.registry.MustRegister(httpRequestsTotal, inFlightRequests, duration, requestSize, errorsCount)
+		// Datastores
+		p.registry.MustRegister(databaseRequestsTotal, datastoreRequestDuration, databaseErrorsCount)
 
 		log.Infoln("Configured Prometheus.")
 	}
@@ -73,7 +91,7 @@ func (p *Prometheus) Configure() error {
 func (p *Prometheus) GetHTTPMiddleware() (func(handler http.Handler) http.Handler, error) {
 	return func(handler http.Handler) http.Handler {
 		return promhttp.InstrumentHandlerInFlight(inFlightRequests,
-			promhttp.InstrumentHandlerDuration(duration.MustCurryWith(prometheus.Labels{"handler": "pull"}),
+			promhttp.InstrumentHandlerDuration(duration.MustCurryWith(prometheus.Labels{"handler": "http"}),
 				promhttp.InstrumentHandlerCounter(httpRequestsTotal,
 					promhttp.InstrumentHandlerRequestSize(requestSize, handler),
 				),
@@ -91,5 +109,10 @@ func (p *Prometheus) CheckError(err error) {
 }
 
 func (p *Prometheus) MeasureRemoteDependency(alias string, dependencyType string, queryTime time.Duration, success bool) {
-
+	databaseRequestsTotal.Inc()
+	if success {
+		datastoreRequestDuration.With(prometheus.Labels{"database": alias}).Observe(queryTime.Seconds())
+	} else {
+		databaseErrorsCount.Inc()
+	}
 }
