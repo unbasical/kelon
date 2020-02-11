@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Foundato/kelon/pkg/constants"
 	"github.com/Microsoft/ApplicationInsights-Go/appinsights"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -40,8 +41,16 @@ func (p *ApplicationInsights) GetHTTPMiddleware() (func(handler http.Handler) ht
 			passThroughWriter := NewPassThroughResponseWriter(writer)
 			handler.ServeHTTP(passThroughWriter, request)
 			duration := time.Since(startTime)
+			// Build trace
 			trace := appinsights.NewRequestTelemetry(request.Method, request.URL.Path, duration, strconv.Itoa(passThroughWriter.StatusCode()))
 			trace.Timestamp = time.Now()
+			trace.Source = request.RemoteAddr
+			reqID := request.Context().Value(constants.ContextKeyRequestID)
+			if ret, ok := reqID.(string); ok {
+				trace.Id = ret
+			}
+			trace.Properties["user-agent"] = request.Header.Get("User-agent")
+			// Send trace
 			p.client.Track(trace)
 		})
 	}, nil
@@ -55,4 +64,15 @@ func (p *ApplicationInsights) CheckError(err error) {
 	if err != nil {
 		p.client.TrackException(err)
 	}
+}
+
+func (p *ApplicationInsights) MeasureDatastoreAccess(alias string, dependencyType string, queryTime time.Duration, success bool) {
+	dependency := appinsights.RemoteDependencyTelemetry{}
+	dependency.Name = alias
+	dependency.Type = dependencyType
+	dependency.Duration = queryTime
+	dependency.Success = success
+
+	// Submit the telemetry
+	p.client.Track(&dependency)
 }

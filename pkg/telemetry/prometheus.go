@@ -2,12 +2,12 @@ package telemetry
 
 import (
 	"net/http"
-
-	log "github.com/sirupsen/logrus"
+	"time"
 
 	"github.com/Foundato/kelon/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
 )
 
 type Prometheus struct {
@@ -88,4 +88,8 @@ func (p *Prometheus) GetHTTPMetricsHandler() (http.Handler, error) {
 
 func (p *Prometheus) CheckError(err error) {
 	errorsCount.Inc()
+}
+
+func (p *Prometheus) MeasureDatastoreAccess(alias string, dependencyType string, queryTime time.Duration, success bool) {
+
 }
