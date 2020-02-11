@@ -186,6 +186,7 @@ func (adapter *Adapter) HandleAuthorization(ctx context.Context, req *authorizat
 	switch w.StatusCode() {
 	case http.StatusOK:
 		log.WithField("UID", uid).Infoln("Decision: ALLOW")
+		// Write telemetry
 		return &v1beta1.CheckResult{Status: status.OK}, nil
 	case http.StatusForbidden:
 		log.WithField("UID", uid).Infoln("Decision: DENY")
@@ -193,7 +194,11 @@ func (adapter *Adapter) HandleAuthorization(ctx context.Context, req *authorizat
 			Status: status.WithPermissionDenied("Kelon: request was rejected"),
 		}, nil
 	default:
-		return nil, errors.Wrap(err, "IstioProxy: Error during request compilation")
+		adapterErr := errors.Wrap(err, "IstioProxy: Error during request compilation")
+		if adapter.appConf.TelemetryProvider != nil {
+			adapter.appConf.TelemetryProvider.CheckError(adapterErr)
+		}
+		return nil, adapterErr
 	}
 }
 

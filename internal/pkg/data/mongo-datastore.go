@@ -172,13 +172,13 @@ func (ds mongoDatastore) Execute(query *data.Node) (bool, error) {
 
 	log.Debugf("RECEIVED RESULTS: %+v", queryResults)
 	if ds.appConf.TelemetryProvider != nil {
-		ds.appConf.TelemetryProvider.MeasureDatastoreAccess(ds.alias, ds.datastoreType, time.Since(startTime), true)
+		ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.alias, ds.datastoreType, time.Since(startTime), true)
 	}
 	decision := false
 	for _, result := range queryResults {
 		if result.err != nil {
 			if ds.appConf.TelemetryProvider != nil {
-				ds.appConf.TelemetryProvider.MeasureDatastoreAccess(ds.alias, ds.datastoreType, time.Since(startTime), false)
+				ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.alias, ds.datastoreType, time.Since(startTime), false)
 			}
 			return false, errors.Wrap(result.err, "MongoDB: Error while sending Queries to DB")
 		}

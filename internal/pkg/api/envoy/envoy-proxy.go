@@ -31,6 +31,7 @@ type EnvoyConfig struct {
 
 type envoyExtAuthzGrpcServer struct {
 	cfg                 EnvoyConfig
+	appConf             *configs.AppConfig
 	server              *grpc.Server
 	compiler            *http.Handler
 	preparedQueryDoOnce *sync.Once
@@ -58,6 +59,7 @@ func NewEnvoyProxy(config EnvoyConfig) api.ClientProxy {
 		config:     nil,
 		envoy: &envoyExtAuthzGrpcServer{
 			cfg:                 config,
+			appConf:             nil,
 			server:              nil,
 			compiler:            nil,
 			preparedQueryDoOnce: nil,
@@ -101,6 +103,7 @@ func (proxy *envoyProxy) Configure(appConf *configs.AppConfig, serverConf *api.C
 	proxy.appConf = appConf
 	proxy.config = serverConf
 	proxy.configured = true
+	proxy.envoy.appConf = appConf
 	log.Infoln("Configured EnvoyProxy")
 	return nil
 }
@@ -228,7 +231,12 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 		log.WithField("UID", uid).Infoln("Decision: DENY")
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_PERMISSION_DENIED)}
 	default:
-		return nil, errors.Wrap(errors.New(w.Body()), "EnvoyProxy: Error during request compilation")
+		proxyErr := errors.Wrap(errors.New(w.Body()), "EnvoyProxy: Error during request compilation")
+		// Write telemetry
+		if p.appConf.TelemetryProvider != nil {
+			p.appConf.TelemetryProvider.CheckError(proxyErr)
+		}
+		return nil, proxyErr
 	}
 
 	if log.IsLevelEnabled(log.DebugLevel) {

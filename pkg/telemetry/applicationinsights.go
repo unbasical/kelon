@@ -66,7 +66,7 @@ func (p *ApplicationInsights) CheckError(err error) {
 	}
 }
 
-func (p *ApplicationInsights) MeasureDatastoreAccess(alias string, dependencyType string, queryTime time.Duration, success bool) {
+func (p *ApplicationInsights) MeasureRemoteDependency(alias string, dependencyType string, queryTime time.Duration, success bool) {
 	dependency := appinsights.RemoteDependencyTelemetry{}
 	dependency.Name = alias
 	dependency.Type = dependencyType
