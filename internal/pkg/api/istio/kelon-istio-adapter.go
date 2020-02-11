@@ -16,13 +16,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Foundato/kelon/pkg/telemetry"
+
 	utilInt "github.com/Foundato/kelon/internal/pkg/util"
 
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/mixer/pkg/status"
-
-	"github.com/Foundato/kelon/pkg/opa"
 
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/pkg/api"
@@ -52,7 +52,7 @@ type (
 		configured bool
 		appConf    *configs.AppConfig
 		config     *api.ClientProxyConfig
-		compiler   *opa.PolicyCompiler
+		compiler   *http.Handler
 		listener   net.Listener
 		server     *grpc.Server
 	}
@@ -94,10 +94,16 @@ func (adapter *Adapter) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 		return err
 	}
 
+	// Configure telemetry (if set)
+	handler, err := telemetry.ApplyTelemetryIfPresent(appConf.TelemetryProvider, compiler)
+	if err != nil {
+		return errors.Wrap(err, "IstioProxy encountered error during telemetry provider configuration")
+	}
+
 	// Assign variables
+	adapter.compiler = &handler
 	adapter.appConf = appConf
 	adapter.config = serverConf
-	adapter.compiler = &compiler
 	adapter.configured = true
 	log.Infoln("Configured IstioProxy")
 	return nil
@@ -165,19 +171,25 @@ func (adapter *Adapter) HandleAuthorization(ctx context.Context, req *authorizat
 		}
 	}
 
-	decision, err := (*adapter.compiler).Process(httpRequest)
-	if err != nil {
-		return nil, errors.Wrap(err, "IstioProxy: Error during request compilation")
-	}
+	w := telemetry.NewInMemResponseWriter()
+	(*adapter.compiler).ServeHTTP(w, httpRequest)
 
-	if decision {
+	switch w.StatusCode() {
+	case http.StatusOK:
 		log.WithField("UID", uid).Infoln("Decision: ALLOW")
+		// Write telemetry
 		return &v1beta1.CheckResult{Status: status.OK}, nil
-	} else {
+	case http.StatusForbidden:
 		log.WithField("UID", uid).Infoln("Decision: DENY")
 		return &v1beta1.CheckResult{
 			Status: status.WithPermissionDenied("Kelon: request was rejected"),
 		}, nil
+	default:
+		adapterErr := errors.Wrap(err, "IstioProxy: Error during request compilation")
+		if adapter.appConf.TelemetryProvider != nil {
+			adapter.appConf.TelemetryProvider.CheckError(adapterErr)
+		}
+		return nil, adapterErr
 	}
 }
 

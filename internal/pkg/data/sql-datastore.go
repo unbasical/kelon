@@ -20,22 +20,24 @@ import (
 )
 
 type sqlDatastore struct {
-	appConf    *configs.AppConfig
-	alias      string
-	conn       map[string]string
-	schemas    map[string]*configs.EntitySchema
-	dbPool     *sql.DB
-	callOps    map[string]func(args ...string) string
-	configured bool
+	appConf       *configs.AppConfig
+	alias         string
+	datastoreType string
+	conn          map[string]string
+	schemas       map[string]*configs.EntitySchema
+	dbPool        *sql.DB
+	callOps       map[string]func(args ...string) string
+	configured    bool
 }
 
 // Return a new data.Datastore which is able to connect to PostgreSQL and MySQL databases.
 func NewSQLDatastore() data.Datastore {
 	return &sqlDatastore{
-		appConf:    nil,
-		alias:      "",
-		callOps:    nil,
-		configured: false,
+		appConf:       nil,
+		alias:         "",
+		datastoreType: "",
+		callOps:       nil,
+		configured:    false,
 	}
 }
 
@@ -93,6 +95,7 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	// Assign values
 	ds.conn = conf.Connection
 	ds.dbPool = db
+	ds.datastoreType = conf.Type
 	ds.schemas = appConf.Data.DatastoreSchemas[alias]
 	ds.appConf = appConf
 	ds.alias = alias
@@ -136,8 +139,12 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 	statement := ds.translate(query)
 	log.Debugf("EXECUTING STATEMENT: ==================%s==================", statement)
 
+	startTime := time.Now()
 	rows, err := ds.dbPool.Query(statement)
 	if err != nil {
+		if ds.appConf.TelemetryProvider != nil {
+			ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.alias, ds.datastoreType, time.Since(startTime), false)
+		}
 		return false, errors.Wrap(err, "SqlDatastore: Error while executing statement")
 	}
 	defer func() {
@@ -146,6 +153,7 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 		}
 	}()
 
+	result := false
 	for rows.Next() {
 		var count int
 		if err := rows.Scan(&count); err != nil {
@@ -153,12 +161,18 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 		}
 		if count > 0 {
 			log.Debugf("Result row with count %d found! -> ALLOWED", count)
-			return true, nil
+			result = true
+			break
 		}
 	}
 
-	log.Debugf("No resulting row with count > 0 found! -> DENIED")
-	return false, nil
+	if !result {
+		log.Debugf("No resulting row with count > 0 found! -> DENIED")
+	}
+	if ds.appConf.TelemetryProvider != nil {
+		ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.alias, ds.datastoreType, time.Since(startTime), true)
+	}
+	return result, nil
 }
 
 // nolint:gocyclo

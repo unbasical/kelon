@@ -21,22 +21,29 @@ import (
 )
 
 type mongoDatastore struct {
-	appConf     *configs.AppConfig
-	alias       string
-	conn        map[string]string
-	entityPaths map[string]map[string][]string
-	client      *mongo.Client
-	callOps     map[string]func(args ...string) string
-	configured  bool
+	appConf       *configs.AppConfig
+	alias         string
+	datastoreType string
+	conn          map[string]string
+	entityPaths   map[string]map[string][]string
+	client        *mongo.Client
+	callOps       map[string]func(args ...string) string
+	configured    bool
+}
+
+type mongoQueryResult struct {
+	err   error
+	count int64
 }
 
 // Return a new data.Datastore which is able to connect to PostgreSQL and MySQL databases.
 func NewMongoDatastore() data.Datastore {
 	return &mongoDatastore{
-		appConf:    nil,
-		alias:      "",
-		callOps:    nil,
-		configured: false,
+		appConf:       nil,
+		alias:         "",
+		datastoreType: "Mongo-DB",
+		callOps:       nil,
+		configured:    false,
 	}
 }
 
@@ -114,9 +121,10 @@ func (ds mongoDatastore) Execute(query *data.Node) (bool, error) {
 
 	// Translate to map: collection -> filter
 	statements := ds.translate(query)
-	queryResults := make([]int64, len(statements))
+	queryResults := make([]mongoQueryResult, len(statements))
 
 	// Execute all statements parallel and store resulting counts
+	startTime := time.Now()
 	var wg sync.WaitGroup
 	writeIndex := 0
 	wg.Add(len(queryResults))
@@ -125,6 +133,8 @@ func (ds mongoDatastore) Execute(query *data.Node) (bool, error) {
 
 		// Execute each of the resulting queries for each collection parallel
 		go func(wait *sync.WaitGroup, index int, coll string, fString string) {
+			defer wait.Done()
+
 			// Unmarshal generated json string
 			var filter bson.M
 			unmarshalErr := json.Unmarshal([]byte(fString), &filter)
@@ -139,12 +149,18 @@ func (ds mongoDatastore) Execute(query *data.Node) (bool, error) {
 
 			count, searchErr := collection.CountDocuments(ctx, filter)
 			if searchErr != nil {
-				panic(searchErr)
+				queryResults[index] = mongoQueryResult{
+					err:   searchErr,
+					count: 0,
+				}
+				return
 			}
 
 			// Store result
-			queryResults[index] = count
-			wait.Done()
+			queryResults[index] = mongoQueryResult{
+				err:   nil,
+				count: count,
+			}
 		}(&wg, writeIndex, collection, filterString)
 
 		// Increase write-index to avoid parallel write conflicts
@@ -154,20 +170,27 @@ func (ds mongoDatastore) Execute(query *data.Node) (bool, error) {
 	// Wait till all queries returned
 	wg.Wait()
 
-	// Recover from any occurred error during transaction
-	if err := recover(); err != nil {
-		return false, errors.Errorf("Error while executing MongoDB query: %+v", err)
-	}
-
 	log.Debugf("RECEIVED RESULTS: %+v", queryResults)
-	for _, count := range queryResults {
-		if count > 0 {
-			log.Debugf("Result row with count %d found! -> ALLOWED", count)
-			return true, nil
+	if ds.appConf.TelemetryProvider != nil {
+		ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.alias, ds.datastoreType, time.Since(startTime), true)
+	}
+	decision := false
+	for _, result := range queryResults {
+		if result.err != nil {
+			if ds.appConf.TelemetryProvider != nil {
+				ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.alias, ds.datastoreType, time.Since(startTime), false)
+			}
+			return false, errors.Wrap(result.err, "MongoDB: Error while sending Queries to DB")
+		}
+		if result.count > 0 {
+			log.Debugf("Result row with count %d found! -> ALLOWED", result.count)
+			decision = true
 		}
 	}
-	log.Debugf("No resulting row with count > 0 found! -> DENIED")
-	return false, nil
+	if !decision {
+		log.Debugf("No resulting row with count > 0 found! -> DENIED")
+	}
+	return decision, nil
 }
 
 // nolint:gocyclo

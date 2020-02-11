@@ -9,19 +9,16 @@ import (
 	"net/url"
 	"strings"
 
-	internalErrors "github.com/Foundato/kelon/pkg/errors"
-
-	"github.com/Foundato/kelon/internal/pkg/util"
-
-	"github.com/open-policy-agent/opa/plugins"
-
-	"github.com/Foundato/kelon/pkg/watcher"
-
 	"github.com/Foundato/kelon/configs"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
+	"github.com/Foundato/kelon/internal/pkg/util"
+	internalErrors "github.com/Foundato/kelon/pkg/errors"
 	"github.com/Foundato/kelon/pkg/opa"
 	"github.com/Foundato/kelon/pkg/request"
+	"github.com/Foundato/kelon/pkg/watcher"
+	"github.com/open-policy-agent/opa/plugins"
 	"github.com/open-policy-agent/opa/rego"
+	"github.com/open-policy-agent/opa/server/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -31,6 +28,17 @@ type policyCompiler struct {
 	appConfig  *configs.AppConfig
 	config     *opa.PolicyCompilerConfig
 	engine     *OPA
+}
+
+type apiResponse struct {
+	Result bool `json:"result"`
+}
+
+type apiError struct {
+	Error struct {
+		Code    string `json:"code"`
+		Message string `json:"message,omitempty"`
+	} `json:"error"`
 }
 
 // Return a new instance of the default implementation of the opa.PolicyCompiler.
@@ -82,17 +90,21 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 }
 
 // See Process() from opa.PolicyCompiler
-func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
-	if !compiler.configured {
-		return false, errors.New("PolicyCompiler was not configured! Please call Configure(). ")
-	}
+func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 	// Extract uid from request
 	uid := util.GetRequestUID(request)
+
+	// Validate if policy compiler was configured correctly
+	if !compiler.configured {
+		compiler.handleError(w, uid, errors.New("PolicyCompiler was not configured! Please call Configure(). "))
+		return
+	}
 
 	// Parse body of request
 	requestBody, bodyErr := compiler.parseRequestBody(uid, request)
 	if bodyErr != nil {
-		return false, bodyErr
+		compiler.handleError(w, uid, bodyErr)
+		return
 	}
 
 	// Extract input
@@ -104,43 +116,111 @@ func (compiler policyCompiler) Process(request *http.Request) (bool, error) {
 
 	rawInput, exists := requestBody["input"]
 	if !exists {
-		return false, internalErrors.InvalidInput{Msg: "PolicyCompiler: Incoming request had no field 'input'!"}
+		compiler.handleError(w, uid, internalErrors.InvalidInput{Msg: "PolicyCompiler: Incoming request had no field 'input'!"})
+		return
 	}
 	input, ok := rawInput.(map[string]interface{})
 	if !ok {
-		return false, internalErrors.InvalidInput{Msg: "PolicyCompiler: Field 'input' in request body was no nested JSON object!"}
+		compiler.handleError(w, uid, internalErrors.InvalidInput{Msg: "PolicyCompiler: Field 'input' in request body was no nested JSON object!"})
+		return
 	}
 	log.WithField("UID", uid).Debugf("PolicyCompiler: Received input: %+v", input)
 
 	// Process path
 	output, err := compiler.processPath(input)
 	if err != nil {
-		return false, err
+		compiler.handleError(w, uid, err)
+		return
 	}
 
 	// Compile mapped path
 	queries, err := compiler.opaCompile(request, &input, output)
 	if err != nil {
-		return false, errors.Wrap(err, "PolicyCompiler: Error during policy compilation")
+		compiler.handleError(w, uid, errors.Wrap(err, "PolicyCompiler: Error during policy compilation"))
+		return
 	}
 
 	// OPA decided denied
 	if queries.Queries == nil {
-		return false, nil
+		compiler.writeDeny(w, uid)
+		return
 	}
 	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
-		return true, nil
+		compiler.writeAllow(w, uid)
+		return
 	}
 
 	// Otherwise translate ast
 	result, err := (*compiler.config.Translator).Process(queries, output.Datastore)
 	if err != nil {
-		return false, errors.Wrap(err, "PolicyCompiler: Error during ast translation")
+		compiler.handleError(w, uid, errors.Wrap(err, "PolicyCompiler: Error during ast translation"))
+		return
 	}
 
 	// If we receive something from the datastore, the query was successful
-	return result, nil
+	if result {
+		compiler.writeAllow(w, uid)
+	} else {
+		compiler.writeDeny(w, uid)
+	}
+}
+
+func (compiler policyCompiler) handleError(w http.ResponseWriter, requestID string, err error) {
+	log.WithField("UID", requestID).WithError(err).Error("PolicyCompiler encountered an error")
+	compiler.handleErrorMetrics(err)
+	switch errors.Cause(err).(type) {
+	case request.PathAmbiguousError:
+		writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
+	case request.PathNotFoundError:
+		writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
+	case internalErrors.InvalidInput:
+		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
+	default:
+		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+	}
+}
+
+func (compiler policyCompiler) handleErrorMetrics(err error) {
+	if compiler.appConfig.TelemetryProvider != nil {
+		compiler.appConfig.TelemetryProvider.CheckError(err)
+	}
+}
+
+func writeError(w http.ResponseWriter, status int, code string, err error) {
+	var resp apiError
+	resp.Error.Code = code
+	if err != nil {
+		resp.Error.Message = errors.Cause(err).Error()
+	}
+	writeJSON(w, status, resp)
+}
+
+func (compiler policyCompiler) writeAllow(w http.ResponseWriter, requestID string) {
+	log.WithField("UID", requestID).Infoln("Decision: ALLOW")
+	if compiler.config.RespondWithStatusCode {
+		w.WriteHeader(http.StatusOK)
+	} else {
+		writeJSON(w, http.StatusOK, apiResponse{Result: true})
+	}
+}
+
+func (compiler policyCompiler) writeDeny(w http.ResponseWriter, requestID string) {
+	log.WithField("UID", requestID).Infoln("Decision: DENY")
+	if compiler.config.RespondWithStatusCode {
+		w.WriteHeader(http.StatusForbidden)
+	} else {
+		writeJSON(w, http.StatusOK, apiResponse{Result: false})
+	}
+}
+
+func writeJSON(w http.ResponseWriter, status int, x interface{}) {
+	bs, _ := json.Marshal(x)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if _, err := w.Write(bs); err != nil {
+		log.Fatalln("PolicyCompiler: Unable to send response!")
+	}
 }
 
 func (compiler policyCompiler) parseRequestBody(uid string, request *http.Request) (map[string]interface{}, error) {

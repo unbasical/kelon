@@ -8,10 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	internalErrors "github.com/Foundato/kelon/pkg/errors"
-
 	utilInt "github.com/Foundato/kelon/internal/pkg/util"
-	"github.com/Foundato/kelon/pkg/request"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
 	"github.com/open-policy-agent/opa/plugins"
@@ -28,10 +25,6 @@ type apiError struct {
 		Code    string `json:"code"`
 		Message string `json:"message,omitempty"`
 	} `json:"error"`
-}
-
-type apiResponse struct {
-	Result bool `json:"result"`
 }
 
 type patchImpl struct {
@@ -62,6 +55,7 @@ func (proxy restProxy) handleV1DataGet(w http.ResponseWriter, r *http.Request) {
 		// Handle request like post
 		proxy.handleV1DataPost(w, trans)
 	} else {
+		proxy.handleErrorMetrics(errors.Wrap(err, "RestProxy: Unable to map GET request to POST"))
 		log.Fatal("RestProxy: Unable to map GET request to POST: ", err.Error())
 	}
 }
@@ -73,37 +67,7 @@ func (proxy restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request) 
 	log.WithField("UID", uid).Infof("Received OPA Data-API POST to URL: %s", r.RequestURI)
 
 	// Compile
-	compiler := *proxy.config.Compiler
-	if decision, err := compiler.Process(r); err == nil {
-		// Compute status code if configured
-		responseStatus := http.StatusOK
-		if !decision && proxy.config.RespondWithStatusCode {
-			responseStatus = http.StatusForbidden
-		}
-
-		// Send decision to client
-		switch decision {
-		case true:
-			log.WithField("UID", uid).Infoln("Decision: ALLOW")
-			writeJSON(w, responseStatus, apiResponse{Result: true})
-		case false:
-			log.WithField("UID", uid).Infoln("Decision: DENY")
-			writeJSON(w, responseStatus, apiResponse{Result: false})
-		}
-	} else {
-		// Handle error returned by compiler
-		log.WithField("UID", uid).Errorf("RestProxy: Unable to compile request: %s", err.Error())
-		switch errors.Cause(err).(type) {
-		case request.PathAmbiguousError:
-			writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
-		case request.PathNotFoundError:
-			writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
-		case internalErrors.InvalidInput:
-			writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
-		default:
-			writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
-		}
-	}
+	(*proxy.config.Compiler).ServeHTTP(w, r)
 }
 
 // Migration from github.com/open-policy-agent/opa/server/server.go
@@ -114,6 +78,7 @@ func (proxy restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) {
 	// Parse input
 	var value interface{}
 	if err := util.NewJSONDecoder(r.Body).Decode(&value); err != nil {
+		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		return
 	}
@@ -121,6 +86,7 @@ func (proxy restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) {
 	// Prepare transaction
 	path, txn, err := proxy.preparePathCheckedTransaction(ctx, r.URL.Path, opa, w)
 	if err != nil {
+		proxy.handleErrorMetrics(err)
 		return
 	}
 
@@ -166,12 +132,14 @@ func (proxy restProxy) handleV1DataPatch(w http.ResponseWriter, r *http.Request)
 	// Parse input
 	var ops []types.PatchV1
 	if err := util.NewJSONDecoder(r.Body).Decode(&ops); err != nil {
+		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		return
 	}
 
 	patches, err := proxy.prepareV1PatchSlice(path.String(), ops)
 	if err != nil {
+		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
 		return
 	}
@@ -179,6 +147,7 @@ func (proxy restProxy) handleV1DataPatch(w http.ResponseWriter, r *http.Request)
 	// Start transaction
 	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
 	if err != nil {
+		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
 		return
 	}
@@ -209,6 +178,7 @@ func (proxy restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Request
 	// Prepare transaction
 	path, txn, err := proxy.preparePathCheckedTransaction(ctx, r.URL.Path, opa, w)
 	if err != nil {
+		proxy.handleErrorMetrics(err)
 		return
 	}
 
@@ -247,6 +217,7 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	// Read request body
 	buf, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		return
 	}
@@ -264,6 +235,7 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	// Start transaction
 	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
 	if err != nil {
+		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
 		return
 	}
@@ -331,6 +303,7 @@ func (proxy restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Reque
 	// Start transaction
 	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
 	if err != nil {
+		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
 		return
 	}
@@ -379,11 +352,13 @@ func (proxy restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Reque
 
 func (proxy restProxy) abortWithInternalServerError(ctx context.Context, opa *plugins.Manager, txn storage.Transaction, w http.ResponseWriter, err error) {
 	opa.Store.Abort(ctx, txn)
+	proxy.handleErrorMetrics(err)
 	writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 }
 
 func (proxy restProxy) abortWithBadRequest(ctx context.Context, opa *plugins.Manager, txn storage.Transaction, w http.ResponseWriter, err error) {
 	opa.Store.Abort(ctx, txn)
+	proxy.handleErrorMetrics(err)
 	writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 }
 

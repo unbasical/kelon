@@ -9,11 +9,10 @@ import (
 	"sync"
 	"time"
 
-	utilInt "github.com/Foundato/kelon/internal/pkg/util"
-
 	"github.com/Foundato/kelon/configs"
+	utilInt "github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/api"
-	"github.com/Foundato/kelon/pkg/opa"
+	"github.com/Foundato/kelon/pkg/telemetry"
 	ext_authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -32,8 +31,9 @@ type EnvoyConfig struct {
 
 type envoyExtAuthzGrpcServer struct {
 	cfg                 EnvoyConfig
+	appConf             *configs.AppConfig
 	server              *grpc.Server
-	compiler            *opa.PolicyCompiler
+	compiler            *http.Handler
 	preparedQueryDoOnce *sync.Once
 }
 
@@ -59,6 +59,7 @@ func NewEnvoyProxy(config EnvoyConfig) api.ClientProxy {
 		config:     nil,
 		envoy: &envoyExtAuthzGrpcServer{
 			cfg:                 config,
+			appConf:             nil,
 			server:              nil,
 			compiler:            nil,
 			preparedQueryDoOnce: nil,
@@ -82,11 +83,18 @@ func (proxy *envoyProxy) Configure(appConf *configs.AppConfig, serverConf *api.C
 		return err
 	}
 
+	// Configure telemetry (if set)
+	handler, err := telemetry.ApplyTelemetryIfPresent(appConf.TelemetryProvider, compiler)
+	if err != nil {
+		return errors.Wrap(err, "EnvoyProxy encountered error during telemetry provider configuration")
+	}
+
 	// Assign variables
+	proxy.envoy.compiler = &handler
 	proxy.appConf = appConf
 	proxy.config = serverConf
-	proxy.envoy.compiler = serverConf.Compiler
 	proxy.configured = true
+	proxy.envoy.appConf = appConf
 	log.Infoln("Configured EnvoyProxy")
 	return nil
 }
@@ -202,21 +210,31 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 	uid := utilInt.GetRequestUID(httpRequest)
 	log.WithField("UID", uid).Infof("Received Envoy-Ext-Auth-Check to URL: %s", httpRequest.RequestURI)
 
-	decision, err := (*p.compiler).Process(httpRequest)
-	if err != nil {
-		return nil, errors.Wrap(err, "EnvoyProxy: Error during request compilation")
-	}
+	w := telemetry.NewInMemResponseWriter()
+	(*p.compiler).ServeHTTP(w, httpRequest)
 
 	resp := &ext_authz.CheckResponse{}
-	if decision {
+	switch w.StatusCode() {
+	case http.StatusOK:
 		log.WithField("UID", uid).Infoln("Decision: ALLOW")
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
-	} else {
+	case http.StatusForbidden:
 		log.WithField("UID", uid).Infoln("Decision: DENY")
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_PERMISSION_DENIED)}
+	default:
+		proxyErr := errors.Wrap(errors.New(w.Body()), "EnvoyProxy: Error during request compilation")
+		// Write telemetry
+		if p.appConf.TelemetryProvider != nil {
+			p.appConf.TelemetryProvider.CheckError(proxyErr)
+		}
+		return nil, proxyErr
 	}
 
 	if log.IsLevelEnabled(log.DebugLevel) {
+		decision := "DENY"
+		if w.StatusCode() == http.StatusOK {
+			decision = "ALLOW"
+		}
 		log.WithFields(log.Fields{
 			"dry-run":  p.cfg.DryRun,
 			"decision": decision,

@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/Foundato/kelon/pkg/telemetry"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 )
@@ -12,6 +13,7 @@ import (
 // Configuration for the entire app.
 type AppConfig struct {
 	ExternalConfig
+	TelemetryProvider telemetry.Provider
 }
 
 // External configs.
