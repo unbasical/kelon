@@ -128,14 +128,15 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 			case "prometheus":
 				telemetryProvider = &telemetry.Prometheus{}
 			case "applicationinsights":
-				if instrumentationKey == nil {
-					log.Fatalln("Kelon was started with ApplicationInsights as --metrics-service but no option --application-insights-key was provided!")
-				}
 				telemetryProvider = &telemetry.ApplicationInsights{
 					AppInsightsInstrumentationKey: *instrumentationKey,
 					MaxBatchSize:                  *appInsightsMaxBatchSize,
 					MaxBatchIntervalSeconds:       *appInsightsMaxBatchInterval,
 				}
+			}
+
+			if err := telemetryProvider.Configure(); err != nil {
+				log.Fatalf("Error during configuration of TelemetryProvider %q: %s", *telemetryService, err.Error())
 			}
 		}
 

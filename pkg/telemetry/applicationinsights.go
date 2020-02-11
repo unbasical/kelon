@@ -48,13 +48,11 @@ func (p *ApplicationInsights) GetHTTPMiddleware() (func(handler http.Handler) ht
 }
 
 func (p *ApplicationInsights) GetHTTPMetricsHandler() (http.Handler, error) {
-	return nil, nil
+	return nil, errors.New("Metrics endpoint not supported by ApplicationInsights")
 }
 
 func (p *ApplicationInsights) CheckError(err error) {
 	if err != nil {
-		trace := appinsights.NewTraceTelemetry(err.Error(), appinsights.Error)
-		trace.Timestamp = time.Now()
-		p.client.Track(trace)
+		p.client.TrackException(err)
 	}
 }

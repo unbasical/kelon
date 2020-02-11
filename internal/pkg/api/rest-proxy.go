@@ -57,15 +57,9 @@ func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 
 	// Configure telemetry (if set)
 	if appConf.TelemetryProvider != nil {
-		if err := appConf.TelemetryProvider.Configure(); err != nil {
-			return err
+		if telemetryHandler, handlerErr := appConf.TelemetryProvider.GetHTTPMetricsHandler(); handlerErr == nil {
+			proxy.telemetryHandler = telemetryHandler
 		}
-
-		telemetryHandler, handlerErr := appConf.TelemetryProvider.GetHTTPMetricsHandler()
-		if handlerErr != nil {
-			return errors.Wrap(handlerErr, "RestProxy was configured with TelemetryProvider that does not implement 'GetHTTPMetricsHandler()' correctly.")
-		}
-		proxy.telemetryHandler = telemetryHandler
 
 		telemetryMiddleware, middErr := appConf.TelemetryProvider.GetHTTPMiddleware()
 		if middErr != nil {

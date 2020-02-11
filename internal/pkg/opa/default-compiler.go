@@ -92,14 +92,14 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 
 	// Validate if policy compiler was configured correctly
 	if !compiler.configured {
-		handleError(w, uid, errors.New("PolicyCompiler was not configured! Please call Configure(). "))
+		compiler.handleError(w, uid, errors.New("PolicyCompiler was not configured! Please call Configure(). "))
 		return
 	}
 
 	// Parse body of request
 	requestBody, bodyErr := compiler.parseRequestBody(uid, request)
 	if bodyErr != nil {
-		handleError(w, uid, bodyErr)
+		compiler.handleError(w, uid, bodyErr)
 		return
 	}
 
@@ -112,12 +112,12 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 
 	rawInput, exists := requestBody["input"]
 	if !exists {
-		handleError(w, uid, internalErrors.InvalidInput{Msg: "PolicyCompiler: Incoming request had no field 'input'!"})
+		compiler.handleError(w, uid, internalErrors.InvalidInput{Msg: "PolicyCompiler: Incoming request had no field 'input'!"})
 		return
 	}
 	input, ok := rawInput.(map[string]interface{})
 	if !ok {
-		handleError(w, uid, internalErrors.InvalidInput{Msg: "PolicyCompiler: Field 'input' in request body was no nested JSON object!"})
+		compiler.handleError(w, uid, internalErrors.InvalidInput{Msg: "PolicyCompiler: Field 'input' in request body was no nested JSON object!"})
 		return
 	}
 	log.WithField("UID", uid).Debugf("PolicyCompiler: Received input: %+v", input)
@@ -125,14 +125,14 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 	// Process path
 	output, err := compiler.processPath(input)
 	if err != nil {
-		handleError(w, uid, err)
+		compiler.handleError(w, uid, err)
 		return
 	}
 
 	// Compile mapped path
 	queries, err := compiler.opaCompile(request, &input, output)
 	if err != nil {
-		handleError(w, uid, errors.Wrap(err, "PolicyCompiler: Error during policy compilation"))
+		compiler.handleError(w, uid, errors.Wrap(err, "PolicyCompiler: Error during policy compilation"))
 		return
 	}
 
@@ -150,7 +150,7 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 	// Otherwise translate ast
 	result, err := (*compiler.config.Translator).Process(queries, output.Datastore)
 	if err != nil {
-		handleError(w, uid, errors.Wrap(err, "PolicyCompiler: Error during ast translation"))
+		compiler.handleError(w, uid, errors.Wrap(err, "PolicyCompiler: Error during ast translation"))
 		return
 	}
 
@@ -162,8 +162,9 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 	}
 }
 
-func handleError(w http.ResponseWriter, requestID string, err error) {
-	log.WithField("UID", requestID).WithError(err)
+func (compiler policyCompiler) handleError(w http.ResponseWriter, requestID string, err error) {
+	log.WithField("UID", requestID).WithError(err).Error("PolicyCompiler encountered an error")
+	compiler.handleErrorMetrics(err)
 	switch errors.Cause(err).(type) {
 	case request.PathAmbiguousError:
 		writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
@@ -173,6 +174,12 @@ func handleError(w http.ResponseWriter, requestID string, err error) {
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 	default:
 		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
+	}
+}
+
+func (compiler policyCompiler) handleErrorMetrics(err error) {
+	if compiler.appConfig.TelemetryProvider != nil {
+		compiler.appConfig.TelemetryProvider.CheckError(err)
 	}
 }
 
