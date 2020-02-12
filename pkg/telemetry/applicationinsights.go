@@ -27,7 +27,6 @@ func (p *ApplicationInsights) Configure() error {
 	telemetryConfig.MaxBatchSize = p.MaxBatchSize
 	// Configure the maximum delay before sending queued telemetry:
 	telemetryConfig.MaxBatchInterval = time.Second * time.Duration(p.MaxBatchIntervalSeconds)
-
 	p.client = appinsights.NewTelemetryClientFromConfig(telemetryConfig)
 	log.Infoln("Configured ApplicationInsights.")
 

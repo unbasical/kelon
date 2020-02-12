@@ -12,6 +12,8 @@ datastores:
       maxIdleConnections: 5
       maxOpenConnections: 10
       connectionMaxLifetimeSeconds: 1800
+      telemetryName: Datasource
+      telemetryType: MySQL
 
   pg:
     type: postgres
@@ -26,6 +28,8 @@ datastores:
       maxIdleConnections: 5
       maxOpenConnections: 10
       connectionMaxLifetimeSeconds: 1800
+      telemetryName: Datasource
+      telemetryType: PostgreSQL
 
   mongo:
     type: mongo
@@ -35,6 +39,9 @@ datastores:
       database: appstore
       user: You
       password: SuperSecure
+    metadata:
+      telemetryName: Datasource
+      telemetryType: MongoDB
 
 # Entity-Schemas define the structure of the entities of one schema inside a datastore
 entity_schemas:

@@ -6,9 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Foundato/kelon/pkg/api"
-
 	"github.com/Foundato/kelon/configs"
+	"github.com/Foundato/kelon/pkg/api"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
