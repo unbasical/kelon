@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -28,8 +29,13 @@ func (p *ApplicationInsights) Configure() error {
 	telemetryConfig.MaxBatchSize = p.MaxBatchSize
 	// Configure the maximum delay before sending queued telemetry:
 	telemetryConfig.MaxBatchInterval = time.Second * time.Duration(p.MaxBatchIntervalSeconds)
+
 	p.client = appinsights.NewTelemetryClientFromConfig(telemetryConfig)
 	p.client.Context().Tags.Cloud().SetRole(p.ServiceName)
+	p.client.Context().Tags.Operation().SetName(p.ServiceName)
+	if hostname, err := os.Hostname(); err != nil {
+		p.client.Context().Tags.Cloud().SetRoleInstance(hostname)
+	}
 	log.Infoln("Configured ApplicationInsights.")
 
 	return nil
@@ -38,19 +44,23 @@ func (p *ApplicationInsights) Configure() error {
 func (p *ApplicationInsights) GetHTTPMiddleware() (func(handler http.Handler) http.Handler, error) {
 	return func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			// Monitor method execution
 			startTime := time.Now()
 			passThroughWriter := NewPassThroughResponseWriter(writer)
 			handler.ServeHTTP(passThroughWriter, request)
 			duration := time.Since(startTime)
+			uid := passThroughWriter.Header().Get(constants.ContextKeyRequestID)
+
 			// Build trace
 			trace := appinsights.NewRequestTelemetry(request.Method, request.URL.Path, duration, strconv.Itoa(passThroughWriter.StatusCode()))
 			trace.Timestamp = time.Now()
 			trace.Source = request.RemoteAddr
-			reqID := request.Context().Value(constants.ContextKeyRequestID)
-			if ret, ok := reqID.(string); ok {
-				trace.Id = ret
-			}
+			trace.Tags.Operation().SetCorrelationVector(request.Header.Get("correlation-context"))
+			parentID := request.Header.Get("request-id")
+			trace.Tags.Operation().SetParentId(parentID)
+			trace.Tags.Operation().SetId(parentID + uid)
 			trace.Properties["user-agent"] = request.Header.Get("User-agent")
+
 			// Send trace
 			p.client.Track(trace)
 		})
