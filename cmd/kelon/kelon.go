@@ -164,8 +164,10 @@ func makeTelemetryProvider() telemetry.Provider {
 			}
 		}
 
-		if err := telemetryProvider.Configure(); err != nil {
-			log.Fatalf("Error during configuration of TelemetryProvider %q: %s", *telemetryService, err.Error())
+		if telemetryProvider != nil {
+			if err := telemetryProvider.Configure(); err != nil {
+				log.Fatalf("Error during configuration of TelemetryProvider %q: %s", *telemetryService, err.Error())
+			}
 		}
 	}
 	return telemetryProvider
