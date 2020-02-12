@@ -1,10 +1,10 @@
 package constants
 
-// Telemetry provider which is supported by kelon.
-type TelemetryProvider string
-
 // TelemetryProvider for Prometheus
-const PrometheusTelemetry TelemetryProvider = "prometheus"
+const PrometheusTelemetry string = "prometheus"
 
 // TelemetryProvider for ApplicationInsights
-const ApplicationInsightsTelemetry TelemetryProvider = "applicationinsights"
+const ApplicationInsightsTelemetry string = "applicationinsights"
+
+// Default telemetry name
+const DefaultTelemetryName string = "Datasource"
