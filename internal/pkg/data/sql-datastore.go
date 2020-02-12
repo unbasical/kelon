@@ -107,22 +107,28 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 }
 
 func (ds *sqlDatastore) applyMetadataConfigs(alias string, conf *configs.Datastore, appConf *configs.AppConfig, db *sql.DB) error {
+	if conf.Metadata == nil {
+		ds.telemetryName = constants.DefaultTelemetryName
+		ds.telemetryType = "SQL"
+		return nil
+	}
+
 	// Setup Datastore
-	if maxOpenValue, ok := conf.Metadata[string(constants.MetaMaxOpenConnections)]; ok {
+	if maxOpenValue, ok := conf.Metadata[constants.MetaMaxOpenConnections]; ok {
 		maxOpen, err := strconv.Atoi(maxOpenValue)
 		if err != nil {
 			return errors.Wrap(err, "SqlDatastore: Error while setting maxOpenConnections")
 		}
 		db.SetMaxOpenConns(maxOpen)
 	}
-	if maxIdleValue, ok := conf.Metadata[string(constants.MetaMaxIdleConnections)]; ok {
+	if maxIdleValue, ok := conf.Metadata[constants.MetaMaxIdleConnections]; ok {
 		maxIdle, err := strconv.Atoi(maxIdleValue)
 		if err != nil {
 			return errors.Wrap(err, "SqlDatastore: Error while setting maxIdleConnections")
 		}
 		db.SetMaxIdleConns(maxIdle)
 	}
-	if maxLifetimeSecondsValue, ok := conf.Metadata[string(constants.MetaConnectionMaxLifetimeSeconds)]; ok {
+	if maxLifetimeSecondsValue, ok := conf.Metadata[constants.MetaConnectionMaxLifetimeSeconds]; ok {
 		maxLifetimeSeconds, err := strconv.Atoi(maxLifetimeSecondsValue)
 		if err != nil {
 			return errors.Wrap(err, "SqlDatastore: Error while setting connectionMaxLifetimeSeconds")
@@ -132,13 +138,13 @@ func (ds *sqlDatastore) applyMetadataConfigs(alias string, conf *configs.Datasto
 
 	// Setup Telemetry
 	if appConf.TelemetryProvider != nil {
-		if telemetryName, ok := conf.Metadata[string(constants.MetaTelemetryName)]; ok {
+		if telemetryName, ok := conf.Metadata[constants.MetaTelemetryName]; ok {
 			ds.telemetryName = telemetryName
 		} else {
 			ds.telemetryName = alias
 		}
 
-		if telemetryType, ok := conf.Metadata[string(constants.MetaTelemetryType)]; ok {
+		if telemetryType, ok := conf.Metadata[constants.MetaTelemetryType]; ok {
 			ds.telemetryType = telemetryType
 		} else {
 			ds.telemetryType = conf.Type

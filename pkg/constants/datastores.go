@@ -1,11 +1,16 @@
 package constants
 
-// MetaKey is used for metadata values nested inside a datastore config. The value requires a key that is not primitive type.
-type MetaKey string
-
 // MetaKey for maxOpenConnections
-const MetaMaxOpenConnections MetaKey = "maxOpenConnections"
-const MetaMaxIdleConnections MetaKey = "maxIdleConnections"
-const MetaConnectionMaxLifetimeSeconds MetaKey = "connectionMaxLifetimeSeconds"
-const MetaTelemetryName MetaKey = "telemetryName"
-const MetaTelemetryType MetaKey = "telemetryType"
+const MetaMaxOpenConnections string = "maxOpenConnections"
+
+// MetaKey for maxIdleConnections
+const MetaMaxIdleConnections string = "maxIdleConnections"
+
+// MetaKey for connectionMaxLifetimeSeconds
+const MetaConnectionMaxLifetimeSeconds string = "connectionMaxLifetimeSeconds"
+
+// MetaKey for telemetryName
+const MetaTelemetryName string = "telemetryName"
+
+// MetaKey for telemetryType
+const MetaTelemetryType string = "telemetryType"

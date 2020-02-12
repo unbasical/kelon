@@ -154,9 +154,9 @@ func makeTelemetryProvider() telemetry.Provider {
 	var telemetryProvider telemetry.Provider
 	if telemetryService != nil {
 		switch strings.ToLower(*telemetryService) {
-		case string(constants.PrometheusTelemetry):
+		case constants.PrometheusTelemetry:
 			telemetryProvider = &telemetry.Prometheus{}
-		case string(constants.ApplicationInsightsTelemetry):
+		case constants.ApplicationInsightsTelemetry:
 			telemetryProvider = &telemetry.ApplicationInsights{
 				AppInsightsInstrumentationKey: *instrumentationKey,
 				MaxBatchSize:                  *appInsightsMaxBatchSize,

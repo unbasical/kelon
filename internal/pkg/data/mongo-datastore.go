@@ -121,23 +121,24 @@ func (ds *mongoDatastore) Configure(appConf *configs.AppConfig, alias string) er
 }
 
 func (ds mongoDatastore) applyMetadataConfigs(alias string, conf *configs.Datastore, appConf *configs.AppConfig) {
+	if conf.Metadata == nil {
+		ds.telemetryName = "Datasource"
+		ds.telemetryType = "MongoDB"
+		return
+	}
+
 	// Setup Telemetry
 	if appConf.TelemetryProvider != nil {
-		if conf.Metadata != nil {
-			if telemetryName, ok := conf.Metadata[string(constants.MetaTelemetryName)]; ok {
-				ds.telemetryName = telemetryName
-			} else {
-				ds.telemetryName = alias
-			}
-
-			if telemetryType, ok := conf.Metadata[string(constants.MetaTelemetryType)]; ok {
-				ds.telemetryType = telemetryType
-			} else {
-				ds.telemetryType = conf.Type
-			}
+		if telemetryName, ok := conf.Metadata[constants.MetaTelemetryName]; ok {
+			ds.telemetryName = telemetryName
 		} else {
-			ds.telemetryName = "Datasource"
-			ds.telemetryType = "MongoDB"
+			ds.telemetryName = alias
+		}
+
+		if telemetryType, ok := conf.Metadata[constants.MetaTelemetryType]; ok {
+			ds.telemetryType = telemetryType
+		} else {
+			ds.telemetryType = conf.Type
 		}
 	}
 }
