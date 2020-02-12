@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Foundato/kelon/pkg/constants"
+
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/data"
@@ -23,7 +25,8 @@ import (
 type mongoDatastore struct {
 	appConf       *configs.AppConfig
 	alias         string
-	datastoreType string
+	telemetryName string
+	telemetryType string
 	conn          map[string]string
 	entityPaths   map[string]map[string][]string
 	client        *mongo.Client
@@ -41,7 +44,8 @@ func NewMongoDatastore() data.Datastore {
 	return &mongoDatastore{
 		appConf:       nil,
 		alias:         "",
-		datastoreType: "Mongo-DB",
+		telemetryName: "Datastore",
+		telemetryType: "MongoDB",
 		callOps:       nil,
 		configured:    false,
 	}
@@ -103,6 +107,9 @@ func (ds *mongoDatastore) Configure(appConf *configs.AppConfig, alias string) er
 		}
 	}
 
+	// Configure metadata
+	ds.applyMetadataConfigs(alias, conf, appConf)
+
 	// Assign values
 	ds.conn = conf.Connection
 	ds.client = client
@@ -111,6 +118,28 @@ func (ds *mongoDatastore) Configure(appConf *configs.AppConfig, alias string) er
 	ds.configured = true
 	log.Infof("Configured MongoDatastore [%s]", alias)
 	return nil
+}
+
+func (ds mongoDatastore) applyMetadataConfigs(alias string, conf *configs.Datastore, appConf *configs.AppConfig) {
+	// Setup Telemetry
+	if appConf.TelemetryProvider != nil {
+		if conf.Metadata != nil {
+			if telemetryName, ok := conf.Metadata[string(constants.MetaTelemetryName)]; ok {
+				ds.telemetryName = telemetryName
+			} else {
+				ds.telemetryName = alias
+			}
+
+			if telemetryType, ok := conf.Metadata[string(constants.MetaTelemetryType)]; ok {
+				ds.telemetryType = telemetryType
+			} else {
+				ds.telemetryType = conf.Type
+			}
+		} else {
+			ds.telemetryName = "Datasource"
+			ds.telemetryType = "MongoDB"
+		}
+	}
 }
 
 func (ds mongoDatastore) Execute(query *data.Node) (bool, error) {
@@ -172,13 +201,13 @@ func (ds mongoDatastore) Execute(query *data.Node) (bool, error) {
 
 	log.Debugf("RECEIVED RESULTS: %+v", queryResults)
 	if ds.appConf.TelemetryProvider != nil {
-		ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.alias, ds.datastoreType, time.Since(startTime), true)
+		ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), true)
 	}
 	decision := false
 	for _, result := range queryResults {
 		if result.err != nil {
 			if ds.appConf.TelemetryProvider != nil {
-				ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.alias, ds.datastoreType, time.Since(startTime), false)
+				ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), false)
 			}
 			return false, errors.Wrap(result.err, "MongoDB: Error while sending Queries to DB")
 		}

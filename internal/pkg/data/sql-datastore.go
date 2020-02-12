@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Foundato/kelon/pkg/constants"
+
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/data"
@@ -22,7 +24,8 @@ import (
 type sqlDatastore struct {
 	appConf       *configs.AppConfig
 	alias         string
-	datastoreType string
+	telemetryName string
+	telemetryType string
 	conn          map[string]string
 	schemas       map[string]*configs.EntitySchema
 	dbPool        *sql.DB
@@ -35,7 +38,7 @@ func NewSQLDatastore() data.Datastore {
 	return &sqlDatastore{
 		appConf:       nil,
 		alias:         "",
-		datastoreType: "",
+		telemetryName: "",
 		callOps:       nil,
 		configured:    false,
 	}
@@ -73,7 +76,7 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	}
 
 	// Configure metadata
-	metadataError := applyMetadataConfigs(conf, db)
+	metadataError := ds.applyMetadataConfigs(alias, conf, appConf, db)
 	if metadataError != nil {
 		return errors.Wrap(err, "SqlDatastore: Error while configuring metadata")
 	}
@@ -95,7 +98,6 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	// Assign values
 	ds.conn = conf.Connection
 	ds.dbPool = db
-	ds.datastoreType = conf.Type
 	ds.schemas = appConf.Data.DatastoreSchemas[alias]
 	ds.appConf = appConf
 	ds.alias = alias
@@ -104,27 +106,43 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	return nil
 }
 
-func applyMetadataConfigs(conf *configs.Datastore, db *sql.DB) error {
-	if maxOpenValue, ok := conf.Metadata["maxOpenConnections"]; ok {
+func (ds *sqlDatastore) applyMetadataConfigs(alias string, conf *configs.Datastore, appConf *configs.AppConfig, db *sql.DB) error {
+	// Setup Datastore
+	if maxOpenValue, ok := conf.Metadata[string(constants.MetaMaxOpenConnections)]; ok {
 		maxOpen, err := strconv.Atoi(maxOpenValue)
 		if err != nil {
 			return errors.Wrap(err, "SqlDatastore: Error while setting maxOpenConnections")
 		}
 		db.SetMaxOpenConns(maxOpen)
 	}
-	if maxIdleValue, ok := conf.Metadata["maxIdleConnections"]; ok {
+	if maxIdleValue, ok := conf.Metadata[string(constants.MetaMaxIdleConnections)]; ok {
 		maxIdle, err := strconv.Atoi(maxIdleValue)
 		if err != nil {
 			return errors.Wrap(err, "SqlDatastore: Error while setting maxIdleConnections")
 		}
 		db.SetMaxIdleConns(maxIdle)
 	}
-	if maxLifetimeSecondsValue, ok := conf.Metadata["connectionMaxLifetimeSeconds"]; ok {
+	if maxLifetimeSecondsValue, ok := conf.Metadata[string(constants.MetaConnectionMaxLifetimeSeconds)]; ok {
 		maxLifetimeSeconds, err := strconv.Atoi(maxLifetimeSecondsValue)
 		if err != nil {
 			return errors.Wrap(err, "SqlDatastore: Error while setting connectionMaxLifetimeSeconds")
 		}
 		db.SetConnMaxLifetime(time.Second * time.Duration(maxLifetimeSeconds))
+	}
+
+	// Setup Telemetry
+	if appConf.TelemetryProvider != nil {
+		if telemetryName, ok := conf.Metadata[string(constants.MetaTelemetryName)]; ok {
+			ds.telemetryName = telemetryName
+		} else {
+			ds.telemetryName = alias
+		}
+
+		if telemetryType, ok := conf.Metadata[string(constants.MetaTelemetryType)]; ok {
+			ds.telemetryType = telemetryType
+		} else {
+			ds.telemetryType = conf.Type
+		}
 	}
 	return nil
 }
@@ -143,7 +161,7 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 	rows, err := ds.dbPool.Query(statement)
 	if err != nil {
 		if ds.appConf.TelemetryProvider != nil {
-			ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.alias, ds.datastoreType, time.Since(startTime), false)
+			ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), false)
 		}
 		return false, errors.Wrap(err, "SqlDatastore: Error while executing statement")
 	}
@@ -170,7 +188,7 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 		log.Debugf("No resulting row with count > 0 found! -> DENIED")
 	}
 	if ds.appConf.TelemetryProvider != nil {
-		ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.alias, ds.datastoreType, time.Since(startTime), true)
+		ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), true)
 	}
 	return result, nil
 }
