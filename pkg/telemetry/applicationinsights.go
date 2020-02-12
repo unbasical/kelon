@@ -13,9 +13,10 @@ import (
 
 type ApplicationInsights struct {
 	AppInsightsInstrumentationKey string
-	client                        appinsights.TelemetryClient
+	ServiceName                   string
 	MaxBatchSize                  int
 	MaxBatchIntervalSeconds       int
+	client                        appinsights.TelemetryClient
 }
 
 func (p *ApplicationInsights) Configure() error {
@@ -28,6 +29,7 @@ func (p *ApplicationInsights) Configure() error {
 	// Configure the maximum delay before sending queued telemetry:
 	telemetryConfig.MaxBatchInterval = time.Second * time.Duration(p.MaxBatchIntervalSeconds)
 	p.client = appinsights.NewTelemetryClientFromConfig(telemetryConfig)
+	p.client.Context().Tags.Cloud().SetRole(p.ServiceName)
 	log.Infoln("Configured ApplicationInsights.")
 
 	return nil
