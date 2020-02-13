@@ -29,7 +29,7 @@ func preprocessPolicyFile(config *configs.AppConfig, inPath string, outPath stri
 	// read the whole file at once
 	b, err := ioutil.ReadFile(inPath)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 
 	// check if output file exists
@@ -39,13 +39,13 @@ func preprocessPolicyFile(config *configs.AppConfig, inPath string, outPath stri
 	if os.IsNotExist(outErr) {
 		var file, createErr = os.Create(outPath)
 		if createErr != nil {
-			panic(createErr)
+			log.Panic(createErr)
 		}
 		defer file.Close()
 
 		_, writeErr := file.WriteString(PreprocessPolicy(config, string(b)))
 		if writeErr != nil {
-			panic(writeErr)
+			log.Panic(writeErr)
 		}
 		return
 	}
@@ -53,7 +53,7 @@ func preprocessPolicyFile(config *configs.AppConfig, inPath string, outPath stri
 	// write the whole body at once
 	err = ioutil.WriteFile(outPath, []byte(PreprocessPolicy(config, string(b))), 0644)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 
@@ -61,7 +61,7 @@ func PrepocessPoliciesInDir(config *configs.AppConfig, dir string) string {
 	outDir := "/tmp/policies"
 	err := os.MkdirAll(outDir, 0777)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 
 	// Load regos

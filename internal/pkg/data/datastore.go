@@ -6,9 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Foundato/kelon/pkg/data"
-
 	"github.com/Foundato/kelon/configs"
+	"github.com/Foundato/kelon/pkg/data"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -107,7 +106,8 @@ func getConnectionStringForPlatform(platform string, conn map[string]string) str
 	case data.TypeMongo:
 		return fmt.Sprintf("mongodb://%s:%s@%s:%s/%s%s", user, password, host, port, dbname, createConnOptionsString(options, "&", "?"))
 	default:
-		panic(fmt.Sprintf("Platform [%s] is not a supported Datastore!", platform))
+		log.Panic(fmt.Sprintf("Platform [%s] is not a supported Datastore!", platform))
+		return ""
 	}
 }
 

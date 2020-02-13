@@ -6,14 +6,13 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/open-policy-agent/opa/plugins"
-
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/pkg/api"
 	"github.com/Foundato/kelon/pkg/opa"
-	"github.com/open-policy-agent/opa/util"
-
 	ext_authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	"github.com/open-policy-agent/opa/plugins"
+	"github.com/open-policy-agent/opa/util"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/genproto/googleapis/rpc/code"
 )
 
@@ -80,7 +79,7 @@ func TestCheckAllow(t *testing.T) {
 
 	var req ext_authz.CheckRequest
 	if err := util.Unmarshal([]byte(exampleAllowedRequest), &req); err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 
 	proxy := NewEnvoyProxy(EnvoyConfig{

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 // Configuration for the Datastore-mappings used by kelon to map incoming requests to datastores.
@@ -74,10 +75,10 @@ func (schema EntitySchema) GenerateEntityPaths() map[string]map[string][]string 
 
 func crawlEntityPaths(start *Entity, curr *Entity, pathHistory []string, path map[string]map[string][]string) {
 	if start == nil {
-		panic("Cannot crawl start which is nil!")
+		log.Panic("Cannot crawl start which is nil!")
 	}
 	if curr == nil {
-		panic("Curr mustn't be nil!")
+		log.Panic("Curr mustn't be nil!")
 	}
 
 	if path[start.getMappedName()] == nil {
