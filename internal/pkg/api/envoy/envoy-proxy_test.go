@@ -3,6 +3,9 @@ package envoy
 import (
 	"context"
 	"errors"
+	"net/http"
+	"testing"
+
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/pkg/api"
 	"github.com/Foundato/kelon/pkg/opa"
@@ -11,8 +14,6 @@ import (
 	"github.com/open-policy-agent/opa/util"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/genproto/googleapis/rpc/code"
-	"net/http"
-	"testing"
 )
 
 const exampleAllowedRequest = `{
@@ -54,7 +55,7 @@ type mockCompiler struct {
 }
 
 func (c mockCompiler) GetEngine() *plugins.Manager {
-	log.Panic("implement me")
+	panic("implement me")
 }
 
 func (c mockCompiler) Configure(appConfig *configs.AppConfig, compConfig *opa.PolicyCompilerConfig) error {

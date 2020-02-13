@@ -310,7 +310,7 @@ func skipConfig(dAtA []byte) (n int, err error) {
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
 	}
-	log.Panic("unreachable")
+	panic("unreachable")
 }
 
 var (
