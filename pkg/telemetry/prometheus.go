@@ -116,3 +116,5 @@ func (p *Prometheus) MeasureRemoteDependency(alias string, dependencyType string
 		databaseErrorsCount.Inc()
 	}
 }
+
+func (p *Prometheus) Shutdown() {}

@@ -197,3 +197,25 @@ func (p *ApplicationInsights) MeasureRemoteDependency(name string, dependencyTyp
 	// Submit the telemetry
 	p.client.Track(&dependency)
 }
+
+func (p *ApplicationInsights) Shutdown() {
+	p.client.TrackAvailability("Internal", time.Duration(0), false)
+	select {
+	case <-p.client.Channel().Close(10 * time.Second):
+		// Ten second timeout for retries.
+
+		// If we got here, then all telemetry was submitted
+		// successfully, and we can proceed to exiting.
+	case <-time.After(30 * time.Second):
+		// Thirty second absolute timeout.  This covers any
+		// previous telemetry submission that may not have
+		// completed before Close was called.
+
+		// There are a number of reasons we could have
+		// reached here.  We gave it a go, but telemetry
+		// submission failed somewhere.  Perhaps old events
+		// were still retrying, or perhaps we're throttled.
+		// Either way, we don't want to wait around for it
+		// to complete, so let's just exit.
+	}
+}

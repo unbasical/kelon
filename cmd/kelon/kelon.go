@@ -71,10 +71,11 @@ var (
 	appInsightsLogLevels            = app.Flag("application-insights-log-levels", "Configure log levels which are sent. Allowed values are [fatal, panic, error, warn, info, debug, trace]").Default("fatal,panic,error,warn").Envar("APPLICATION_INSIGHTS_LOG_LEVELS").String()
 	appInsightsStatsIntervalSeconds = app.Flag("application-insights-stats-interval-seconds", "Interval in seconds in which system stats are measured and sent.").Default("5").Envar("APPLICATION_INSIGHTS_STATS_INTERVAL_SECONDS").Int()
 
-	proxy         api.ClientProxy       = nil
-	envoyProxy    api.ClientProxy       = nil
-	istioProxy    api.ClientProxy       = nil
-	configWatcher watcher.ConfigWatcher = nil
+	proxy             api.ClientProxy       = nil
+	envoyProxy        api.ClientProxy       = nil
+	istioProxy        api.ClientProxy       = nil
+	configWatcher     watcher.ConfigWatcher = nil
+	telemetryProvider telemetry.Provider    = nil
 )
 
 func main() {
@@ -132,6 +133,7 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		config.API = loadedConf.API
 		config.Data = loadedConf.Data
 		config.TelemetryProvider = makeTelemetryProvider()
+		telemetryProvider = config.TelemetryProvider // Stopped gracefully later on
 		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
 
 		if *preprocessRegos {
@@ -154,13 +156,13 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 }
 
 func makeTelemetryProvider() telemetry.Provider {
-	var telemetryProvider telemetry.Provider
+	var provider telemetry.Provider
 	if telemetryService != nil {
 		switch strings.ToLower(*telemetryService) {
 		case constants.PrometheusTelemetry:
-			telemetryProvider = &telemetry.Prometheus{}
+			provider = &telemetry.Prometheus{}
 		case constants.ApplicationInsightsTelemetry:
-			telemetryProvider = &telemetry.ApplicationInsights{
+			provider = &telemetry.ApplicationInsights{
 				AppInsightsInstrumentationKey: *instrumentationKey,
 				ServiceName:                   *appInsightsServiceName,
 				MaxBatchSize:                  *appInsightsMaxBatchSize,
@@ -170,13 +172,13 @@ func makeTelemetryProvider() telemetry.Provider {
 			}
 		}
 
-		if telemetryProvider != nil {
-			if err := telemetryProvider.Configure(); err != nil {
+		if provider != nil {
+			if err := provider.Configure(); err != nil {
 				log.Fatalf("Error during configuration of TelemetryProvider %q: %s", *telemetryService, err.Error())
 			}
 		}
 	}
-	return telemetryProvider
+	return provider
 }
 
 func makeConfigWatcher(configLoader configs.FileConfigLoader, configWatcherPath *string) {
@@ -205,10 +207,10 @@ func startNewRestProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxy
 
 func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
 	if *envoyPort == *port {
-		panic("Cannot start envoyProxy proxy and rest proxy on same port!")
+		log.Panic("Cannot start envoyProxy proxy and rest proxy on same port!")
 	}
 	if *envoyPort == *istioPort {
-		panic("Cannot start envoyProxy proxy and istio adapter on same port!")
+		log.Panic("Cannot start envoyProxy proxy and istio adapter on same port!")
 	}
 
 	// Create Rest proxy and start
@@ -228,10 +230,10 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 
 func startNewIstioAdapter(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
 	if *istioPort == *port {
-		panic("Cannot start istio adapter and rest proxy on same port!")
+		log.Panic("Cannot start istio adapter and rest proxy on same port!")
 	}
 	if *envoyPort == *istioPort {
-		panic("Cannot start envoyProxy proxy and istio adapter on same port!")
+		log.Panic("Cannot start envoyProxy proxy and istio adapter on same port!")
 	}
 
 	var tlsConfig *istio.MutualTLSConfig = nil
@@ -299,6 +301,12 @@ func stopOnSIGTERM() {
 	<-interruptChan
 
 	log.Infoln("Caught SIGTERM...")
+	// Stop telemetry provider if present
+	// This is done blocking to ensure all telemetries are sent!
+	if telemetryProvider != nil {
+		telemetryProvider.Shutdown()
+	}
+
 	// Stop envoyProxy proxy if started
 	if envoyProxy != nil {
 		if err := envoyProxy.Stop(time.Second * 10); err != nil {
@@ -312,7 +320,6 @@ func stopOnSIGTERM() {
 			log.Warnln(err.Error())
 		}
 	}
-
 	// Give components enough time for graceful shutdown
 	// This terminates earlier, because rest-proxy prints FATAL if http-server is closed
 	time.Sleep(5 * time.Second)

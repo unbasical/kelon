@@ -9,10 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Foundato/kelon/pkg/constants"
-
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/util"
+	"github.com/Foundato/kelon/pkg/constants"
 	"github.com/Foundato/kelon/pkg/data"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -274,7 +273,8 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 						// Skip collection in path
 						return strings.Join(path[1:], ".") + "."
 					}
-					panic(fmt.Sprintf("MongoDatastore: Unable to find mapping for entity %q in collection %q", entity, collection))
+					log.Panic(fmt.Sprintf("MongoDatastore: Unable to find mapping for entity %q in collection %q", entity, collection))
+					return ""
 				})
 
 				result[collection] = finalFilter
@@ -341,7 +341,7 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 				log.Debugln("NEW FUNCTION CALL")
 				nextRel = mongoCallOp(ops[1:]...)
 			} else {
-				panic(fmt.Sprintf("Datastores: Operator [%s] is not supported!", op))
+				log.Panic(fmt.Sprintf("Datastores: Operator [%s] is not supported!", op))
 			}
 
 			if len(operands) > 0 {

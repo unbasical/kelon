@@ -16,4 +16,6 @@ type Provider interface {
 	CheckError(err error)
 	// Measure datastore endpoint
 	MeasureRemoteDependency(alias string, dependencyType string, queryTime time.Duration, data string, success bool)
+	// Gracefully shutdown
+	Shutdown()
 }

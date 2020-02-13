@@ -3,18 +3,16 @@ package envoy
 import (
 	"context"
 	"errors"
-	"net/http"
-	"testing"
-
-	"github.com/open-policy-agent/opa/plugins"
-
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/pkg/api"
 	"github.com/Foundato/kelon/pkg/opa"
-	"github.com/open-policy-agent/opa/util"
-
 	ext_authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	"github.com/open-policy-agent/opa/plugins"
+	"github.com/open-policy-agent/opa/util"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/genproto/googleapis/rpc/code"
+	"net/http"
+	"testing"
 )
 
 const exampleAllowedRequest = `{
@@ -56,7 +54,7 @@ type mockCompiler struct {
 }
 
 func (c mockCompiler) GetEngine() *plugins.Manager {
-	panic("implement me")
+	log.Panic("implement me")
 }
 
 func (c mockCompiler) Configure(appConfig *configs.AppConfig, compConfig *opa.PolicyCompilerConfig) error {
@@ -80,7 +78,7 @@ func TestCheckAllow(t *testing.T) {
 
 	var req ext_authz.CheckRequest
 	if err := util.Unmarshal([]byte(exampleAllowedRequest), &req); err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 
 	proxy := NewEnvoyProxy(EnvoyConfig{

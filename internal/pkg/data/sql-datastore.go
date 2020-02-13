@@ -7,18 +7,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Foundato/kelon/pkg/constants"
-
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/util"
+	"github.com/Foundato/kelon/pkg/constants"
 	"github.com/Foundato/kelon/pkg/data"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 
 	// Import mysql dirver
 	_ "github.com/go-sql-driver/mysql"
 	// import postgres driver
 	_ "github.com/lib/pq"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 type sqlDatastore struct {
@@ -173,7 +172,7 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 	}
 	defer func() {
 		if err := rows.Close(); err != nil {
-			panic("Unable to close Result-Set!")
+			log.Panic("Unable to close Result-Set!")
 		}
 	}()
 
@@ -286,9 +285,8 @@ func (ds sqlDatastore) translate(input *data.Node) string {
 				log.Debugln("NEW FUNCTION CALL")
 				nextRel = sqlCallOp(ops[1:]...)
 			} else {
-				panic(fmt.Sprintf("Datastores: Operator [%s] is not supported!", op))
+				log.Panic(fmt.Sprintf("Datastores: Operator [%s] is not supported!", op))
 			}
-
 			if len(operands) > 0 {
 				// If we are in nested call -> push as operand
 				operands.AppendToTop(nextRel)
@@ -309,7 +307,6 @@ func (ds sqlDatastore) translate(input *data.Node) string {
 				// Normal case for all entities
 				entities = entities.Push(fmt.Sprintf("%s.%s", schema, entity.Name))
 			}
-
 		case data.Constant:
 			operands.AppendToTop(fmt.Sprintf("'%s'", v.String()))
 		default:
@@ -327,5 +324,6 @@ func (ds sqlDatastore) findSchemaForEntity(search string) (string, *configs.Enti
 			return schema, entity
 		}
 	}
-	panic(fmt.Sprintf("No schema found for entity %s in datastore with alias %s", search, ds.alias))
+	log.Panic(fmt.Sprintf("No schema found for entity %s in datastore with alias %s", search, ds.alias))
+	return "", &configs.Entity{}
 }

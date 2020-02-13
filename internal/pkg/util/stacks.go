@@ -23,7 +23,8 @@ func (s SStack) Push(v string) SStack {
 func (s SStack) Pop() (SStack, string) {
 	l := len(s)
 	if l <= 0 {
-		panic("Stack is empty!")
+		log.Panic("Stack is empty!")
+		panic("Error")
 	}
 	return s[:l-1], s[l-1]
 }
@@ -44,7 +45,8 @@ func (s OpStack) Push(v []string) OpStack {
 func (s OpStack) AppendToTop(v string) {
 	l := len(s)
 	if l <= 0 {
-		panic("Stack is empty!")
+		log.Panic("Stack is empty!")
+		panic("Error")
 	}
 	s[l-1] = append(s[l-1], v)
 	log.Debugf("%30sOperands len(%d) APPEND |%+v <- TOP", "", len(s), s[l-1])
@@ -54,7 +56,8 @@ func (s OpStack) AppendToTop(v string) {
 func (s OpStack) Pop() (OpStack, []string) {
 	l := len(s)
 	if l <= 0 {
-		panic("Stack is empty!")
+		log.Panic("Stack is empty!")
+		panic("Error")
 	}
 	log.Debugf("%30sOperands len(%d) POP()", "", len(s))
 	return s[:l-1], s[l-1]

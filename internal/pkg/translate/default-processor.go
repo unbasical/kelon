@@ -232,7 +232,7 @@ func (s NodeStack) Push(v []data.Node) NodeStack {
 func (s NodeStack) AppendToTop(v data.Node) {
 	l := len(s)
 	if l <= 0 {
-		panic("Stack is empty!")
+		log.Panic("Stack is empty!")
 	}
 
 	s[l-1] = append(s[l-1], v)
@@ -243,7 +243,7 @@ func (s NodeStack) AppendToTop(v data.Node) {
 func (s NodeStack) Pop() (NodeStack, []data.Node) {
 	l := len(s)
 	if l <= 0 {
-		panic("Stack is empty!")
+		log.Panic("Stack is empty!")
 	}
 
 	log.Debugf("%30sOperands len(%d) POP()", "", len(s))
