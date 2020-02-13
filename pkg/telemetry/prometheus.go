@@ -108,7 +108,7 @@ func (p *Prometheus) CheckError(err error) {
 	errorsCount.Inc()
 }
 
-func (p *Prometheus) MeasureRemoteDependency(alias string, dependencyType string, queryTime time.Duration, success bool) {
+func (p *Prometheus) MeasureRemoteDependency(alias string, dependencyType string, queryTime time.Duration, data string, success bool) {
 	databaseRequestsTotal.Inc()
 	if success {
 		datastoreRequestDuration.With(prometheus.Labels{"database": alias}).Observe(queryTime.Seconds())

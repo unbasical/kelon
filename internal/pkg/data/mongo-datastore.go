@@ -158,7 +158,9 @@ func (ds mongoDatastore) Execute(query *data.Node) (bool, error) {
 	var wg sync.WaitGroup
 	writeIndex := 0
 	wg.Add(len(queryResults))
+	entireQuery := ""
 	for collection, filterString := range statements {
+		entireQuery += fmt.Sprintf("%s->[%s]\n", collection, filterString)
 		log.Debugf("EXECUTING Filter: ==================%s.find( %s )==================", collection, filterString)
 
 		// Execute each of the resulting queries for each collection parallel
@@ -202,13 +204,13 @@ func (ds mongoDatastore) Execute(query *data.Node) (bool, error) {
 
 	log.Debugf("RECEIVED RESULTS: %+v", queryResults)
 	if ds.appConf.TelemetryProvider != nil {
-		ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), true)
+		ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), entireQuery, true)
 	}
 	decision := false
 	for _, result := range queryResults {
 		if result.err != nil {
 			if ds.appConf.TelemetryProvider != nil {
-				ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), false)
+				ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), entireQuery, false)
 			}
 			return false, errors.Wrap(result.err, "MongoDB: Error while sending Queries to DB")
 		}

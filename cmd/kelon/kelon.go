@@ -63,11 +63,13 @@ var (
 	istioCertificateFile = app.Flag("istio-certificate-file", "Filepath containing istio certificate for mTLS (i.e. ca.pem).").Envar("ISTIO_CERTIFICATE_FILE").ExistingFile()
 
 	// Configs for telemetry
-	telemetryService            = app.Flag("telemetry-service", "Service that is used for telemetry [Prometheus, ApplicationInsights]").Envar("TELEMETRY_SERVICE").Enum("Prometheus", "prometheus", "ApplicationInsights", "applicationinsights")
-	instrumentationKey          = app.Flag("instrumentation-key", "The ApplicationInsights-InstrumentationKey that is used to connect to the API.").Envar("INSTRUMENTATION_KEY").String()
-	appInsightsServiceName      = app.Flag("application-insights-service-name", "The name which will be displayed for kelon inside application insights.").Default("Kelon").Envar("APPLICATION_INSIGHTS_SERVICE_NAME").String()
-	appInsightsMaxBatchSize     = app.Flag("application-insights-max-batch-size", "Configure how many items can be sent in one call to the data collector.").Default("8192").Envar("APPLICATION_INSIGHTS_MAX_BATCH_SIZE").Int()
-	appInsightsMaxBatchInterval = app.Flag("application-insights-max-batch-interval-seconds", "Configure the maximum delay before sending queued telemetry.").Default("2").Envar("APPLICATION_INSIGHTS_MAX_BATCH_INTERVAL_SECONDS").Int()
+	telemetryService                = app.Flag("telemetry-service", "Service that is used for telemetry [Prometheus, ApplicationInsights]").Envar("TELEMETRY_SERVICE").Enum("Prometheus", "prometheus", "ApplicationInsights", "applicationinsights")
+	instrumentationKey              = app.Flag("instrumentation-key", "The ApplicationInsights-InstrumentationKey that is used to connect to the API.").Envar("INSTRUMENTATION_KEY").String()
+	appInsightsServiceName          = app.Flag("application-insights-service-name", "The name which will be displayed for kelon inside application insights.").Default("Kelon").Envar("APPLICATION_INSIGHTS_SERVICE_NAME").String()
+	appInsightsMaxBatchSize         = app.Flag("application-insights-max-batch-size", "Configure how many items can be sent in one call to the data collector.").Default("8192").Envar("APPLICATION_INSIGHTS_MAX_BATCH_SIZE").Int()
+	appInsightsMaxBatchInterval     = app.Flag("application-insights-max-batch-interval-seconds", "Configure the maximum delay before sending queued telemetry.").Default("2").Envar("APPLICATION_INSIGHTS_MAX_BATCH_INTERVAL_SECONDS").Int()
+	appInsightsLogLevels            = app.Flag("application-insights-log-levels", "Configure log levels which are sent. Allowed values are [fatal, panic, error, warn, info, debug, trace]").Default("fatal,panic,error,warn").Envar("APPLICATION_INSIGHTS_LOG_LEVELS").String()
+	appInsightsStatsIntervalSeconds = app.Flag("application-insights-stats-interval-seconds", "Interval in seconds in which system stats are measured and sent.").Default("5").Envar("APPLICATION_INSIGHTS_STATS_INTERVAL_SECONDS").Int()
 
 	proxy         api.ClientProxy       = nil
 	envoyProxy    api.ClientProxy       = nil
@@ -163,6 +165,8 @@ func makeTelemetryProvider() telemetry.Provider {
 				ServiceName:                   *appInsightsServiceName,
 				MaxBatchSize:                  *appInsightsMaxBatchSize,
 				MaxBatchIntervalSeconds:       *appInsightsMaxBatchInterval,
+				LogLevels:                     *appInsightsLogLevels,
+				StatsIntervalSeconds:          *appInsightsStatsIntervalSeconds,
 			}
 		}
 

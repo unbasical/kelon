@@ -3,12 +3,18 @@ package telemetry
 import (
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Foundato/kelon/pkg/constants"
 	"github.com/Microsoft/ApplicationInsights-Go/appinsights"
 	"github.com/pkg/errors"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/net"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -17,6 +23,8 @@ type ApplicationInsights struct {
 	ServiceName                   string
 	MaxBatchSize                  int
 	MaxBatchIntervalSeconds       int
+	LogLevels                     string
+	StatsIntervalSeconds          int
 	client                        appinsights.TelemetryClient
 }
 
@@ -36,9 +44,110 @@ func (p *ApplicationInsights) Configure() error {
 	if hostname, err := os.Hostname(); err != nil {
 		p.client.Context().Tags.Cloud().SetRoleInstance(hostname)
 	}
-	log.Infoln("Configured ApplicationInsights.")
 
+	// Log diagnostic data to logger
+	appinsights.NewDiagnosticsMessageListener(func(msg string) error {
+		log.Infof("ApplicationInsights Diagnostics: %s\n", msg)
+		return nil
+	})
+
+	// Send Logs
+	if p.LogLevels != "" {
+		// Process args and initialize logger
+		log.SetFormatter(&log.TextFormatter{
+			FullTimestamp: false,
+		})
+		log.AddHook(p)
+	}
+
+	// Start reporting system metrics
+	go p.TrackStats()
+
+	log.Infoln("Configured ApplicationInsights.")
 	return nil
+}
+
+// Log levels for logrus hook
+func (p *ApplicationInsights) Levels() []log.Level {
+	var logLevels []log.Level
+	for _, levelName := range strings.Split(p.LogLevels, ",") {
+		level, err := log.ParseLevel(strings.TrimSpace(levelName))
+		if err != nil {
+			log.Warnf("ApplicationInsights: Unable to handle input-log-level %s. It will be skipped! Error is: %s", level, err.Error())
+		}
+		logLevels = append(logLevels, level)
+	}
+	return logLevels
+}
+
+// Capture log event from logrus hook
+func (p *ApplicationInsights) Fire(entry *log.Entry) error {
+	trace := appinsights.TraceTelemetry{}
+	if msg, err := entry.String(); err == nil {
+		trace.Message = msg
+	} else {
+		trace.Message = entry.Message
+	}
+	trace.SetTime(entry.Time)
+	switch entry.Level {
+	case log.FatalLevel:
+		trace.SeverityLevel = appinsights.Critical
+	case log.PanicLevel:
+		trace.SeverityLevel = appinsights.Critical
+	case log.ErrorLevel:
+		trace.SeverityLevel = appinsights.Error
+	case log.WarnLevel:
+		trace.SeverityLevel = appinsights.Warning
+	case log.InfoLevel:
+		trace.SeverityLevel = appinsights.Information
+	case log.DebugLevel:
+		trace.SeverityLevel = appinsights.Verbose
+	case log.TraceLevel:
+		trace.SeverityLevel = appinsights.Verbose
+	}
+	p.client.Track(&trace)
+	return nil
+}
+
+func (p *ApplicationInsights) TrackStats() {
+	quit := make(chan os.Signal, 1) // buffered
+	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	for {
+		select {
+		case <-quit:
+			log.Println("Application Insights: Stopped")
+			return
+		case <-time.After(time.Second * time.Duration(p.StatsIntervalSeconds)):
+			// Track Memory stats
+			if virtMem, err := mem.VirtualMemory(); err == nil {
+				p.client.TrackMetric("Heap Memory Used", float64(virtMem.Used))
+				p.client.TrackMetric("% Heap Memory Used", virtMem.UsedPercent)
+			} else {
+				p.CheckError(err)
+			}
+
+			// Track CPU stats
+			if cpuPercentages, err := cpu.Percent(0, false); err == nil {
+				for _, cpuPercentage := range cpuPercentages {
+					p.client.TrackMetric("% Processor Time", cpuPercentage)
+				}
+			} else {
+				p.CheckError(err)
+			}
+
+			// Track Network stats
+			if netIOStats, err := net.IOCounters(false); err == nil {
+				for _, netIOStat := range netIOStats {
+					p.client.TrackMetric("IO Data Bytes/sec", float64(netIOStat.BytesRecv+netIOStat.BytesSent)/5)
+					p.client.TrackMetric("Data In-Bytes/sec", float64(netIOStat.BytesRecv)/5)
+					p.client.TrackMetric("Data Out-Bytes/sec", float64(netIOStat.BytesSent)/5)
+				}
+			} else {
+				p.CheckError(err)
+			}
+		}
+	}
 }
 
 func (p *ApplicationInsights) GetHTTPMiddleware() (func(handler http.Handler) http.Handler, error) {
@@ -77,11 +186,12 @@ func (p *ApplicationInsights) CheckError(err error) {
 	}
 }
 
-func (p *ApplicationInsights) MeasureRemoteDependency(alias string, dependencyType string, queryTime time.Duration, success bool) {
+func (p *ApplicationInsights) MeasureRemoteDependency(name string, dependencyType string, queryTime time.Duration, data string, success bool) {
 	dependency := appinsights.RemoteDependencyTelemetry{}
-	dependency.Name = alias
+	dependency.Name = name
 	dependency.Type = dependencyType
 	dependency.Duration = queryTime
+	dependency.Data = data
 	dependency.Success = success
 
 	// Submit the telemetry

@@ -167,7 +167,7 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 	rows, err := ds.dbPool.Query(statement)
 	if err != nil {
 		if ds.appConf.TelemetryProvider != nil {
-			ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), false)
+			ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), statement, false)
 		}
 		return false, errors.Wrap(err, "SqlDatastore: Error while executing statement")
 	}
@@ -194,7 +194,7 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 		log.Debugf("No resulting row with count > 0 found! -> DENIED")
 	}
 	if ds.appConf.TelemetryProvider != nil {
-		ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), true)
+		ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), statement, true)
 	}
 	return result, nil
 }
