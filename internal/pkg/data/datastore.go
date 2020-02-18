@@ -111,6 +111,18 @@ func getConnectionStringForPlatform(platform string, conn map[string]string) str
 	}
 }
 
+func getPreparePlaceholderForPlatform(platform string, argCounter int) string {
+	switch platform {
+	case data.TypePostgres:
+		return fmt.Sprintf("$%d", argCounter)
+	case data.TypeMysql:
+		return "?"
+	default:
+		log.Panic(fmt.Sprintf("Platform [%s] is not a supported for prepared statements!", platform))
+		return ""
+	}
+}
+
 // Extract and sort all connection parameters by importance.
 // Output: host, port, user, password, dbname, []options
 // Each option has the format <key>=<value>

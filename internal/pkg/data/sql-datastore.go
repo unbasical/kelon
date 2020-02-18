@@ -23,6 +23,7 @@ import (
 type sqlDatastore struct {
 	appConf       *configs.AppConfig
 	alias         string
+	platform      string
 	telemetryName string
 	telemetryType string
 	conn          map[string]string
@@ -96,6 +97,7 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 
 	// Assign values
 	ds.conn = conf.Connection
+	ds.platform = conf.Type
 	ds.dbPool = db
 	ds.schemas = appConf.Data.DatastoreSchemas[alias]
 	ds.appConf = appConf
@@ -159,11 +161,11 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 	log.Debugf("TRANSLATING QUERY: ==================%+v==================", (*query).String())
 
 	// Translate query to into sql statement
-	statement := ds.translate(query)
-	log.Debugf("EXECUTING STATEMENT: ==================%s==================", statement)
+	statement, params := ds.translatePrepared(query)
+	log.Debugf("EXECUTING STATEMENT: ==================%s==================\nPARAMS: %+v", statement, params)
 
 	startTime := time.Now()
-	rows, err := ds.dbPool.Query(statement)
+	rows, err := ds.dbPool.Query(statement, params...)
 	if err != nil {
 		if ds.appConf.TelemetryProvider != nil {
 			ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), statement, false)
@@ -199,7 +201,7 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 }
 
 // nolint:gocyclo
-func (ds sqlDatastore) translate(input *data.Node) string {
+func (ds sqlDatastore) translatePrepared(input *data.Node) (string, []interface{}) {
 	var query util.SStack
 	var selects util.SStack
 	var entities util.SStack
@@ -207,6 +209,9 @@ func (ds sqlDatastore) translate(input *data.Node) string {
 	var joins util.SStack
 
 	var operands util.OpStack
+
+	// Used for prepared statements
+	var values []interface{}
 
 	// Walk input
 	(*input).Walk(func(q data.Node) {
@@ -308,13 +313,14 @@ func (ds sqlDatastore) translate(input *data.Node) string {
 				entities = entities.Push(fmt.Sprintf("%s.%s", schema, entity.Name))
 			}
 		case data.Constant:
-			operands.AppendToTop(fmt.Sprintf("'%s'", v.String()))
+			values = append(values, v.String())
+			operands.AppendToTop(getPreparePlaceholderForPlatform(ds.platform, len(values)))
 		default:
 			log.Warnf("SqlDatastore: Unexpected input: %T -> %+v", v, v)
 		}
 	})
 
-	return strings.Join(query, "")
+	return strings.Join(query, ""), values
 }
 
 func (ds sqlDatastore) findSchemaForEntity(search string) (string, *configs.Entity) {
