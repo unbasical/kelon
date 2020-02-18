@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -142,7 +143,7 @@ func (ds mongoDatastore) applyMetadataConfigs(alias string, conf *configs.Datast
 	}
 }
 
-func (ds mongoDatastore) Execute(query *data.Node) (bool, error) {
+func (ds mongoDatastore) Execute(query *data.Node, queryContext interface{}) (bool, error) {
 	if !ds.configured {
 		return false, errors.New("MongoDatastore was not configured! Please call Configure(). ")
 	}
@@ -203,13 +204,21 @@ func (ds mongoDatastore) Execute(query *data.Node) (bool, error) {
 
 	log.Debugf("RECEIVED RESULTS: %+v", queryResults)
 	if ds.appConf.TelemetryProvider != nil {
-		ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), entireQuery, true)
+		httpRequest, ok := queryContext.(*http.Request)
+		if !ok {
+			return false, errors.New("MongoDB: Could not cast passed *http.Request from queryContext!")
+		}
+		ds.appConf.TelemetryProvider.MeasureRemoteDependency(httpRequest, ds.telemetryName, ds.telemetryType, time.Since(startTime), entireQuery, true)
 	}
 	decision := false
 	for _, result := range queryResults {
 		if result.err != nil {
 			if ds.appConf.TelemetryProvider != nil {
-				ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), entireQuery, false)
+				httpRequest, ok := queryContext.(*http.Request)
+				if !ok {
+					return false, errors.New("MongoDB: Could not cast passed *http.Request from queryContext!")
+				}
+				ds.appConf.TelemetryProvider.MeasureRemoteDependency(httpRequest, ds.telemetryName, ds.telemetryType, time.Since(startTime), entireQuery, false)
 			}
 			return false, errors.Wrap(result.err, "MongoDB: Error while sending Queries to DB")
 		}

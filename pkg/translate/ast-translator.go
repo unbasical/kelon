@@ -36,5 +36,5 @@ type AstTranslator interface {
 	// This AST is then handed over to a Datastore to be translated into a datastore-native query which will be executed and interpreted as a final decision (Allow/Deny).
 	//
 	// If any error occurred during the translation or the datastore access, the error will be returned.
-	Process(response *rego.PartialQueries, datastore string) (bool, error)
+	Process(response *rego.PartialQueries, datastore string, queryContext interface{}) (bool, error)
 }

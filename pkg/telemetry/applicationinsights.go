@@ -186,13 +186,21 @@ func (p *ApplicationInsights) CheckError(err error) {
 	}
 }
 
-func (p *ApplicationInsights) MeasureRemoteDependency(name string, dependencyType string, queryTime time.Duration, data string, success bool) {
+func (p *ApplicationInsights) MeasureRemoteDependency(request *http.Request, name string, dependencyType string, queryTime time.Duration, data string, success bool) {
 	dependency := appinsights.RemoteDependencyTelemetry{}
 	dependency.Name = name
 	dependency.Type = dependencyType
 	dependency.Duration = queryTime
 	dependency.Data = data
 	dependency.Success = success
+
+	uid, ok := request.Context().Value(constants.ContextKeyRequestID).(string)
+	if !ok {
+		uid = ""
+	}
+	dependency.BaseTelemetry.Tags.Operation().SetCorrelationVector(request.Header.Get("correlation-context"))
+	parentID := request.Header.Get("request-id") + uid
+	dependency.Id = parentID + "_1."
 
 	// Submit the telemetry
 	p.client.Track(&dependency)

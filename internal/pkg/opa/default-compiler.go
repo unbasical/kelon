@@ -154,7 +154,7 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 	}
 
 	// Otherwise translate ast
-	result, err := (*compiler.config.Translator).Process(queries, output.Datastore)
+	result, err := (*compiler.config.Translator).Process(queries, output.Datastore, request)
 	if err != nil {
 		compiler.handleError(w, uid, errors.Wrap(err, "PolicyCompiler: Error during ast translation"))
 		return
