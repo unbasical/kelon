@@ -52,7 +52,7 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *tra
 }
 
 // See translate.AstTranslator.
-func (trans astTranslator) Process(response *rego.PartialQueries, datastore string) (bool, error) {
+func (trans astTranslator) Process(response *rego.PartialQueries, datastore string, queryContext interface{}) (bool, error) {
 	if !trans.configured {
 		return false, errors.New("AstTranslator was not configured! Please call Configure(). ")
 	}
@@ -68,7 +68,7 @@ func (trans astTranslator) Process(response *rego.PartialQueries, datastore stri
 	}
 
 	if targetDb, ok := trans.config.Datastores[datastore]; ok {
-		return (*targetDb).Execute(processedQuery)
+		return (*targetDb).Execute(processedQuery, queryContext)
 	}
 	return false, errors.New("AstTranslator: Unable to find datastore: " + datastore)
 }

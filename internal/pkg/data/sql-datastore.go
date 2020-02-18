@@ -3,6 +3,7 @@ package data
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -154,7 +155,7 @@ func (ds *sqlDatastore) applyMetadataConfigs(alias string, conf *configs.Datasto
 	return nil
 }
 
-func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
+func (ds sqlDatastore) Execute(query *data.Node, queryContext interface{}) (bool, error) {
 	if !ds.configured {
 		return false, errors.New("SqlDatastore was not configured! Please call Configure(). ")
 	}
@@ -168,7 +169,11 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 	rows, err := ds.dbPool.Query(statement, params...)
 	if err != nil {
 		if ds.appConf.TelemetryProvider != nil {
-			ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), statement, false)
+			httpRequest, ok := queryContext.(*http.Request)
+			if !ok {
+				return false, errors.New("SqlDatastore: Could not cast passed *http.Request from queryContext!")
+			}
+			ds.appConf.TelemetryProvider.MeasureRemoteDependency(httpRequest, ds.telemetryName, ds.telemetryType, time.Since(startTime), statement, false)
 		}
 		return false, errors.Wrap(err, "SqlDatastore: Error while executing statement")
 	}
@@ -195,7 +200,11 @@ func (ds sqlDatastore) Execute(query *data.Node) (bool, error) {
 		log.Debugf("No resulting row with count > 0 found! -> DENIED")
 	}
 	if ds.appConf.TelemetryProvider != nil {
-		ds.appConf.TelemetryProvider.MeasureRemoteDependency(ds.telemetryName, ds.telemetryType, time.Since(startTime), statement, true)
+		httpRequest, ok := queryContext.(*http.Request)
+		if !ok {
+			return false, errors.New("SqlDatastore: Could not cast passed *http.Request from queryContext!")
+		}
+		ds.appConf.TelemetryProvider.MeasureRemoteDependency(httpRequest, ds.telemetryName, ds.telemetryType, time.Since(startTime), statement, true)
 	}
 	return result, nil
 }

@@ -31,7 +31,7 @@ type Datastore interface {
 
 	// Execute() translates the given Query-AST into a datastore's native query and executes the query afterwards.
 	// If the result is not empty, true should be returned otherwise false.
-	Execute(query *Node) (bool, error)
+	Execute(query *Node, queryContext interface{}) (bool, error)
 }
 
 // CallOpMapper is an abstraction for mapping OPA-native functions to Datastore-native functions.
