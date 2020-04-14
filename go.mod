@@ -13,7 +13,6 @@ replace (
 require (
 	code.cloudfoundry.org/clock v1.0.0 // indirect
 	github.com/Microsoft/ApplicationInsights-Go v0.4.2
-	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20190910110746-680d30ca3117 // indirect
 	github.com/envoyproxy/go-control-plane v0.9.1
@@ -24,7 +23,7 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/lib/pq v1.2.0
-	github.com/open-policy-agent/opa v0.17.1
+	github.com/open-policy-agent/opa v0.19.1
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.1.0
 	github.com/rcrowley/go-metrics v0.0.0-20190826022208-cac0b30c2563 // indirect
