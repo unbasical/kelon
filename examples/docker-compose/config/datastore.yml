@@ -15,7 +15,6 @@ datastores:
       telemetryName: Datasource
       telemetryType: MySQL
 
-
   pg:
     type: postgres
     connection:
