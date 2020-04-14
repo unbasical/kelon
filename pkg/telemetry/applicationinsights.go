@@ -158,7 +158,7 @@ func (p *ApplicationInsights) GetHTTPMiddleware() (func(handler http.Handler) ht
 			passThroughWriter := NewPassThroughResponseWriter(writer)
 			handler.ServeHTTP(passThroughWriter, request)
 			duration := time.Since(startTime)
-			uid := passThroughWriter.Header().Get(constants.ContextKeyRequestID)
+			uid := passThroughWriter.Header().Get(string(constants.ContextKeyRequestID))
 
 			// Build trace
 			trace := appinsights.NewRequestTelemetry(request.Method, request.URL.Path, duration, strconv.Itoa(passThroughWriter.StatusCode()))

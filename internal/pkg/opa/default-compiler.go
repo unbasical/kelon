@@ -170,7 +170,7 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 
 func (compiler policyCompiler) handleError(w http.ResponseWriter, requestID string, err error) {
 	log.WithField("UID", requestID).WithError(err).Error("PolicyCompiler encountered an error")
-	w.Header().Set(constants.ContextKeyRequestID, requestID)
+	w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 	// Monitor error
 	compiler.handleErrorMetrics(err)
 
@@ -205,10 +205,10 @@ func writeError(w http.ResponseWriter, status int, code string, err error) {
 func (compiler policyCompiler) writeAllow(w http.ResponseWriter, requestID string) {
 	log.WithField("UID", requestID).Infoln("Decision: ALLOW")
 	if compiler.config.RespondWithStatusCode {
-		w.Header().Set(constants.ContextKeyRequestID, requestID)
+		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		w.WriteHeader(http.StatusOK)
 	} else {
-		w.Header().Set(constants.ContextKeyRequestID, requestID)
+		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		writeJSON(w, http.StatusOK, apiResponse{Result: true})
 	}
 }
@@ -216,10 +216,10 @@ func (compiler policyCompiler) writeAllow(w http.ResponseWriter, requestID strin
 func (compiler policyCompiler) writeDeny(w http.ResponseWriter, requestID string) {
 	log.WithField("UID", requestID).Infoln("Decision: DENY")
 	if compiler.config.RespondWithStatusCode {
-		w.Header().Set(constants.ContextKeyRequestID, requestID)
+		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		w.WriteHeader(http.StatusForbidden)
 	} else {
-		w.Header().Set(constants.ContextKeyRequestID, requestID)
+		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		writeJSON(w, http.StatusOK, apiResponse{Result: false})
 	}
 }

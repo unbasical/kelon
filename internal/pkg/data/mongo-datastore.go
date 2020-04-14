@@ -253,9 +253,10 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 		case data.Union:
 			// Sort collection filters by collection
 			for _, colF := range filters {
-				if _, exists := filtersByCollection[colF.collection]; exists {
+				coll, exists := filtersByCollection[colF.collection]
+				if exists {
 					// Append filter to existing entry
-					filtersByCollection[colF.collection] = append(filtersByCollection[colF.collection], colF.filter)
+					filtersByCollection[colF.collection] = append(coll, colF.filter)
 				} else {
 					// Write new entry
 					filtersByCollection[colF.collection] = []string{colF.filter}

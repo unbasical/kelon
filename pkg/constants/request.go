@@ -1,4 +1,6 @@
 package constants
 
+type ContextKey string
+
 // ContextKeyRequestID is the ContextKey for RequestID
-const ContextKeyRequestID string = "requestUID" // can be unexported
+const ContextKeyRequestID = ContextKey("requestUID") // can be unexported
