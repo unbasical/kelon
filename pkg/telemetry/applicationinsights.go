@@ -47,7 +47,7 @@ func (p *ApplicationInsights) Configure() error {
 
 	// Log diagnostic data to logger
 	appinsights.NewDiagnosticsMessageListener(func(msg string) error {
-		log.Infof("ApplicationInsights Diagnostics: %s\n", msg)
+		log.Debugf("ApplicationInsights Diagnostics: %s\n", msg)
 		return nil
 	})
 
