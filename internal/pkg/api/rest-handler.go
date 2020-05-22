@@ -219,7 +219,6 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
-		log.Infof("Unable to read body due to error: %s", err.Error())
 		return
 	}
 
@@ -238,7 +237,6 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
-		log.Infof("Unable to open new transaction due to error: %s", err.Error())
 		return
 	}
 
@@ -246,18 +244,15 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	parsedMod, err := ast.ParseModule(path.String(), string(buf))
 	if err != nil {
 		proxy.abortWithBadRequest(ctx, opa, txn, w, err)
-		log.Infof("Unable to parse module due to error: %s", err.Error())
 		return
 	}
 	if parsedMod == nil {
 		proxy.abortWithBadRequest(ctx, opa, txn, w, errors.New("Empty module"))
-		log.Info("Empty module")
 		return
 	}
 
 	if err = proxy.checkPolicyPackageScope(ctx, txn, parsedMod.Package); err != nil {
 		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
-		log.Infof("Failed to check policy package scope due to error: %s", err.Error())
 		return
 	}
 
@@ -265,7 +260,6 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	modules, err := proxy.loadModules(ctx, txn)
 	if err != nil {
 		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
-		log.Infof("Unable to load local modules due to error: %s", err.Error())
 		return
 	}
 	modules[path.String()] = parsedMod
@@ -274,21 +268,18 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	c := ast.NewCompiler().SetErrorLimit(1).WithPathConflictsCheck(storage.NonEmpty(ctx, opa.Store, txn))
 	if c.Compile(modules); c.Failed() {
 		proxy.abortWithBadRequest(ctx, opa, txn, w, c.Errors)
-		log.Infof("Unable to compile policies due to error: %s", c.Errors.Error())
 		return
 	}
 
 	// Upsert policy
 	if err := opa.Store.UpsertPolicy(ctx, txn, path.String(), buf); err != nil {
 		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
-		log.Infof("Unable to upsert policy due to error: %s", err.Error())
 		return
 	}
 
 	// Commit the transaction
 	if err := opa.Store.Commit(ctx, txn); err != nil {
 		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
-		log.Infof("Unable to commit policy due to error: %s", err.Error())
 		return
 	}
 
@@ -594,5 +585,4 @@ func (proxy restProxy) checkPathScope(ctx context.Context, txn storage.Transacti
 
 func writeBadPath(w http.ResponseWriter, path string) {
 	writer.Error(w, http.StatusBadRequest, types.NewErrorV1(types.CodeInvalidParameter, "bad path: %s", path))
-	log.Infof("Bad Path: %s", path)
 }
