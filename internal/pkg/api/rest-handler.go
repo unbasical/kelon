@@ -284,7 +284,7 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Write result
-	log.Infof("Updated Policy at path: %s", path.String())
+	log.Debugf("Updated Policy at path: %s", path.String())
 	writeJSON(w, http.StatusOK, make(map[string]string))
 }
 
