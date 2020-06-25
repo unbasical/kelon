@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+// $title: Kelon
+// $description: Adapter that integrates Kelon as policy enforcement point.
+// $supported_templates: authorization
+
+// The `Kelon` adapter exposes [Kelon](https://docs.kelon.io/) which provides sophisticated access control mechanisms.
+//
+// This adapter supports the [authorization template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/authorization/).
+package adapter.kelon.config;
+
+import "gogoproto/gogo.proto";
+
+option go_package="config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+// config for kelon
+message Params {}

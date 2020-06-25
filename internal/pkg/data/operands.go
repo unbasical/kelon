@@ -2,12 +2,15 @@ package data
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"regexp"
 	"strconv"
+
+	"github.com/Foundato/kelon/pkg/data"
+
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 )
 
 type GenericCallOpMapper struct {
@@ -23,7 +26,7 @@ func (h GenericCallOpMapper) Handles() string {
 func (h GenericCallOpMapper) Map(args ...string) string {
 	argsLen := len(args)
 	if argsLen < h.argsCount || argsLen > (h.argsCount+1) {
-		log.Fatalf("Call-handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.\n", h.operator, h.argsCount, h.argsCount+1, args)
+		log.Fatalf("Call-handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.operator, h.argsCount, h.argsCount+1, args)
 	}
 
 	var (
@@ -61,10 +64,7 @@ func (h loadedCallHandler) Handles() string {
 }
 
 func (h *loadedCallHandler) Init() error {
-	argsMatcher, err := regexp.Compile("\\$\\d+")
-	if err != nil {
-		return errors.Wrap(err, "Unable to load datastore-call-operands")
-	}
+	argsMatcher := regexp.MustCompile(`\$\d+`)
 
 	// Extract indices of operands
 	h.indexMapping = []int{}
@@ -85,7 +85,7 @@ func (h *loadedCallHandler) Init() error {
 func (h loadedCallHandler) Map(args ...string) string {
 	argsLen := len(args)
 	if argsLen < h.ArgsCount || argsLen > (h.ArgsCount+1) {
-		log.Fatalf("Call-Handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.\n", h.Operator, h.ArgsCount, h.ArgsCount+1, args)
+		log.Fatalf("Call-Handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.Operator, h.ArgsCount, h.ArgsCount+1, args)
 	}
 
 	// Rearrange args if mapping is specified
@@ -102,12 +102,12 @@ func (h loadedCallHandler) Map(args ...string) string {
 	// Handle call with default comparison
 	if argsLen > h.ArgsCount {
 		return fmt.Sprintf(h.targetMapping+" = %s", rearangedArgs...)
-	} else { // Handle any other
-		return fmt.Sprintf(h.targetMapping, rearangedArgs...)
 	}
+	// Handle any other
+	return fmt.Sprintf(h.targetMapping, rearangedArgs...)
 }
 
-func LoadDatastoreCallOpsBytes(input []byte) ([]CallOpMapper, error) {
+func LoadDatastoreCallOpsBytes(input []byte) ([]data.CallOpMapper, error) {
 	if input == nil {
 		return nil, errors.New("Data must not be nil! ")
 	}
@@ -118,26 +118,26 @@ func LoadDatastoreCallOpsBytes(input []byte) ([]CallOpMapper, error) {
 		return nil, errors.New("Unable to parse datastore call-operands config: " + err.Error())
 	}
 
-	var result []CallOpMapper
-	for _, h := range loadedConf.CallOperands {
+	result := make([]data.CallOpMapper, len(loadedConf.CallOperands))
+	for i, h := range loadedConf.CallOperands {
 		if err := h.Init(); err != nil {
 			return nil, errors.Wrap(err, "Error while loading call operands")
 		}
-		result = append(result, h)
+		result[i] = h
 	}
 
 	return result, nil
 }
 
-func LoadDatastoreCallOpsFile(filePath string) ([]CallOpMapper, error) {
+func LoadDatastoreCallOpsFile(filePath string) ([]data.CallOpMapper, error) {
 	if filePath == "" {
 		return nil, errors.New("FilePath must not be empty! ")
 	}
 
 	// Load datastoreOpsBytes from file
-	if datastoreOpsBytes, ioError := ioutil.ReadFile(filePath); ioError == nil {
+	datastoreOpsBytes, ioError := ioutil.ReadFile(filePath)
+	if ioError == nil {
 		return LoadDatastoreCallOpsBytes(datastoreOpsBytes)
-	} else {
-		return nil, errors.Wrap(ioError, "Unable to load datastore-call-operands")
 	}
+	return nil, errors.Wrap(ioError, "Unable to load datastore-call-operands")
 }

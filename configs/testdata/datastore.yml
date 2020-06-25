@@ -22,5 +22,6 @@ entity_schemas:
   mysql:                             # Target datastore
     appstore:                           # Target schema
       entities:                         # List of all entities of the schema
-        - users
-        - followers
+        - name: users
+        - name: user_followers
+          alias: followers

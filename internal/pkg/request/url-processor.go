@@ -1,26 +1,30 @@
 package request
 
 import (
-	"github.com/Foundato/kelon/configs"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"net/url"
 	"reflect"
 	"strings"
+
+	"github.com/Foundato/kelon/configs"
+	"github.com/Foundato/kelon/pkg/request"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type urlProcessor struct {
 	appConf    *configs.AppConfig
-	config     *PathProcessorConfig
+	config     *request.PathProcessorConfig
 	configured bool
 }
 
-type UrlProcessorInput struct {
+// Input needed to process a URL.
+type URLProcessorInput struct {
 	Method string
-	Url    *url.URL
+	URL    *url.URL
 }
 
-func NewUrlProcessor() PathProcessor {
+// Return a UrlProcessor instance implementing request.PathProcessor.
+func NewURLProcessor() request.PathProcessor {
 	return &urlProcessor{
 		appConf:    nil,
 		config:     nil,
@@ -28,7 +32,13 @@ func NewUrlProcessor() PathProcessor {
 	}
 }
 
-func (processor *urlProcessor) Configure(appConf *configs.AppConfig, processorConf *PathProcessorConfig) error {
+// See request.PathProcessor.
+func (processor *urlProcessor) Configure(appConf *configs.AppConfig, processorConf *request.PathProcessorConfig) error {
+	// Exit if already configured
+	if processor.configured {
+		return nil
+	}
+
 	// Configure subcomponents
 	if processorConf.PathMapper == nil {
 		return errors.New("UrlProcessor: PathMapper not configured! ")
@@ -45,7 +55,8 @@ func (processor *urlProcessor) Configure(appConf *configs.AppConfig, processorCo
 	return nil
 }
 
-func (processor urlProcessor) Process(input interface{}) (*PathProcessorOutput, error) {
+// See request.PathProcessor.
+func (processor urlProcessor) Process(input interface{}) (*request.PathProcessorOutput, error) {
 	if !processor.configured {
 		return nil, errors.New("UrlProcessor was not configured! Please call Configure(). ")
 	}
@@ -55,34 +66,34 @@ func (processor urlProcessor) Process(input interface{}) (*PathProcessorOutput, 
 
 	// Check type and handle request
 	switch in := input.(type) {
-	case *UrlProcessorInput:
+	case *URLProcessorInput:
 		return processor.handleInput(in)
 	default:
-		return nil, errors.New("UrlProcessor: Input of Process() was not of type *request.UrlProcessorInput! Type was: " + reflect.TypeOf(input).String())
+		return nil, errors.New("UrlProcessor: Input of Process() was not of type *request.URLProcessorInput! Type was: " + reflect.TypeOf(input).String())
 	}
 }
 
-func (processor urlProcessor) handleInput(input *UrlProcessorInput) (*PathProcessorOutput, error) {
+func (processor urlProcessor) handleInput(input *URLProcessorInput) (*request.PathProcessorOutput, error) {
 	// Parse base path
-	path := strings.Fields(strings.ReplaceAll(strings.ToLower(input.Url.Path), "/", " "))
+	path := strings.Fields(strings.ReplaceAll(input.URL.Path, "/", " "))
 	// Process query parameters
 	queries := make(map[string]interface{})
-	queryParams := input.Url.Query()
+	queryParams := input.URL.Query()
 	for queryName := range queryParams {
 		// Build queries which are passed to OPA as part of the input object
 		queries[queryName] = queryParams.Get(queryName)
 	}
-	log.Debugf("PathProcessor: Parsed path %+v with queries %+v\n", path, queries)
+	log.Debugf("PathProcessor: Parsed path %+v with queries %+v", path, queries)
 
 	// Map path and return
 	out, err := (*processor.config.PathMapper).Map(&pathMapperInput{
 		Method: input.Method,
-		Url:    input.Url,
+		URL:    input.URL,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "UrlProcessor: Error during path mapping.")
 	}
-	output := PathProcessorOutput{
+	output := request.PathProcessorOutput{
 		Datastore: out.Datastore,
 		Package:   out.Package,
 		Path:      path,

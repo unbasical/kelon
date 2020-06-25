@@ -1,3 +1,6 @@
+// Package common provides constants that are used within the entire application
 package common
 
-var Version = ""
+// Version of the running kelon instance (probably set by CI-pipeline)
+//nolint:gochecknoglobals
+var Version = "0.3.0"

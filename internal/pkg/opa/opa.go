@@ -21,9 +21,7 @@ import (
 	"github.com/open-policy-agent/opa/metrics"
 	"github.com/open-policy-agent/opa/plugins"
 	"github.com/open-policy-agent/opa/plugins/discovery"
-	"github.com/open-policy-agent/opa/plugins/logs"
 	"github.com/open-policy-agent/opa/rego"
-	"github.com/open-policy-agent/opa/server"
 	"github.com/open-policy-agent/opa/storage"
 	"github.com/open-policy-agent/opa/storage/inmem"
 	"github.com/pkg/errors"
@@ -31,7 +29,6 @@ import (
 
 // OPA represents an instance of the policy engine.
 type OPA struct {
-	decision    string
 	configBytes []byte
 	manager     *plugins.Manager
 }
@@ -53,9 +50,8 @@ func ConfigOPA(fileName string) func(opa *OPA) error {
 	}
 }
 
-// New returns a new OPA object.
+// Returns a new OPA instance.
 func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*OPA, error) {
-
 	opa := &OPA{}
 
 	// Configure OPA
@@ -67,42 +63,6 @@ func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*O
 
 	// Init store
 	store := inmem.New()
-
-	log.Debugf("Loading regos from dir: %s\n", regosPath)
-	filter := func(abspath string, info os.FileInfo, depth int) bool {
-		return !strings.HasSuffix(abspath, ".rego")
-	}
-	loaded, err := loadPaths([]string{regosPath}, filter, true)
-	if err != nil {
-		return nil, errors.Wrap(err, "NewOPA: Error while loading rego dir")
-	}
-
-	for bundleName, loadedBundle := range loaded.Bundles {
-		log.Infof("Loading Bundle: %s\n", bundleName)
-		for _, module := range loadedBundle.Modules {
-			log.Infof("Loaded Package: [%s]\t\t\t\t-> module [%s]\n", module.Parsed.Package.String(), module.Path)
-		}
-	}
-
-	txn, err := store.NewTransaction(ctx, storage.WriteParams)
-	if err != nil {
-		return nil, errors.Wrap(err, "NewOPA: Error while opening transaction")
-	}
-
-	if len(loaded.Documents) > 0 {
-		if err := store.Write(ctx, txn, storage.AddOp, storage.Path{}, loaded.Documents); err != nil {
-			return nil, errors.Wrap(err, "NewOPA: Error while writing document")
-		}
-	}
-
-	if err := compileAndStoreInputs(ctx, store, txn, loaded, 1); err != nil {
-		store.Abort(ctx, txn)
-		return nil, errors.Wrap(err, "NewOPA: Error while storing inputs")
-	}
-
-	if err := store.Commit(ctx, txn); err != nil {
-		return nil, errors.Wrap(err, "NewOPA: Error while commit")
-	}
 
 	id, err := uuid4()
 	if err != nil {
@@ -120,7 +80,54 @@ func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*O
 	}
 	opa.manager.Register("discovery", disc)
 
+	// Load regos
+	if err := opa.LoadRegosFromPath(ctx, regosPath); err != nil {
+		return nil, errors.Wrap(err, "NewOPA: Unable to load regos")
+	}
+
 	return opa, nil
+}
+
+func (opa *OPA) LoadRegosFromPath(ctx context.Context, regosPath string) error {
+	// Return with no error on empty path
+	if regosPath == "" {
+		return nil
+	}
+
+	store := opa.manager.Store
+
+	log.Debugf("Loading regos from dir: %s", regosPath)
+	filter := func(abspath string, info os.FileInfo, depth int) bool {
+		return !strings.HasSuffix(abspath, ".rego")
+	}
+	loaded, err := loadPaths([]string{regosPath}, filter, true)
+	if err != nil {
+		return errors.Wrap(err, "NewOPA: Error while loading rego dir")
+	}
+	for bundleName, loadedBundle := range loaded.Bundles {
+		log.Infof("Loading Bundle: %s", bundleName)
+		for _, module := range loadedBundle.Modules {
+			log.Infof("Loaded Package: [%s] -> module [%s]", module.Parsed.Package.String(), module.Path)
+		}
+	}
+	txn, err := store.NewTransaction(ctx, storage.WriteParams)
+	if err != nil {
+		return errors.Wrap(err, "NewOPA: Error while opening transaction")
+	}
+	if len(loaded.Documents) > 0 {
+		if err := store.Write(ctx, txn, storage.AddOp, storage.MustParsePath(regosPath), loaded.Documents); err != nil {
+			return errors.Wrap(err, "NewOPA: Error while writing document")
+		}
+	}
+	if err := compileAndStoreInputs(ctx, store, txn, loaded, 1); err != nil {
+		store.Abort(ctx, txn)
+		return errors.Wrap(err, "NewOPA: Error while storing inputs")
+	}
+	if err := store.Commit(ctx, txn); err != nil {
+		return errors.Wrap(err, "NewOPA: Error while commit")
+	}
+
+	return nil
 }
 
 // Start asynchronously starts the policy engine's plugins that download
@@ -131,18 +138,11 @@ func (opa *OPA) Start(ctx context.Context) error {
 
 // Bool returns a boolean policy decision.
 func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query string, opts ...func(*rego.Rego)) (*rego.PartialQueries, error) {
-
 	m := metrics.New()
-	var decisionID string
 	var partialResult *rego.PartialQueries
 
 	err := storage.Txn(ctx, opa.manager.Store, storage.TransactionParams{}, func(txn storage.Transaction) error {
-
 		var err error
-		decisionID, err = uuid4()
-		if err != nil {
-			return err
-		}
 
 		r := rego.New(append(opts,
 			rego.Metrics(m),
@@ -153,28 +153,12 @@ func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query st
 			rego.Transaction(txn))...)
 
 		rs, err := r.Partial(ctx)
-
 		if err != nil {
 			return err
-		} else {
-			partialResult = rs
 		}
-
+		partialResult = rs
 		return nil
 	})
-
-	if logger := logs.Lookup(opa.manager); logger != nil {
-		record := &server.Info{
-			DecisionID: decisionID,
-			Query:      query,
-			Error:      err,
-			Metrics:    m,
-		}
-
-		if err := logger.Log(ctx, record); err != nil {
-			return partialResult, errors.Wrap(err, "failed to log decision")
-		}
-	}
 
 	return partialResult, err
 }
@@ -191,7 +175,6 @@ func uuid4() (string, error) {
 }
 
 func compileAndStoreInputs(ctx context.Context, store storage.Store, txn storage.Transaction, loaded *loadResult, errorLimit int) error {
-
 	policies := make(map[string]*ast.Module, len(loaded.Modules))
 
 	for id, parsed := range loaded.Modules {

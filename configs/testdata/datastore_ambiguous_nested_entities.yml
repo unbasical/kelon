@@ -1,0 +1,33 @@
+# Datastores to connect to
+datastores:
+  mysql:
+    type: mysql
+    connection:
+      host: "localhost"
+      port: 5432
+      database: mysql
+      user: mysql
+      password: SuperSecure
+    metadata:
+      default_schema: default
+  local-json:
+    type: file
+    connection:
+      location: ./data/local-data.json
+    metadata:
+      in_memory: true
+
+# Entity-Schemas define the structure of the entities of one schema inside a datastore
+entity_schemas:
+  mysql:                             # Target datastore
+    appstore:                           # Target schema
+      entities:                         # List of all entities of the schema
+        - name: users
+        - name: user_followers
+          alias: followers
+          entities:
+            - name: level1
+              entities:
+                - name: a             # Collides with alias in same level
+                - name: b
+                  alias: a            # Collides with entity a

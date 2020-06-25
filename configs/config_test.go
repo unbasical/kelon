@@ -1,11 +1,14 @@
 package configs_test
 
 import (
+	"testing"
+
 	"github.com/Foundato/kelon/configs"
 	"github.com/google/go-cmp/cmp"
-	"testing"
+	"github.com/stretchr/testify/assert"
 )
 
+//nolint:gochecknoglobals
 var wantDatatoreConfig = configs.DatastoreConfig{
 	Datastores: map[string]*configs.Datastore{
 		"mysql": {
@@ -34,18 +37,27 @@ var wantDatatoreConfig = configs.DatastoreConfig{
 	DatastoreSchemas: map[string]map[string]*configs.EntitySchema{
 		"mysql": {
 			"appstore": {
-				Entities: []string{"users", "followers"},
+				Entities: []*configs.Entity{
+					{
+						Name: "users",
+					},
+					{
+						Name:  "user_followers",
+						Alias: "followers",
+					},
+				},
 			},
 		},
 	},
 }
 
-var wantApiConfig = &configs.ApiConfig{
-	Mappings: []*configs.DatastoreApiMapping{
+//nolint:gochecknoglobals
+var wantAPIConfig = &configs.APIConfig{
+	Mappings: []*configs.DatastoreAPIMapping{
 		{
 			Prefix:    "/api",
 			Datastore: "mysql",
-			Mappings: []*configs.ApiMapping{
+			Mappings: []*configs.APIMapping{
 				{
 					Path:    "/.*",
 					Package: "default",
@@ -72,7 +84,7 @@ var wantApiConfig = &configs.ApiConfig{
 func TestLoadConfigFromFile(t *testing.T) {
 	result, err := configs.FileConfigLoader{
 		DatastoreConfigPath: "./testdata/datastore.yml",
-		ApiConfigPath:       "./testdata/api.yml",
+		APIConfigPath:       "./testdata/api.yml",
 	}.Load()
 
 	if err != nil {
@@ -89,9 +101,9 @@ func TestLoadConfigFromFile(t *testing.T) {
 	}
 
 	// Validate api config
-	if have := result.Api; have != nil {
-		if !cmp.Equal(wantApiConfig, have) {
-			t.Errorf("Api config is not as expected! Diff: %s", cmp.Diff(wantApiConfig, have))
+	if have := result.API; have != nil {
+		if !cmp.Equal(wantAPIConfig, have) {
+			t.Errorf("API config is not as expected! Diff: %s", cmp.Diff(wantAPIConfig, have))
 		}
 	} else {
 		t.Error("No api configuration present!")
@@ -101,18 +113,31 @@ func TestLoadConfigFromFile(t *testing.T) {
 func TestLoadNotExistingDatastoreFile(t *testing.T) {
 	_, err := configs.FileConfigLoader{
 		DatastoreConfigPath: "./datastore-not-existing.yml",
-		ApiConfigPath:       "./api-not-existing.yml",
+		APIConfigPath:       "./api-not-existing.yml",
 	}.Load()
+	assert.EqualError(t, err, "open ./datastore-not-existing.yml: no such file or directory")
+}
 
-	if err == nil || err.Error() != "open ./datastore-not-existing.yml: no such file or directory" {
-		t.Error("File not found error not thrown!")
-	}
+func TestLoadAmbiguousEntitiesDatastoreFile(t *testing.T) {
+	_, err := configs.FileConfigLoader{
+		DatastoreConfigPath: "./testdata/datastore_ambiguous_entities.yml",
+		APIConfigPath:       "./testdata/api.yml",
+	}.Load()
+	assert.EqualError(t, err, "Loaded invalid datastore config: The entity with name \"irrelevant\" collides with entity \"users\" inside all entitiy_schemas of the datastore \"mysql\"!")
+}
+
+func TestLoadAmbiguousNestedEntitiesDatastoreFile(t *testing.T) {
+	_, err := configs.FileConfigLoader{
+		DatastoreConfigPath: "./testdata/datastore_ambiguous_nested_entities.yml",
+		APIConfigPath:       "./testdata/api.yml",
+	}.Load()
+	assert.EqualError(t, err, "Loaded invalid datastore config: Found ambiguous nested entities in datastore \"mysql\" schema \"appstore\": The entity with name \"b\" collides with entity \"a\" inside path \"level1\"!")
 }
 
 func TestLoadNotExistingApiFile(t *testing.T) {
 	_, err := configs.FileConfigLoader{
 		DatastoreConfigPath: "./testdata/datastore.yml",
-		ApiConfigPath:       "./api-not-existing.yml",
+		APIConfigPath:       "./api-not-existing.yml",
 	}.Load()
 
 	if err == nil || err.Error() != "open ./api-not-existing.yml: no such file or directory" {

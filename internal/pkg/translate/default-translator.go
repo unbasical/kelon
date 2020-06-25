@@ -2,21 +2,20 @@ package translate
 
 import (
 	"github.com/Foundato/kelon/configs"
-	"github.com/open-policy-agent/opa/ast"
+	"github.com/Foundato/kelon/pkg/translate"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
 type astTranslator struct {
-	appConf      *configs.AppConfig
-	config       *AstTranslatorConfig
-	preprocessor *astPreprocessor
-	processor    *astProcessor
-	configured   bool
+	appConf    *configs.AppConfig
+	config     *translate.AstTranslatorConfig
+	configured bool
 }
 
-func NewAstTranslator() AstTranslator {
+// Create a new instance of the default translate.AstTranslator.
+func NewAstTranslator() translate.AstTranslator {
 	return &astTranslator{
 		appConf:    nil,
 		config:     nil,
@@ -24,7 +23,13 @@ func NewAstTranslator() AstTranslator {
 	}
 }
 
-func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *AstTranslatorConfig) error {
+// See translate.AstTranslator.
+func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *translate.AstTranslatorConfig) error {
+	// Exit if already configured
+	if trans.configured {
+		return nil
+	}
+
 	// Configure subcomponents
 	if transConf.Datastores == nil {
 		return errors.New("AstTranslator: Datastores not configured! ")
@@ -41,36 +46,29 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *Ast
 	// Assign variables
 	trans.appConf = appConf
 	trans.config = transConf
-	trans.preprocessor = &astPreprocessor{}
-	trans.processor = &astProcessor{}
 	trans.configured = true
 	log.Infoln("Configured AstTranslator")
 	return nil
 }
 
-func (trans astTranslator) Process(response *rego.PartialQueries, datastore string) (bool, error) {
+// See translate.AstTranslator.
+func (trans astTranslator) Process(response *rego.PartialQueries, datastore string, queryContext interface{}) (bool, error) {
 	if !trans.configured {
 		return false, errors.New("AstTranslator was not configured! Please call Configure(). ")
 	}
 
-	preprocessedQueries, preprocessErr := trans.preprocessor.Process(response.Queries, datastore)
+	preprocessedQueries, preprocessErr := newAstPreprocessor().Process(response.Queries, datastore)
 	if preprocessErr != nil {
 		return false, errors.Wrap(preprocessErr, "AstTranslator: Error during preprocessing.")
 	}
 
-	processedQuery, processErr := trans.processor.Process(preprocessedQueries)
+	processedQuery, processErr := newAstProcessor().Process(preprocessedQueries)
 	if processErr != nil {
 		return false, errors.Wrap(preprocessErr, "AstTranslator: Error during processing.")
 	}
 
-	if targetDb, ok := trans.config.Datastores[datastore]; ok {
-		return (*targetDb).Execute(processedQuery)
-	} else {
-		return false, errors.New("AstTranslator: Unable to find datastore: " + datastore)
+	if targetDB, ok := trans.config.Datastores[datastore]; ok {
+		return (*targetDB).Execute(processedQuery, queryContext)
 	}
-}
-
-func (trans astTranslator) Visit(v interface{}) ast.Visitor {
-	log.Debugf("Node: %+v\n", v)
-	return trans
+	return false, errors.New("AstTranslator: Unable to find datastore: " + datastore)
 }

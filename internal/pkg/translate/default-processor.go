@@ -2,82 +2,95 @@ package translate
 
 import (
 	"fmt"
-	"github.com/Foundato/kelon/internal/pkg/data"
-	"github.com/open-policy-agent/opa/ast"
-	log "github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
+
+	"github.com/Foundato/kelon/pkg/data"
+	"github.com/open-policy-agent/opa/ast"
+	log "github.com/sirupsen/logrus"
 )
 
 type astProcessor struct {
 	fromEntity   *data.Entity
-	link         data.Link
+	link         map[string]interface{}
 	conjunctions []data.Node
 	entities     map[string]interface{}
 	relations    []data.Node
 	operands     NodeStack
 }
 
-var inset string = "\t\t\t\t\t"
+func newAstProcessor() *astProcessor {
+	return &astProcessor{}
+}
 
+// See translate.AstTranslator.
 func (p *astProcessor) Process(queries []ast.Body) (*data.Node, error) {
-	p.link = data.Link{}
+	p.link = make(map[string]interface{})
 	p.conjunctions = []data.Node{}
 	p.entities = make(map[string]interface{})
 	p.relations = []data.Node{}
 	p.operands = [][]data.Node{}
 
 	// NEW ERA
-	var clauses []data.Node
-	for _, q := range queries {
+	clauses := make([]data.Node, len(queries))
+	for i, q := range queries {
 		p.translateQuery(q)
 		condition := data.Condition{Clause: data.Conjunction{Clauses: append(p.conjunctions[:0:0], p.conjunctions...)}}
 
 		// Add new Query
-		clauses = append(clauses, data.Query{
+		delete(p.link, p.fromEntity.String())
+		clauses[i] = data.Query{
 			From:      *p.fromEntity,
-			Link:      p.link,
+			Link:      toDataLink(p.link),
 			Condition: condition,
-		})
+		}
 
 		// Cleanup
 		p.conjunctions = p.conjunctions[:0]
 		p.fromEntity = nil
-		p.link = data.Link{}
+		p.link = make(map[string]interface{})
 	}
 
-	var result data.Node
-	result = data.Union{Clauses: clauses}
+	var result data.Node = data.Union{Clauses: clauses}
 	return &result, nil
 }
 
+func toDataLink(linkedEntities map[string]interface{}) data.Link {
+	entities := make([]data.Entity, len(linkedEntities))
+	for i, e := range keys(linkedEntities) {
+		entities[i] = data.Entity{Value: e}
+	}
+	return data.Link{Entities: entities}
+}
+
+// Implementation of the visitor pattern to crawl the AST.
 func (p *astProcessor) Visit(v interface{}) ast.Visitor {
 	switch node := v.(type) {
 	case *ast.Body:
-		log.Debugf("Body: -> %+v\n", v)
+		log.Debugf("Body: -> %+v", v)
 		return p.translateQuery(*node)
 	case *ast.Expr:
-		log.Debugf("Expr: -> %+v\n", v)
+		log.Debugf("Expr: -> %+v", v)
 		return p.translateExpr(*node)
 	case *ast.Term:
-		log.Debugf("Term: -> %+v\n", v)
+		log.Debugf("Term: -> %+v", v)
 		return p.translateTerm(*node)
 	default:
-		log.Warnf("Unexpectedly visiting children of: %T -> %+v\n", v, v)
+		log.Warnf("Unexpectedly visiting children of: %T -> %+v", v, v)
 	}
 	return p
 }
 
 func (p *astProcessor) translateQuery(q ast.Body) ast.Visitor {
-	log.Debugf("================= PROCESS QUERY: %+v\n", q)
+	log.Debugf("================= PROCESS QUERY: %+v", q)
 	for _, exp := range q {
 		ast.Walk(p, exp)
 	}
 
-	log.Debugf("%sAppend to Conjunctions -> %+v\n", inset, p.relations)
+	log.Debugf("%30sAppend to Conjunctions -> %+v", "", p.relations)
 	p.conjunctions = append(p.conjunctions, p.relations...)
 
-	log.Debugf("%sClean entities and relations", inset)
+	log.Debugf("%30sClean entities and relations", "")
 	p.entities = make(map[string]interface{})
 	p.relations = p.relations[:0]
 
@@ -98,27 +111,17 @@ func (p *astProcessor) translateExpr(node ast.Expr) ast.Visitor {
 	var functionOperands []data.Node
 	p.operands, functionOperands = p.operands.Pop()
 	if len(p.entities) > 1 {
-		p.removeAlreadyJoinedEntities()
-		if len(p.entities) > 1 {
-			panic("Multi join not supported!")
+		for _, entity := range keys(p.entities) {
+			p.link[entity] = true
 		}
-
-		joinEntity := data.Entity{Value: keys(p.entities)[0]}
-
-		p.link.Entities = append(p.link.Entities, joinEntity)
-		p.link.Conditions = append(p.link.Conditions, data.Call{
-			Operator: op,
-			Operands: functionOperands,
-		})
-		log.Debugf("%sLink: %+v\n", inset, p.link)
-	} else {
-		// Append new relation for conjunction
-		p.relations = append(p.relations, data.Call{
-			Operator: op,
-			Operands: functionOperands,
-		})
-		log.Debugf("%sRelations: %+v\n", inset, p.relations)
+		log.Debugf("%30sLink: %+v", "", p.link)
 	}
+	// Append new relation for conjunction
+	p.relations = append(p.relations, data.Call{
+		Operator: op,
+		Operands: functionOperands,
+	})
+	log.Debugf("%30sRelations: %+v", "", p.relations)
 
 	// Cleanup
 	p.entities = make(map[string]interface{})
@@ -162,7 +165,7 @@ func (p *astProcessor) translateTerm(node ast.Term) ast.Visitor {
 		})
 		return nil
 	default:
-		log.Warnf("Unexpected term Node: %T -> %+v\n", v, v)
+		log.Warnf("Unexpected term Node: %T -> %+v", v, v)
 	}
 	return p
 }
@@ -206,51 +209,43 @@ func normalizeString(value string) string {
 	return strings.ReplaceAll(value, "\"", "")
 }
 
-func (p *astProcessor) removeAlreadyJoinedEntities() {
-	delete(p.entities, p.fromEntity.String())
-	for _, e := range p.link.Entities {
-		delete(p.entities, e.Value)
-	}
-}
-
 func keys(input map[string]interface{}) []string {
-	var result []string
+	i := 0
+	result := make([]string, len(input))
 	for k := range input {
-		result = append(result, k)
+		result[i] = k
+		i++
 	}
 	return result
 }
 
-func (p astProcessor) isAlreadyLinked(entity data.Entity) bool {
-	for _, e := range p.link.Entities {
-		if e.Value == entity.Value {
-			return false
-		}
-	}
-	return true
-}
-
+// Stack which is used for AST-transformation
 type NodeStack [][]data.Node
 
+// Push new element to stack
 func (s NodeStack) Push(v []data.Node) NodeStack {
-	log.Debugf("%sOperands len(%d) PUSH(%+v)\n", inset, len(s), v)
+	log.Debugf("%30sOperands len(%d) PUSH(%+v)", "", len(s), v)
 	return append(s, v)
 }
 
+// Append new node to top element of the stack
 func (s NodeStack) AppendToTop(v data.Node) {
-	if l := len(s); l > 0 {
-		s[l-1] = append(s[l-1], v)
-		log.Debugf("%sOperands len(%d) APPEND |%+v <- TOP\n", inset, len(s), s[l-1])
-	} else {
-		panic("Stack is empty!")
+	l := len(s)
+	if l <= 0 {
+		log.Panic("Stack is empty!")
 	}
+
+	s[l-1] = append(s[l-1], v)
+	log.Debugf("%30sOperands len(%d) APPEND |%+v <- TOP", "", len(s), s[l-1])
 }
 
+// Pop top element from Stack
 func (s NodeStack) Pop() (NodeStack, []data.Node) {
-	if l := len(s); l > 0 {
-		log.Debugf("%sOperands len(%d) POP()\n", inset, len(s))
-		return s[:l-1], s[l-1]
-	} else {
-		panic("Stack is empty!")
+	l := len(s)
+	if l <= 0 {
+		log.Panic("Stack is empty!")
 	}
+
+	log.Debugf("%30sOperands len(%d) POP()", "", len(s))
+	return s[:l-1], s[l-1]
 }

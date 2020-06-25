@@ -1,196 +1,159 @@
 package data
 
 import (
+	"database/sql"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/Foundato/kelon/configs"
+	"github.com/Foundato/kelon/pkg/data"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
-type Datastore interface {
-	Configure(appConf *configs.AppConfig, alias string) error
-	Execute(query *Node) (bool, error)
-}
+var (
+	//nolint:gochecknoglobals
+	hostKey = "host"
+	//nolint:gochecknoglobals
+	portKey = "port"
+	//nolint:gochecknoglobals
+	dbKey = "database"
+	//nolint:gochecknoglobals
+	userKey = "user"
+	//nolint:gochecknoglobals
+	pwKey = "password"
+)
 
-type Node interface {
-	String() string
-	Walk(func(v Node))
-}
-
-type CallOpMapper interface {
-	Handles() string
-	Map(args ...string) string
-}
-
-type Operator struct {
-	Value string
-}
-
-type Constant struct {
-	Value     string
-	IsNumeric bool
-	IsInt     bool
-	IsFloat32 bool
-}
-
-type Entity struct {
-	Value string
-}
-
-type Attribute struct {
-	Entity Entity
-	Name   string
-}
-
-type Call struct {
-	Operator Operator
-	Operands []Node
-}
-
-type Conjunction struct {
-	Clauses []Node
-}
-
-type Disjunction struct {
-	Clauses []Node
-}
-
-type Condition struct {
-	Clause Node
-}
-
-type Link struct {
-	Entities   []Entity
-	Conditions []Node
-}
-
-type Query struct {
-	From      Entity
-	Link      Link
-	Condition Condition
-}
-
-type Union struct {
-	Clauses []Node
-}
-
-// Interface implementations
-
-func (o Operator) String() string {
-	return o.Value
-}
-func (o Operator) Walk(vis func(v Node)) {
-	vis(o)
-}
-
-func (c Constant) String() string {
-	return c.Value
-}
-func (c Constant) Walk(vis func(v Node)) {
-	vis(c)
-}
-
-func (e Entity) String() string {
-	return e.Value
-}
-func (e Entity) Walk(vis func(v Node)) {
-	vis(e)
-}
-
-func (a Attribute) String() string {
-	return fmt.Sprintf("att(%s.%s)", a.Entity.String(), a.Name)
-}
-func (a Attribute) Walk(vis func(v Node)) {
-	a.Entity.Walk(vis)
-	vis(a)
-}
-
-func (c Call) String() string {
-	var operands []string
-	for _, o := range c.Operands {
-		operands = append(operands, o.String())
+func extractAndValidateDatastore(appConf *configs.AppConfig, alias string) (*configs.Datastore, error) {
+	if appConf == nil {
+		return nil, errors.New("AppConfig not configured! ")
 	}
-	return fmt.Sprintf("%s(%+v)", c.Operator.String(), operands)
-}
-func (c Call) Walk(vis func(v Node)) {
-	c.Operator.Walk(vis)
-	for _, o := range c.Operands {
-		o.Walk(vis)
+	if alias == "" {
+		return nil, errors.New("Empty alias provided! ")
 	}
-	vis(c)
+	// Validate configuration
+	conf, ok := appConf.Data.Datastores[alias]
+	if !ok {
+		return nil, errors.Errorf("No datastore with alias [%s] configured!", alias)
+	}
+	if strings.EqualFold(conf.Type, "") {
+		return nil, errors.Errorf("Alias of datastore is empty! Must be one of %+v!", sql.Drivers())
+	}
+	if err := validateConnection(alias, conf.Connection); err != nil {
+		return nil, err
+	}
+	return conf, nil
 }
 
-func (c Conjunction) String() string {
-	var clauses []string
-	for _, o := range c.Clauses {
-		clauses = append(clauses, o.String())
+func pingUntilReachable(alias string, ping func() error) error {
+	var pingFailure error
+	for i := 0; i < 20; i++ {
+		if pingFailure = ping(); pingFailure == nil {
+			// Ping succeeded
+			return nil
+		}
+		log.Infof("Waiting for [%s] to be reachable...", alias)
+		<-time.After(3 * time.Second)
 	}
-	return fmt.Sprintf("conj(%+v)", clauses)
-}
-func (c Conjunction) Walk(vis func(v Node)) {
-	for _, o := range c.Clauses {
-		o.Walk(vis)
+	if pingFailure != nil {
+		return errors.Wrap(pingFailure, "Unable to ping database")
 	}
-	vis(c)
+	return nil
 }
 
-func (d Disjunction) String() string {
-	var relations []string
-	for _, o := range d.Clauses {
-		relations = append(relations, o.String())
+func loadCallOperands(conf *configs.Datastore) (map[string]func(args ...string) string, error) {
+	callOpsFile := fmt.Sprintf("./call-operands/%s.yml", strings.ToLower(conf.Type))
+	handlers, err := LoadDatastoreCallOpsFile(callOpsFile)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to load call operands as handlers")
 	}
-	return fmt.Sprintf("disj(%+v)", relations)
-}
-func (d Disjunction) Walk(vis func(v Node)) {
-	for _, o := range d.Clauses {
-		o.Walk(vis)
+
+	operands := map[string]func(args ...string) string{}
+	for _, handler := range handlers {
+		operands[handler.Handles()] = handler.Map
 	}
-	vis(d)
+	return operands, nil
 }
 
-func (c Condition) String() string {
-	return fmt.Sprintf("cond(%s)", c.Clause)
-}
-func (c Condition) Walk(vis func(v Node)) {
-	c.Clause.Walk(vis)
-	vis(c)
+func validateConnection(alias string, conn map[string]string) error {
+	if _, ok := conn[hostKey]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", hostKey, alias)
+	}
+	if _, ok := conn[portKey]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", portKey, alias)
+	}
+	if _, ok := conn[dbKey]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", dbKey, alias)
+	}
+	if _, ok := conn[userKey]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", userKey, alias)
+	}
+	if _, ok := conn[pwKey]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", pwKey, alias)
+	}
+	return nil
 }
 
-func (l Link) String() string {
-	var links []string
-	for i, e := range l.Entities {
-		links = append(links, fmt.Sprintf("(%s ON %s)", e, l.Conditions[i]))
+func getConnectionStringForPlatform(platform string, conn map[string]string) string {
+	host, port, user, password, dbname, options := extractAndSortConnectionParameters(conn)
+
+	switch platform {
+	case data.TypePostgres:
+		return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s%s", host, port, user, password, dbname, createConnOptionsString(options, " ", " "))
+	case data.TypeMysql:
+		return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", user, password, host, port, dbname, createConnOptionsString(options, "&", "?"))
+	case data.TypeMongo:
+		return fmt.Sprintf("mongodb://%s:%s@%s:%s/%s%s", user, password, host, port, dbname, createConnOptionsString(options, "&", "?"))
+	default:
+		log.Panic(fmt.Sprintf("Platform [%s] is not a supported Datastore!", platform))
+		return ""
 	}
-	return fmt.Sprintf("link(%+v)", links)
-}
-func (l Link) Walk(vis func(v Node)) {
-	for _, c := range l.Conditions {
-		c.Walk(vis)
-	}
-	for _, e := range l.Entities {
-		e.Walk(vis)
-	}
-	vis(l)
 }
 
-func (q Query) String() string {
-	return fmt.Sprintf("query(%s, %+v, %s)", q.From.String(), q.Link, q.Condition.String())
-}
-func (q Query) Walk(vis func(v Node)) {
-	q.Link.Walk(vis)
-	q.Condition.Walk(vis)
-	q.From.Walk(vis)
-	vis(q)
+func getPreparePlaceholderForPlatform(platform string, argCounter int) string {
+	switch platform {
+	case data.TypePostgres:
+		return fmt.Sprintf("$%d", argCounter)
+	case data.TypeMysql:
+		return "?"
+	default:
+		log.Panic(fmt.Sprintf("Platform [%s] is not a supported for prepared statements!", platform))
+		return ""
+	}
 }
 
-func (u Union) String() string {
-	var clauses []string
-	for _, o := range u.Clauses {
-		clauses = append(clauses, o.String())
+// Extract and sort all connection parameters by importance.
+// Output: host, port, user, password, dbname, []options
+// Each option has the format <key>=<value>
+func extractAndSortConnectionParameters(conn map[string]string) (string, string, string, string, string, []string) {
+	var host, port, user, password, dbname string
+	var options []string
+
+	for key, value := range conn {
+		switch key {
+		case hostKey:
+			host = value
+		case portKey:
+			port = value
+		case userKey:
+			user = value
+		case pwKey:
+			password = value
+		case dbKey:
+			dbname = value
+		default:
+			options = append(options, fmt.Sprintf("%s=%s", key, value))
+		}
 	}
-	return fmt.Sprintf("union(%+v)", clauses)
+
+	return host, port, user, password, dbname, options
 }
-func (u Union) Walk(vis func(v Node)) {
-	for _, c := range u.Clauses {
-		c.Walk(vis)
+
+func createConnOptionsString(options []string, delimiter string, prefix string) string {
+	optionString := strings.Join(options, delimiter)
+	if len(options) > 0 {
+		optionString = prefix + optionString
 	}
-	vis(u)
+	return optionString
 }
