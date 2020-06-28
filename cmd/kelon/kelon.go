@@ -20,7 +20,6 @@ import (
 	"github.com/Foundato/kelon/common"
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/api/envoy"
-	"github.com/Foundato/kelon/internal/pkg/api/istio"
 	"github.com/Foundato/kelon/internal/pkg/data"
 	"github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/api"
@@ -147,11 +146,6 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		if envoyPort != nil && *envoyPort != 0 {
 			startNewEnvoyProxy(config, &serverConf)
 		}
-
-		// Start istio adapter in addition to rest proxy as soon as a port was specified!
-		if istioPort != nil && *istioPort != 0 {
-			startNewIstioAdapter(config, &serverConf)
-		}
 	}
 }
 
@@ -224,48 +218,6 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 	}
 	// Start proxy
 	if err := envoyProxy.Start(); err != nil {
-		log.Fatalln(err.Error())
-	}
-}
-
-func startNewIstioAdapter(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
-	if *istioPort == *port {
-		log.Panic("Cannot start istio adapter and rest proxy on same port!")
-	}
-	if *envoyPort == *istioPort {
-		log.Panic("Cannot start envoyProxy proxy and istio adapter on same port!")
-	}
-
-	var tlsConfig *istio.MutualTLSConfig = nil
-	if *istioCertificateFile != "" || *istioPrivateKeyFile != "" || *istioCredentialFile != "" {
-		if *istioCertificateFile == "" {
-			log.Fatalf("Isito mutual TLS configured, but no istioCertificateFile specified!")
-		}
-		if *istioPrivateKeyFile == "" {
-			log.Fatalf("Isito mutual TLS configured, but no istioPrivateKeyFile specified!")
-		}
-		if *istioCredentialFile == "" {
-			log.Fatalf("Isito mutual TLS configured, but no istioCredentialFile specified!")
-		}
-
-		tlsConfig = &istio.MutualTLSConfig{
-			CredentialFile:  *istioCredentialFile,
-			PrivateKeyFile:  *istioPrivateKeyFile,
-			CertificateFile: *istioCertificateFile,
-		}
-	}
-
-	// Create Rest proxy and start
-	if createdProxy, err := istio.NewKelonIstioAdapter(*istioPort, tlsConfig); err != nil {
-		log.Fatalln(err.Error())
-	} else {
-		istioProxy = createdProxy
-	}
-	if err := istioProxy.Configure(appConfig, serverConf); err != nil {
-		log.Fatalln(err.Error())
-	}
-	// Start proxy
-	if err := istioProxy.Start(); err != nil {
 		log.Fatalln(err.Error())
 	}
 }
