@@ -20,7 +20,6 @@ import (
 	"github.com/Foundato/kelon/common"
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/api/envoy"
-	"github.com/Foundato/kelon/internal/pkg/api/istio"
 	"github.com/Foundato/kelon/internal/pkg/data"
 	"github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/api"
@@ -56,12 +55,6 @@ var (
 	envoyDryRun     = app.Flag("envoy-dry-run", "Enable/Disable the dry run feature of the envoy-proxy.").Default("false").Envar("ENVOY_DRY_RUN").Bool()
 	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
 
-	// Configs for Istio Mixer Adapter
-	istioPort            = app.Flag("istio-port", "Also start Istio Mixer Out of Tree Adapter  on specified port so integrate kelon with Istio.").Envar("ISTIO_PORT").Uint32()
-	istioCredentialFile  = app.Flag("istio-credential-file", "Filepath containing istio credentials for mTLS (i.e. adapter.crt).").Envar("ISTIO_CREDENTIAL_FILE").ExistingFile()
-	istioPrivateKeyFile  = app.Flag("istio-private-key-file", "Filepath containing istio private key for mTLS (i.e. adapter.key).").Envar("ISTIO_PRIVATE_KEY_FILE").ExistingFile()
-	istioCertificateFile = app.Flag("istio-certificate-file", "Filepath containing istio certificate for mTLS (i.e. ca.pem).").Envar("ISTIO_CERTIFICATE_FILE").ExistingFile()
-
 	// Configs for telemetry
 	telemetryService                = app.Flag("telemetry-service", "Service that is used for telemetry [Prometheus, ApplicationInsights]").Envar("TELEMETRY_SERVICE").Enum("Prometheus", "prometheus", "ApplicationInsights", "applicationinsights")
 	instrumentationKey              = app.Flag("instrumentation-key", "The ApplicationInsights-InstrumentationKey that is used to connect to the API.").Envar("INSTRUMENTATION_KEY").String()
@@ -73,7 +66,6 @@ var (
 
 	proxy             api.ClientProxy       = nil
 	envoyProxy        api.ClientProxy       = nil
-	istioProxy        api.ClientProxy       = nil
 	configWatcher     watcher.ConfigWatcher = nil
 	telemetryProvider telemetry.Provider    = nil
 )
@@ -147,11 +139,6 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		if envoyPort != nil && *envoyPort != 0 {
 			startNewEnvoyProxy(config, &serverConf)
 		}
-
-		// Start istio adapter in addition to rest proxy as soon as a port was specified!
-		if istioPort != nil && *istioPort != 0 {
-			startNewIstioAdapter(config, &serverConf)
-		}
 	}
 }
 
@@ -209,9 +196,6 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 	if *envoyPort == *port {
 		log.Panic("Cannot start envoyProxy proxy and rest proxy on same port!")
 	}
-	if *envoyPort == *istioPort {
-		log.Panic("Cannot start envoyProxy proxy and istio adapter on same port!")
-	}
 
 	// Create Rest proxy and start
 	envoyProxy = envoy.NewEnvoyProxy(envoy.EnvoyConfig{
@@ -224,48 +208,6 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 	}
 	// Start proxy
 	if err := envoyProxy.Start(); err != nil {
-		log.Fatalln(err.Error())
-	}
-}
-
-func startNewIstioAdapter(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
-	if *istioPort == *port {
-		log.Panic("Cannot start istio adapter and rest proxy on same port!")
-	}
-	if *envoyPort == *istioPort {
-		log.Panic("Cannot start envoyProxy proxy and istio adapter on same port!")
-	}
-
-	var tlsConfig *istio.MutualTLSConfig = nil
-	if *istioCertificateFile != "" || *istioPrivateKeyFile != "" || *istioCredentialFile != "" {
-		if *istioCertificateFile == "" {
-			log.Fatalf("Isito mutual TLS configured, but no istioCertificateFile specified!")
-		}
-		if *istioPrivateKeyFile == "" {
-			log.Fatalf("Isito mutual TLS configured, but no istioPrivateKeyFile specified!")
-		}
-		if *istioCredentialFile == "" {
-			log.Fatalf("Isito mutual TLS configured, but no istioCredentialFile specified!")
-		}
-
-		tlsConfig = &istio.MutualTLSConfig{
-			CredentialFile:  *istioCredentialFile,
-			PrivateKeyFile:  *istioPrivateKeyFile,
-			CertificateFile: *istioCertificateFile,
-		}
-	}
-
-	// Create Rest proxy and start
-	if createdProxy, err := istio.NewKelonIstioAdapter(*istioPort, tlsConfig); err != nil {
-		log.Fatalln(err.Error())
-	} else {
-		istioProxy = createdProxy
-	}
-	if err := istioProxy.Configure(appConfig, serverConf); err != nil {
-		log.Fatalln(err.Error())
-	}
-	// Start proxy
-	if err := istioProxy.Start(); err != nil {
 		log.Fatalln(err.Error())
 	}
 }
