@@ -55,12 +55,6 @@ var (
 	envoyDryRun     = app.Flag("envoy-dry-run", "Enable/Disable the dry run feature of the envoy-proxy.").Default("false").Envar("ENVOY_DRY_RUN").Bool()
 	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
 
-	// Configs for Istio Mixer Adapter
-	istioPort            = app.Flag("istio-port", "Also start Istio Mixer Out of Tree Adapter  on specified port so integrate kelon with Istio.").Envar("ISTIO_PORT").Uint32()
-	istioCredentialFile  = app.Flag("istio-credential-file", "Filepath containing istio credentials for mTLS (i.e. adapter.crt).").Envar("ISTIO_CREDENTIAL_FILE").ExistingFile()
-	istioPrivateKeyFile  = app.Flag("istio-private-key-file", "Filepath containing istio private key for mTLS (i.e. adapter.key).").Envar("ISTIO_PRIVATE_KEY_FILE").ExistingFile()
-	istioCertificateFile = app.Flag("istio-certificate-file", "Filepath containing istio certificate for mTLS (i.e. ca.pem).").Envar("ISTIO_CERTIFICATE_FILE").ExistingFile()
-
 	// Configs for telemetry
 	telemetryService                = app.Flag("telemetry-service", "Service that is used for telemetry [Prometheus, ApplicationInsights]").Envar("TELEMETRY_SERVICE").Enum("Prometheus", "prometheus", "ApplicationInsights", "applicationinsights")
 	instrumentationKey              = app.Flag("instrumentation-key", "The ApplicationInsights-InstrumentationKey that is used to connect to the API.").Envar("INSTRUMENTATION_KEY").String()
@@ -72,7 +66,6 @@ var (
 
 	proxy             api.ClientProxy       = nil
 	envoyProxy        api.ClientProxy       = nil
-	istioProxy        api.ClientProxy       = nil
 	configWatcher     watcher.ConfigWatcher = nil
 	telemetryProvider telemetry.Provider    = nil
 )
@@ -202,9 +195,6 @@ func startNewRestProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxy
 func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
 	if *envoyPort == *port {
 		log.Panic("Cannot start envoyProxy proxy and rest proxy on same port!")
-	}
-	if *envoyPort == *istioPort {
-		log.Panic("Cannot start envoyProxy proxy and istio adapter on same port!")
 	}
 
 	// Create Rest proxy and start
