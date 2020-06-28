@@ -27,18 +27,6 @@ var (
 		Name: "http_requests_total",
 		Help: "Count of all HTTP requests",
 	}, []string{"code", "method"})
-	errorsCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "errors_total",
-		Help: "A gauge of non-fatal errors.",
-	})
-	databaseRequestsTotal = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "datastore_requests_total",
-		Help: "Count of all Datastore requests",
-	})
-	databaseErrorsCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "datastore_errors_total",
-		Help: "A gauge of non-fatal errors during datastore requests errors.",
-	})
 	inFlightRequests = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "in_flight_requests",
 		Help: "A gauge of requests currently being served by the wrapped handler.",
@@ -51,15 +39,7 @@ var (
 			Help:    "A histogram of latencies for requests.",
 			Buckets: []float64{.05, .1, .5, 1, 2.5, 10},
 		},
-		[]string{"handler", "method"},
-	)
-	datastoreRequestDuration = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "datastore_request_duration_seconds",
-			Help:    "A histogram of latencies for datastore requests.",
-			Buckets: []float64{.05, .1, .5, 1, 2.5, 10},
-		},
-		[]string{"database"},
+		[]string{"handler", "method", "code"},
 	)
 	// responseSize has no labels, making it a zero-dimensional
 	// ObserverVec.
@@ -69,7 +49,7 @@ var (
 			Help:    "A histogram of request sizes.",
 			Buckets: []float64{100, 400, 900, 1500},
 		},
-		[]string{},
+		[]string{"code", "method"},
 	)
 )
 
@@ -79,9 +59,7 @@ func (p *Prometheus) Configure() error {
 		// System stats
 		p.registry.MustRegister(version, prometheus.NewGoCollector(), prometheus.NewBuildInfoCollector())
 		// Http
-		p.registry.MustRegister(httpRequestsTotal, inFlightRequests, duration, requestSize, errorsCount)
-		// Datastores
-		p.registry.MustRegister(databaseRequestsTotal, datastoreRequestDuration, databaseErrorsCount)
+		p.registry.MustRegister(httpRequestsTotal, inFlightRequests, duration, requestSize)
 
 		log.Infoln("Configured Prometheus.")
 	}
@@ -105,16 +83,11 @@ func (p *Prometheus) GetHTTPMetricsHandler() (http.Handler, error) {
 }
 
 func (p *Prometheus) CheckError(err error) {
-	errorsCount.Inc()
+	// not needed in prometheus
 }
 
 func (p *Prometheus) MeasureRemoteDependency(request *http.Request, alias string, dependencyType string, queryTime time.Duration, data string, success bool) {
-	databaseRequestsTotal.Inc()
-	if success {
-		datastoreRequestDuration.With(prometheus.Labels{"database": alias}).Observe(queryTime.Seconds())
-	} else {
-		databaseErrorsCount.Inc()
-	}
+	// not needed in prometheus
 }
 
 func (p *Prometheus) Shutdown() {}
