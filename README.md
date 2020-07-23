@@ -5,6 +5,7 @@ Kelon is a policy enforcement point, that is wrapping the [Open Policy Agent](ht
 ### Status
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=alert_status)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=ncloc)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FFoundato%2Fkelon.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FFoundato%2Fkelon?ref=badge_shield)
 
 [![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=code_smells)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=bugs)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
@@ -57,3 +58,6 @@ After everything is up and running, you can use this [Postman-Collection](./exam
 # Want to know more about Kelon?
 
 Then visit our [official docs](https://docs.kelon.io/).
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FFoundato%2Fkelon.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FFoundato%2Fkelon?ref=badge_large)
