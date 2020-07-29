@@ -143,6 +143,7 @@ func (proxy *restProxy) Stop(deadline time.Duration) error {
 	log.Infof("Stopping server at: http://localhost:%d%s", proxy.port, proxy.pathPrefix)
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()
+	proxy.server.SetKeepAlivesEnabled(false)
 	if err := proxy.server.Shutdown(ctx); err != nil {
 		proxy.handleErrorMetrics(err)
 		return errors.Wrap(err, "Error while shutting down server")
