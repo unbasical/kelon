@@ -8,8 +8,7 @@ import (
 	"strings"
 
 	"github.com/Foundato/kelon/configs"
-
-	log "github.com/sirupsen/logrus"
+	"github.com/Foundato/kelon/pkg/constants/logging"
 )
 
 //nolint:gochecknoglobals
@@ -29,7 +28,7 @@ func preprocessPolicyFile(config *configs.AppConfig, inPath string, outPath stri
 	// read the whole file at once
 	b, err := ioutil.ReadFile(inPath)
 	if err != nil {
-		log.Panic(err)
+		logging.LogForComponent("regopreprocessing").Panic(err)
 	}
 
 	// check if output file exists
@@ -39,13 +38,13 @@ func preprocessPolicyFile(config *configs.AppConfig, inPath string, outPath stri
 	if os.IsNotExist(outErr) {
 		var file, createErr = os.Create(outPath)
 		if createErr != nil {
-			log.Panic(createErr)
+			logging.LogForComponent("regopreprocessing").Panic(createErr)
 		}
 		defer file.Close()
 
 		_, writeErr := file.WriteString(PreprocessPolicy(config, string(b)))
 		if writeErr != nil {
-			log.Panic(writeErr)
+			logging.LogForComponent("regopreprocessing").Panic(writeErr)
 		}
 		return
 	}
@@ -53,7 +52,7 @@ func preprocessPolicyFile(config *configs.AppConfig, inPath string, outPath stri
 	// write the whole body at once
 	err = ioutil.WriteFile(outPath, []byte(PreprocessPolicy(config, string(b))), 0644)
 	if err != nil {
-		log.Panic(err)
+		logging.LogForComponent("regopreprocessing").Panic(err)
 	}
 }
 
@@ -61,7 +60,7 @@ func PrepocessPoliciesInDir(config *configs.AppConfig, dir string) string {
 	outDir := "/tmp/policies"
 	err := os.MkdirAll(outDir, 0777)
 	if err != nil {
-		log.Panic(err)
+		logging.LogForComponent("regopreprocessing").Panic(err)
 	}
 
 	// Load regos
@@ -75,7 +74,7 @@ func PrepocessPoliciesInDir(config *configs.AppConfig, dir string) string {
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Error while preprocessing policies: %s", err.Error())
+		logging.LogForComponent("regopreprocessing").Errorf("Error while preprocessing policies: %s", err.Error())
 	}
 
 	// Process & write back

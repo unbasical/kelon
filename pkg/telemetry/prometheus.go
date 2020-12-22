@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/Foundato/kelon/common"
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
 )
 
 type Prometheus struct {
@@ -61,7 +61,8 @@ func (p *Prometheus) Configure() error {
 		// Http
 		p.registry.MustRegister(httpRequestsTotal, inFlightRequests, duration, requestSize)
 
-		log.Infoln("Configured Prometheus.")
+		logging.LogForComponent("Prometheus").Infoln("Configured Prometheus.")
+
 	}
 	return nil
 }

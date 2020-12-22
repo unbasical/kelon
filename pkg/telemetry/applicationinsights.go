@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Foundato/kelon/pkg/constants/logging"
+
 	"github.com/Foundato/kelon/pkg/constants"
 	"github.com/Microsoft/ApplicationInsights-Go/appinsights"
 	"github.com/pkg/errors"
@@ -47,7 +49,7 @@ func (p *ApplicationInsights) Configure() error {
 
 	// Log diagnostic data to logger
 	appinsights.NewDiagnosticsMessageListener(func(msg string) error {
-		log.Debugf("ApplicationInsights Diagnostics: %s\n", msg)
+		logging.LogForComponent("ApplicationInsights").Debugf("Diagnostics: %s\n", msg)
 		return nil
 	})
 
@@ -63,7 +65,7 @@ func (p *ApplicationInsights) Configure() error {
 	// Start reporting system metrics
 	go p.TrackStats()
 
-	log.Infoln("Configured ApplicationInsights.")
+	logging.LogForComponent("ApplicationInsights").Infoln("Configured")
 	return nil
 }
 
@@ -73,7 +75,7 @@ func (p *ApplicationInsights) Levels() []log.Level {
 	for _, levelName := range strings.Split(p.LogLevels, ",") {
 		level, err := log.ParseLevel(strings.TrimSpace(levelName))
 		if err != nil {
-			log.Warnf("ApplicationInsights: Unable to handle input-log-level %s. It will be skipped! Error is: %s", level, err.Error())
+			logging.LogForComponent("ApplicationInsights").Warnf("Unable to handle input-log-level %s. It will be skipped! Error is: %s", level, err.Error())
 		}
 		logLevels = append(logLevels, level)
 	}
@@ -116,7 +118,7 @@ func (p *ApplicationInsights) TrackStats() {
 	for {
 		select {
 		case <-quit:
-			log.Println("Application Insights: Stopped")
+			logging.LogForComponent("ApplicationInsights").Info("Application Insights: Stopped")
 			return
 		case <-time.After(time.Second * time.Duration(p.StatsIntervalSeconds)):
 			// Track Memory stats

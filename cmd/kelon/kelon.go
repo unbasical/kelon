@@ -19,6 +19,7 @@ import (
 	watcherInt "github.com/Foundato/kelon/internal/pkg/watcher"
 	"github.com/Foundato/kelon/pkg/api"
 	"github.com/Foundato/kelon/pkg/constants"
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/Foundato/kelon/pkg/opa"
 	"github.com/Foundato/kelon/pkg/request"
 	"github.com/Foundato/kelon/pkg/telemetry"
@@ -84,7 +85,6 @@ func main() {
 
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 	case run.FullCommand():
-		log.Infof("Kelon starting with log level %q...", *logLevel)
 		log.SetOutput(os.Stdout)
 
 		// Set log format
@@ -106,6 +106,7 @@ func main() {
 		case "ERROR":
 			log.SetLevel(log.ErrorLevel)
 		}
+		logging.LogForComponent("main").Infof("Kelon starting with log level %q...", *logLevel)
 
 		// Init config loader
 		configLoader := configs.FileConfigLoader{
@@ -118,13 +119,13 @@ func main() {
 		configWatcher.Watch(onConfigLoaded)
 		stopOnSIGTERM()
 	default:
-		log.Fatal("Started Kelon with a unknown command!")
+		logging.LogForComponent("main").Fatal("Started Kelon with a unknown command!")
 	}
 }
 
 func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfig, err error) {
 	if err != nil {
-		log.Fatalln("Unable to parse configuration: ", err.Error())
+		logging.LogForComponent("main").Fatalln("Unable to parse configuration: ", err.Error())
 	}
 
 	if change == watcher.ChangeAll {
@@ -177,7 +178,7 @@ func makeTelemetryProvider() telemetry.Provider {
 
 		if provider != nil {
 			if err := provider.Configure(); err != nil {
-				log.Fatalf("Error during configuration of TelemetryProvider %q: %s", *telemetryService, err.Error())
+				logging.LogForComponent("main").Fatalf("Error during configuration of TelemetryProvider %q: %s", *telemetryService, err.Error())
 			}
 		}
 	}
@@ -200,17 +201,17 @@ func startNewRestProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxy
 	// Create Rest proxy and start
 	proxy = apiInt.NewRestProxy(*pathPrefix, int32(*port))
 	if err := proxy.Configure(appConfig, serverConf); err != nil {
-		log.Fatalln(err.Error())
+		logging.LogForComponent("main").Fatalln(err.Error())
 	}
 	// Start proxy
 	if err := proxy.Start(); err != nil {
-		log.Fatalln(err.Error())
+		logging.LogForComponent("main").Fatalln(err.Error())
 	}
 }
 
 func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
 	if *envoyPort == *port {
-		log.Panic("Cannot start envoyProxy proxy and rest proxy on same port!")
+		logging.LogForComponent("main").Panic("Cannot start envoyProxy proxy and rest proxy on same port!")
 	}
 
 	// Create Rest proxy and start
@@ -220,11 +221,11 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 		EnableReflection: *envoyReflection,
 	})
 	if err := envoyProxy.Configure(appConfig, serverConf); err != nil {
-		log.Fatalln(err.Error())
+		logging.LogForComponent("main").Fatalln(err.Error())
 	}
 	// Start proxy
 	if err := envoyProxy.Start(); err != nil {
-		log.Fatalln(err.Error())
+		logging.LogForComponent("main").Fatalln(err.Error())
 	}
 }
 
@@ -258,7 +259,7 @@ func stopOnSIGTERM() {
 	// Block until we receive our signal.
 	<-interruptChan
 
-	log.Infoln("Caught SIGTERM...")
+	logging.LogForComponent("main").Infoln("Caught SIGTERM...")
 	// Stop telemetry provider if present
 	// This is done blocking to ensure all telemetries are sent!
 	if telemetryProvider != nil {
@@ -268,14 +269,14 @@ func stopOnSIGTERM() {
 	// Stop envoyProxy proxy if started
 	if envoyProxy != nil {
 		if err := envoyProxy.Stop(time.Second * 10); err != nil {
-			log.Warnln(err.Error())
+			logging.LogForComponent("main").Warnln(err.Error())
 		}
 	}
 
 	// Stop rest proxy if started
 	if proxy != nil {
 		if err := proxy.Stop(time.Second * 10); err != nil {
-			log.Warnln(err.Error())
+			logging.LogForComponent("main").Warnln(err.Error())
 		}
 	}
 	// Give components enough time for graceful shutdown

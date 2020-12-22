@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/Foundato/kelon/pkg/constants/logging"
+
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/pkg/watcher"
 	"github.com/fsnotify/fsnotify"
@@ -32,7 +34,7 @@ type fileConfigWatcher struct {
 func (w *fileConfigWatcher) watchForChanges() {
 	fileWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Fatal(err)
+		logging.LogForComponent("fileConfigWatcher").Fatal(err)
 	}
 
 	go func() {
@@ -40,7 +42,7 @@ func (w *fileConfigWatcher) watchForChanges() {
 			select {
 			case event, ok := <-fileWatcher.Events:
 				if !ok {
-					log.Warnln("Received invalid event while watching files.")
+					logging.LogForComponent("fileConfigWatcher").Warnln("Received invalid event while watching files.")
 					return
 				}
 
@@ -55,7 +57,7 @@ func (w *fileConfigWatcher) watchForChanges() {
 					if fileInfo, err := os.Stat(event.Name); err == nil {
 						isFile = !fileInfo.IsDir()
 					} else {
-						log.Warnf("Unbable to get information about file %q", event.Name)
+						logging.LogForComponent("fileConfigWatcher").Warnf("Unable to get information about file %q", event.Name)
 					}
 				}
 
@@ -109,10 +111,10 @@ func closeWatcherOnSIGTERM(fileWatcher *fsnotify.Watcher) {
 	// Block until we receive our signal.
 	<-interruptChan
 
-	log.Infoln("Closing FileWatcher...")
+	logging.LogForComponent("fileConfigWatcher").Infoln("Closing...")
 	if fileWatcher != nil {
 		if err := fileWatcher.Close(); err != nil {
-			log.Fatalln(err.Error())
+			logging.LogForComponent("fileConfigWatcher").WithError(err).Fatalln("Unable to close file watcher")
 		}
 	}
 }
@@ -125,16 +127,16 @@ func addWatchDirsRecursive(configWatcher *fileConfigWatcher, fileWatcher *fsnoti
 			}
 
 			if info.IsDir() {
-				log.Infof("Start watching path %q", path)
+				logging.LogForComponent("fileConfigWatcher").Infof("Start watching path %q", path)
 				err = fileWatcher.Add(path)
 				if err != nil {
-					log.Fatal(err)
+					logging.LogForComponent("fileConfigWatcher").WithError(err).Fatal("Unable to add path")
 				}
 			}
 			return nil
 		})
 	if err != nil {
-		log.Println(err)
+		logging.LogForComponent("fileConfigWatcher").WithError(err).Error("Error during filepath walk")
 	}
 }
 
