@@ -3,12 +3,12 @@ package envoy
 import (
 	"context"
 	"errors"
-	"github.com/Foundato/kelon/internal/pkg/constants/logging"
 	"net/http"
 	"testing"
 
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/pkg/api"
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/Foundato/kelon/pkg/opa"
 	ext_authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/open-policy-agent/opa/plugins"
