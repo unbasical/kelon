@@ -8,12 +8,12 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"github.com/Foundato/kelon/pkg/constants/logging"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
 
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
 	"github.com/open-policy-agent/opa/loader"
