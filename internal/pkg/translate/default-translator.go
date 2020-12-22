@@ -2,10 +2,10 @@ package translate
 
 import (
 	"github.com/Foundato/kelon/configs"
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/Foundato/kelon/pkg/translate"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 type astTranslator struct {
@@ -47,7 +47,7 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *tra
 	trans.appConf = appConf
 	trans.config = transConf
 	trans.configured = true
-	log.Infoln("Configured AstTranslator")
+	logging.LogForComponent("astTranslator").Infoln("Configured")
 	return nil
 }
 

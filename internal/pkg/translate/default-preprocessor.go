@@ -3,9 +3,9 @@ package translate
 import (
 	"fmt"
 
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 type astPreprocessor struct {
@@ -29,7 +29,7 @@ func (processor *astPreprocessor) Process(queries []ast.Body, datastore string) 
 	processor.expectedDatastore = fmt.Sprintf("\"%s\"", datastore)
 
 	for i, q := range queries {
-		log.Debugf("================= PREPROCESS QUERY: %+v", q)
+		logging.LogForComponent("astPreprocessor").Debugf("================= PREPROCESS QUERY: %+v", q)
 		processor.tableNames = make(map[string]string)
 		processor.tableVars = make(map[string][]*ast.Term)
 

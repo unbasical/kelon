@@ -6,11 +6,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Foundato/kelon/pkg/constants/logging"
+
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/pkg/api"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 type restProxy struct {
@@ -71,7 +72,7 @@ func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 	proxy.appConf = appConf
 	proxy.config = serverConf
 	proxy.configured = true
-	log.Infoln("Configured RestProxy")
+	logging.LogForComponent("restProxy").Infoln("Configured RestProxy")
 	return nil
 }
 
@@ -94,7 +95,7 @@ func (proxy *restProxy) Start() error {
 	proxy.router.PathPrefix(proxy.pathPrefix + "/policies").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1PolicyPut)).Methods("PUT")
 	proxy.router.PathPrefix(proxy.pathPrefix + "/policies").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1PolicyDelete)).Methods("DELETE")
 	if proxy.telemetryHandler != nil {
-		log.Infoln("Registered /metrics endpoint")
+		logging.LogForComponent("restProxy").Infoln("Registered /metrics endpoint")
 		proxy.router.PathPrefix("/metrics").Handler(proxy.telemetryHandler)
 	}
 	proxy.router.PathPrefix("/health").Methods("GET").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -111,10 +112,10 @@ func (proxy *restProxy) Start() error {
 
 	// Start Server
 	go func() {
-		log.Infof("Starting server at: http://0.0.0.0:%d%s", proxy.port, proxy.pathPrefix)
+		logging.LogForComponent("restProxy").Infof("Starting server at: http://0.0.0.0:%d%s", proxy.port, proxy.pathPrefix)
 		if err := proxy.server.ListenAndServe(); err != nil {
 			proxy.handleErrorMetrics(err)
-			log.Fatal(err)
+			logging.LogForComponent("restProxy").Fatal(err)
 		}
 	}()
 	return nil
@@ -140,9 +141,10 @@ func (proxy *restProxy) Stop(deadline time.Duration) error {
 		return errors.New("RestProxy has not bin started yet")
 	}
 
-	log.Infof("Stopping server at: http://localhost:%d%s", proxy.port, proxy.pathPrefix)
+	logging.LogForComponent("restProxy").Infof("Stopping server at: http://localhost:%d%s", proxy.port, proxy.pathPrefix)
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()
+	proxy.server.SetKeepAlivesEnabled(false)
 	if err := proxy.server.Shutdown(ctx); err != nil {
 		proxy.handleErrorMetrics(err)
 		return errors.Wrap(err, "Error while shutting down server")

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	utilInt "github.com/Foundato/kelon/internal/pkg/util"
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
 	"github.com/open-policy-agent/opa/plugins"
@@ -17,7 +18,6 @@ import (
 	"github.com/open-policy-agent/opa/storage"
 	"github.com/open-policy-agent/opa/util"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 type apiError struct {
@@ -48,7 +48,7 @@ func (proxy restProxy) handleV1DataGet(w http.ResponseWriter, r *http.Request) {
 		query.Del("input")
 		r.URL.RawQuery = query.Encode()
 	} else {
-		log.Warnln("RestProxy: Received GET request without input: " + r.URL.String())
+		logging.LogForComponent("restProxy").Warnln("Received GET request without input: " + r.URL.String())
 	}
 
 	if trans, err := http.NewRequest("POST", r.URL.String(), strings.NewReader(body)); err == nil {
@@ -56,7 +56,7 @@ func (proxy restProxy) handleV1DataGet(w http.ResponseWriter, r *http.Request) {
 		proxy.handleV1DataPost(w, trans)
 	} else {
 		proxy.handleErrorMetrics(errors.Wrap(err, "RestProxy: Unable to map GET request to POST"))
-		log.Fatal("RestProxy: Unable to map GET request to POST: ", err.Error())
+		logging.LogForComponent("restProxy").Fatal("Unable to map GET request to POST: ", err.Error())
 	}
 }
 
@@ -64,7 +64,7 @@ func (proxy restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request) 
 	// Add unique identifier for logging purpose
 	r = utilInt.AssignRequestUID(r)
 	uid := utilInt.GetRequestUID(r)
-	log.WithField("UID", uid).Infof("Received OPA Data-API POST to URL: %s", r.RequestURI)
+	logging.LogForComponent("restProxy").WithField("UID", uid).Infof("Received OPA Data-API POST to URL: %s", r.RequestURI)
 
 	// Compile
 	(*proxy.config.Compiler).ServeHTTP(w, r)
@@ -103,7 +103,7 @@ func (proxy restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if r.Header.Get("If-None-Match") == "*" {
 		opa.Store.Abort(ctx, txn)
-		log.Infof("Update data with If-None-Match header at path: %s", path.String())
+		logging.LogForComponent("restProxy").Infof("Update data with If-None-Match header at path: %s", path.String())
 		writer.Bytes(w, 304, nil)
 		return
 	}
@@ -201,7 +201,7 @@ func (proxy restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Request
 	}
 
 	// Write result
-	log.Infof("Deleted Data at path: %s", path.String())
+	logging.LogForComponent("restProxy").Infof("Deleted Data at path: %s", path.String())
 	writer.Bytes(w, 204, nil)
 }
 
@@ -284,7 +284,7 @@ func (proxy restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Write result
-	log.Debugf("Updated Policy at path: %s", path.String())
+	logging.LogForComponent("restProxy").Debugf("Updated Policy at path: %s", path.String())
 	writeJSON(w, http.StatusOK, make(map[string]string))
 }
 
@@ -342,7 +342,7 @@ func (proxy restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Write result
-	log.Infof("Deleted Policy at path: %s", path.String())
+	logging.LogForComponent("restProxy").Infof("Deleted Policy at path: %s", path.String())
 	writeJSON(w, http.StatusOK, make(map[string]string))
 }
 
@@ -376,7 +376,7 @@ func writeJSON(w http.ResponseWriter, status int, x interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if _, err := w.Write(bs); err != nil {
-		log.Fatalln("RestProxy: Unable to send response!")
+		logging.LogForComponent("restProxy").Fatalln("Unable to send response!")
 	}
 }
 
@@ -483,7 +483,7 @@ func (proxy restProxy) checkPathConflictsCommitAndRespond(ctx context.Context, t
 		return
 	}
 	// Write result
-	log.Infof("Created Data at path: %s", path.String())
+	logging.LogForComponent("restProxy").Infof("Created Data at path: %s", path.String())
 	writer.Bytes(w, 204, nil)
 }
 
