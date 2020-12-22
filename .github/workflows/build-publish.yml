@@ -79,20 +79,12 @@ jobs:
         run: docker build -t kelonio/kelon:$(git rev-parse --short HEAD) -t kelonio/kelon:latest .
         if: ${{ endsWith(github.ref, develop) }}
 
-      - name: Push latest images to DockerHub
-        run: echo kelonio/kelon:$(git rev-parse --short HEAD) kelonio/kelon:latest | xargs -n 1 docker push
-        if: ${{ endsWith(github.ref, develop) }}
-
       - name: Build stable container image
         run: docker build -t kelonio/kelon:$(git rev-parse --short HEAD) -t kelonio/kelon:stable .
         if: ${{ endsWith(github.ref, master) }}
 
-      - name: Push stable images to DockerHub
-        run: echo kelonio/kelon:$(git rev-parse --short HEAD) kelonio/kelon:stable | xargs -n 1 docker push
-        if: ${{ endsWith(github.ref, master) }}
-
-
       - name: Run Trivy vulnerability scanner
+        if: ${{ !github.base_ref }}
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'kelonio/kelon:$(git rev-parse --short HEAD)'
@@ -102,6 +94,15 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy scan results to GitHub Security tab
+        if: ${{ !github.base_ref }}
         uses: github/codeql-action/upload-sarif@v1
         with:
           sarif_file: 'trivy-results.sarif'
+
+      - name: Push latest images to DockerHub
+        run: echo kelonio/kelon:$(git rev-parse --short HEAD) kelonio/kelon:latest | xargs -n 1 docker push
+        if: ${{ endsWith(github.ref, develop) }}
+
+      - name: Push stable images to DockerHub
+        run: echo kelonio/kelon:$(git rev-parse --short HEAD) kelonio/kelon:stable | xargs -n 1 docker push
+        if: ${{ endsWith(github.ref, master) }}
