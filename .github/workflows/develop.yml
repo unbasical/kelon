@@ -60,3 +60,17 @@ jobs:
 
       - name: Push images to DockerHub
         run: echo kelonio/kelon:$(git rev-parse --short HEAD) kelonio/kelon:latest | xargs -n 1 docker push
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'kelonio/kelon:$(git rev-parse --short HEAD)'
+          format: 'template'
+          template: '@/contrib/sarif.tpl'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: 'trivy-results.sarif'
