@@ -62,7 +62,6 @@ func (p *Prometheus) Configure() error {
 		p.registry.MustRegister(httpRequestsTotal, inFlightRequests, duration, requestSize)
 
 		logging.LogForComponent("Prometheus").Infoln("Configured Prometheus.")
-
 	}
 	return nil
 }
