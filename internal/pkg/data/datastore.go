@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/Foundato/kelon/configs"
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/Foundato/kelon/pkg/data"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -53,7 +53,7 @@ func pingUntilReachable(alias string, ping func() error) error {
 			// Ping succeeded
 			return nil
 		}
-		log.Infof("Waiting for [%s] to be reachable...", alias)
+		logging.LogForComponent("datastore").Infof("Waiting for [%s] to be reachable...", alias)
 		<-time.After(3 * time.Second)
 	}
 	if pingFailure != nil {
@@ -106,7 +106,7 @@ func getConnectionStringForPlatform(platform string, conn map[string]string) str
 	case data.TypeMongo:
 		return fmt.Sprintf("mongodb://%s:%s@%s:%s/%s%s", user, password, host, port, dbname, createConnOptionsString(options, "&", "?"))
 	default:
-		log.Panic(fmt.Sprintf("Platform [%s] is not a supported Datastore!", platform))
+		logging.LogForComponent("datastore").Panic(fmt.Sprintf("Platform [%s] is not a supported Datastore!", platform))
 		return ""
 	}
 }
@@ -118,7 +118,7 @@ func getPreparePlaceholderForPlatform(platform string, argCounter int) string {
 	case data.TypeMysql:
 		return "?"
 	default:
-		log.Panic(fmt.Sprintf("Platform [%s] is not a supported for prepared statements!", platform))
+		logging.LogForComponent("datastore").Panic(fmt.Sprintf("Platform [%s] is not a supported for prepared statements!", platform))
 		return ""
 	}
 }

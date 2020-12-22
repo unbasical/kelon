@@ -13,9 +13,9 @@ import (
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/constants"
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/Foundato/kelon/pkg/data"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -96,7 +96,7 @@ func (ds *mongoDatastore) Configure(appConf *configs.AppConfig, alias string) er
 		return errors.Wrap(err, "MongoDatastore:")
 	}
 	ds.callOps = operands
-	log.Infof("MongoDatastore [%s] laoded call operands", alias)
+	logging.LogForComponent("mongoDatastore").Infof("[%s] loaded call operands", alias)
 
 	// Load entity schemas
 	ds.entityPaths = make(map[string]map[string][]string)
@@ -116,7 +116,7 @@ func (ds *mongoDatastore) Configure(appConf *configs.AppConfig, alias string) er
 	ds.appConf = appConf
 	ds.alias = alias
 	ds.configured = true
-	log.Infof("Configured MongoDatastore [%s]", alias)
+	logging.LogForComponent("mongoDatastore").Infof("Configured [%s]", alias)
 	return nil
 }
 
@@ -147,7 +147,7 @@ func (ds mongoDatastore) Execute(query *data.Node, queryContext interface{}) (bo
 	if !ds.configured {
 		return false, errors.New("MongoDatastore was not configured! Please call Configure(). ")
 	}
-	log.Debugf("TRANSLATING QUERY: ==================%+v==================", (*query).String())
+	logging.LogForComponent("mongoDatastore").Debugf("TRANSLATING QUERY: ==================%+v==================", (*query).String())
 
 	// Translate to map: collection -> filter
 	statements := ds.translate(query)
@@ -161,7 +161,7 @@ func (ds mongoDatastore) Execute(query *data.Node, queryContext interface{}) (bo
 	entireQuery := ""
 	for collection, filterString := range statements {
 		entireQuery += fmt.Sprintf("%s->[%s]\n", collection, filterString)
-		log.Debugf("EXECUTING Filter: ==================%s.find( %s )==================", collection, filterString)
+		logging.LogForComponent("mongoDatastore").Debugf("EXECUTING Filter: ==================%s.find( %s )==================", collection, filterString)
 
 		// Execute each of the resulting queries for each collection parallel
 		go func(wait *sync.WaitGroup, index int, coll string, fString string) {
@@ -171,7 +171,7 @@ func (ds mongoDatastore) Execute(query *data.Node, queryContext interface{}) (bo
 			var filter bson.M
 			unmarshalErr := json.Unmarshal([]byte(fString), &filter)
 			if unmarshalErr != nil {
-				log.Fatal("json.Unmarshal() ERROR:", unmarshalErr)
+				logging.LogForComponent("mongoDatastore").Fatal("json.Unmarshal() ERROR:", unmarshalErr)
 			}
 
 			// Execute query
@@ -202,7 +202,7 @@ func (ds mongoDatastore) Execute(query *data.Node, queryContext interface{}) (bo
 	// Wait till all queries returned
 	wg.Wait()
 
-	log.Debugf("RECEIVED RESULTS: %+v", queryResults)
+	logging.LogForComponent("mongoDatastore").Debugf("RECEIVED RESULTS: %+v", queryResults)
 	if ds.appConf.TelemetryProvider != nil {
 		httpRequest, ok := queryContext.(*http.Request)
 		if !ok {
@@ -223,12 +223,12 @@ func (ds mongoDatastore) Execute(query *data.Node, queryContext interface{}) (bo
 			return false, errors.Wrap(result.err, "MongoDB: Error while sending Queries to DB")
 		}
 		if result.count > 0 {
-			log.Debugf("Result row with count %d found! -> ALLOWED", result.count)
+			logging.LogForComponent("mongoDatastore").Debugf("Result row with count %d found! -> ALLOWED", result.count)
 			decision = true
 		}
 	}
 	if !decision {
-		log.Debugf("No resulting row with count > 0 found! -> DENIED")
+		logging.LogForComponent("mongoDatastore").Debugf("No resulting row with count > 0 found! -> DENIED")
 	}
 	return decision, nil
 }
@@ -283,7 +283,7 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 						// Skip collection in path
 						return strings.Join(path[1:], ".") + "."
 					}
-					log.Panic(fmt.Sprintf("MongoDatastore: Unable to find mapping for entity %q in collection %q", entity, collection))
+					logging.LogForComponent("mongoDatastore").Panic(fmt.Sprintf("Unable to find mapping for entity %q in collection %q", entity, collection))
 					return ""
 				})
 
@@ -301,7 +301,7 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 			if len(relations) > 0 {
 				condition = relations[0]
 				if len(relations) != 1 {
-					log.Errorf("Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", len(relations))
+					logging.LogForComponent("mongoDatastore").Errorf("Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", len(relations))
 				}
 			}
 
@@ -320,7 +320,7 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 			// Expected stack: relations-top -> [conjunctions ...]
 			if len(relations) > 0 {
 				relations = relations[:0].Push(fmt.Sprintf("{%s}", strings.Join(relations, ", ")))
-				log.Debugf("CONJUNCTION: relations |%+v <- TOP", relations)
+				logging.LogForComponent("mongoDatastore").Debugf("CONJUNCTION: relations |%+v <- TOP", relations)
 			}
 		case data.Attribute:
 			// Expected stack:  top -> [entity, ...]
@@ -348,10 +348,10 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 			var nextRel string
 			if mongoCallOp, ok := ds.callOps[op]; ok {
 				// Expected stack:  top -> [args..., call-op]
-				log.Debugln("NEW FUNCTION CALL")
+				logging.LogForComponent("mongoDatastore").Debugln("NEW FUNCTION CALL")
 				nextRel = mongoCallOp(ops[1:]...)
 			} else {
-				log.Panic(fmt.Sprintf("Datastores: Operator [%s] is not supported!", op))
+				logging.LogForComponent("mongoDatastore").Panic(fmt.Sprintf("Datastores: Operator [%s] is not supported!", op))
 			}
 
 			if len(operands) > 0 {
@@ -360,7 +360,7 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 			} else {
 				// We reached root operation -> relation is processed
 				relations = relations.Push(nextRel)
-				log.Debugf("RELATION DONE: relations |%+v <- TOP", relations)
+				logging.LogForComponent("mongoDatastore").Debugf("RELATION DONE: relations |%+v <- TOP", relations)
 			}
 		case data.Operator:
 			operands = operands.Push([]string{})
@@ -374,7 +374,7 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 				operands.AppendToTop(fmt.Sprintf("\"%s\"", v.String()))
 			}
 		default:
-			log.Warnf("MongoDatastore: Unexpected input: %T -> %+v", v, v)
+			logging.LogForComponent("mongoDatastore").Warnf("Unexpected input: %T -> %+v", v, v)
 		}
 	})
 

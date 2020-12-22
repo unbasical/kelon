@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/Foundato/kelon/pkg/data"
 	"github.com/open-policy-agent/opa/ast"
-	log "github.com/sirupsen/logrus"
 )
 
 type astProcessor struct {
@@ -67,30 +67,30 @@ func toDataLink(linkedEntities map[string]interface{}) data.Link {
 func (p *astProcessor) Visit(v interface{}) ast.Visitor {
 	switch node := v.(type) {
 	case *ast.Body:
-		log.Debugf("Body: -> %+v", v)
+		logging.LogForComponent("astProcessor").Debugf("Body: -> %+v", v)
 		return p.translateQuery(*node)
 	case *ast.Expr:
-		log.Debugf("Expr: -> %+v", v)
+		logging.LogForComponent("astProcessor").Debugf("Expr: -> %+v", v)
 		return p.translateExpr(*node)
 	case *ast.Term:
-		log.Debugf("Term: -> %+v", v)
+		logging.LogForComponent("astProcessor").Debugf("Term: -> %+v", v)
 		return p.translateTerm(*node)
 	default:
-		log.Warnf("Unexpectedly visiting children of: %T -> %+v", v, v)
+		logging.LogForComponent("astProcessor").Warnf("Unexpectedly visiting children of: %T -> %+v", v, v)
 	}
 	return p
 }
 
 func (p *astProcessor) translateQuery(q ast.Body) ast.Visitor {
-	log.Debugf("================= PROCESS QUERY: %+v", q)
+	logging.LogForComponent("astProcessor").Debugf("================= PROCESS QUERY: %+v", q)
 	for _, exp := range q {
 		ast.Walk(p, exp)
 	}
 
-	log.Debugf("%30sAppend to Conjunctions -> %+v", "", p.relations)
+	logging.LogForComponent("astProcessor").Debugf("%30sAppend to Conjunctions -> %+v", "", p.relations)
 	p.conjunctions = append(p.conjunctions, p.relations...)
 
-	log.Debugf("%30sClean entities and relations", "")
+	logging.LogForComponent("astProcessor").Debugf("%30sClean entities and relations", "")
 	p.entities = make(map[string]interface{})
 	p.relations = p.relations[:0]
 
@@ -114,14 +114,14 @@ func (p *astProcessor) translateExpr(node ast.Expr) ast.Visitor {
 		for _, entity := range keys(p.entities) {
 			p.link[entity] = true
 		}
-		log.Debugf("%30sLink: %+v", "", p.link)
+		logging.LogForComponent("astProcessor").Debugf("%30sLink: %+v", "", p.link)
 	}
 	// Append new relation for conjunction
 	p.relations = append(p.relations, data.Call{
 		Operator: op,
 		Operands: functionOperands,
 	})
-	log.Debugf("%30sRelations: %+v", "", p.relations)
+	logging.LogForComponent("astProcessor").Debugf("%30sRelations: %+v", "", p.relations)
 
 	// Cleanup
 	p.entities = make(map[string]interface{})
@@ -165,7 +165,7 @@ func (p *astProcessor) translateTerm(node ast.Term) ast.Visitor {
 		})
 		return nil
 	default:
-		log.Warnf("Unexpected term Node: %T -> %+v", v, v)
+		logging.LogForComponent("astProcessor").Warnf("Unexpected term Node: %T -> %+v", v, v)
 	}
 	return p
 }
@@ -224,7 +224,7 @@ type NodeStack [][]data.Node
 
 // Push new element to stack
 func (s NodeStack) Push(v []data.Node) NodeStack {
-	log.Debugf("%30sOperands len(%d) PUSH(%+v)", "", len(s), v)
+	logging.LogForComponent("NodeStack").Debugf("%30sOperands len(%d) PUSH(%+v)", "", len(s), v)
 	return append(s, v)
 }
 
@@ -232,20 +232,20 @@ func (s NodeStack) Push(v []data.Node) NodeStack {
 func (s NodeStack) AppendToTop(v data.Node) {
 	l := len(s)
 	if l <= 0 {
-		log.Panic("Stack is empty!")
+		logging.LogForComponent("NodeStack").Panic("Stack is empty!")
 	}
 
 	s[l-1] = append(s[l-1], v)
-	log.Debugf("%30sOperands len(%d) APPEND |%+v <- TOP", "", len(s), s[l-1])
+	logging.LogForComponent("NodeStack").Debugf("%30sOperands len(%d) APPEND |%+v <- TOP", "", len(s), s[l-1])
 }
 
 // Pop top element from Stack
 func (s NodeStack) Pop() (NodeStack, []data.Node) {
 	l := len(s)
 	if l <= 0 {
-		log.Panic("Stack is empty!")
+		logging.LogForComponent("NodeStack").Panic("Stack is empty!")
 	}
 
-	log.Debugf("%30sOperands len(%d) POP()", "", len(s))
+	logging.LogForComponent("NodeStack").Debugf("%30sOperands len(%d) POP()", "", len(s))
 	return s[:l-1], s[l-1]
 }

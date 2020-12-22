@@ -7,24 +7,22 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Foundato/kelon/pkg/constants"
-
-	"github.com/Foundato/kelon/pkg/telemetry"
-
+	"github.com/Foundato/kelon/common"
+	"github.com/Foundato/kelon/configs"
 	apiInt "github.com/Foundato/kelon/internal/pkg/api"
+	"github.com/Foundato/kelon/internal/pkg/api/envoy"
+	"github.com/Foundato/kelon/internal/pkg/data"
 	opaInt "github.com/Foundato/kelon/internal/pkg/opa"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
 	translateInt "github.com/Foundato/kelon/internal/pkg/translate"
-	watcherInt "github.com/Foundato/kelon/internal/pkg/watcher"
-
-	"github.com/Foundato/kelon/common"
-	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/internal/pkg/api/envoy"
-	"github.com/Foundato/kelon/internal/pkg/data"
 	"github.com/Foundato/kelon/internal/pkg/util"
+	watcherInt "github.com/Foundato/kelon/internal/pkg/watcher"
 	"github.com/Foundato/kelon/pkg/api"
+	"github.com/Foundato/kelon/pkg/constants"
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/Foundato/kelon/pkg/opa"
 	"github.com/Foundato/kelon/pkg/request"
+	"github.com/Foundato/kelon/pkg/telemetry"
 	"github.com/Foundato/kelon/pkg/translate"
 	"github.com/Foundato/kelon/pkg/watcher"
 	log "github.com/sirupsen/logrus"
@@ -38,17 +36,22 @@ var (
 	// Commands
 	run = app.Command("run", "Run kelon in production mode.")
 
-	// Flags
-	datastorePath         = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
-	apiPath               = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
-	configWatcherPath     = app.Flag("config-watcher-path", "Path where the config watcher should listen for changes.").Envar("CONFIG_WATCHER_PATH").ExistingDir()
-	opaPath               = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
-	regoDir               = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Short('r').Envar("REGO_DIR").ExistingDir()
+	// Config paths
+	datastorePath     = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
+	apiPath           = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
+	configWatcherPath = app.Flag("config-watcher-path", "Path where the config watcher should listen for changes.").Envar("CONFIG_WATCHER_PATH").ExistingDir()
+	opaPath           = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
+	regoDir           = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Short('r').Envar("REGO_DIR").ExistingDir()
+
+	// Additional configs
 	pathPrefix            = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
 	port                  = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
 	preprocessRegos       = app.Flag("preprocess-policies", "Preprocess incoming policies for internal use-case (EXPERIMENTAL FEATURE! DO NOT USE!).").Default("false").Envar("PREPROCESS_POLICIES").Bool()
-	logLevel              = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
 	respondWithStatusCode = app.Flag("respond-with-status-code", "Communicate Decision via status code 200 (ALLOW) or 403 (DENY).").Default("false").Envar("RESPOND_WITH_STATUS_CODE").Bool()
+
+	// Logging
+	logLevel  = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
+	logFormat = app.Flag("log-format", "Log-Format for Kelon. Must be one of [TEXT, JSON]").Default("TEXT").Envar("LOG_FORMAT").Enum("TEXT", "JSON")
 
 	// Configs for envoy external auth
 	envoyPort       = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
@@ -64,6 +67,7 @@ var (
 	appInsightsLogLevels            = app.Flag("application-insights-log-levels", "Configure log levels which are sent. Allowed values are [fatal, panic, error, warn, info, debug, trace]").Default("fatal,panic,error,warn").Envar("APPLICATION_INSIGHTS_LOG_LEVELS").String()
 	appInsightsStatsIntervalSeconds = app.Flag("application-insights-stats-interval-seconds", "Interval in seconds in which system stats are measured and sent.").Default("5").Envar("APPLICATION_INSIGHTS_STATS_INTERVAL_SECONDS").Int()
 
+	// Global shared variables
 	proxy             api.ClientProxy       = nil
 	envoyProxy        api.ClientProxy       = nil
 	configWatcher     watcher.ConfigWatcher = nil
@@ -82,7 +86,16 @@ func main() {
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 	case run.FullCommand():
 		log.SetOutput(os.Stdout)
-		log.Infof("Kelon starting with log level %q...", *logLevel)
+
+		// Set log format
+		switch *logFormat {
+		case "JSON":
+			log.SetFormatter(util.UTCFormatter{Formatter: &log.JSONFormatter{}})
+		default:
+			log.SetFormatter(util.UTCFormatter{Formatter: &log.TextFormatter{FullTimestamp: true}})
+		}
+
+		// Set log level
 		switch strings.ToUpper(*logLevel) {
 		case "INFO":
 			log.SetLevel(log.InfoLevel)
@@ -93,22 +106,26 @@ func main() {
 		case "ERROR":
 			log.SetLevel(log.ErrorLevel)
 		}
+		logging.LogForComponent("main").Infof("Kelon starting with log level %q...", *logLevel)
 
 		// Init config loader
 		configLoader := configs.FileConfigLoader{
 			DatastoreConfigPath: *datastorePath,
 			APIConfigPath:       *apiPath,
 		}
+
 		// Start app after config is present
 		makeConfigWatcher(configLoader, configWatcherPath)
 		configWatcher.Watch(onConfigLoaded)
 		stopOnSIGTERM()
+	default:
+		logging.LogForComponent("main").Fatal("Started Kelon with a unknown command!")
 	}
 }
 
 func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfig, err error) {
 	if err != nil {
-		log.Fatalln("Unable to parse configuration: ", err.Error())
+		logging.LogForComponent("main").Fatalln("Unable to parse configuration: ", err.Error())
 	}
 
 	if change == watcher.ChangeAll {
@@ -161,7 +178,7 @@ func makeTelemetryProvider() telemetry.Provider {
 
 		if provider != nil {
 			if err := provider.Configure(); err != nil {
-				log.Fatalf("Error during configuration of TelemetryProvider %q: %s", *telemetryService, err.Error())
+				logging.LogForComponent("main").Fatalf("Error during configuration of TelemetryProvider %q: %s", *telemetryService, err.Error())
 			}
 		}
 	}
@@ -184,17 +201,17 @@ func startNewRestProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxy
 	// Create Rest proxy and start
 	proxy = apiInt.NewRestProxy(*pathPrefix, int32(*port))
 	if err := proxy.Configure(appConfig, serverConf); err != nil {
-		log.Fatalln(err.Error())
+		logging.LogForComponent("main").Fatalln(err.Error())
 	}
 	// Start proxy
 	if err := proxy.Start(); err != nil {
-		log.Fatalln(err.Error())
+		logging.LogForComponent("main").Fatalln(err.Error())
 	}
 }
 
 func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
 	if *envoyPort == *port {
-		log.Panic("Cannot start envoyProxy proxy and rest proxy on same port!")
+		logging.LogForComponent("main").Panic("Cannot start envoyProxy proxy and rest proxy on same port!")
 	}
 
 	// Create Rest proxy and start
@@ -204,11 +221,11 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 		EnableReflection: *envoyReflection,
 	})
 	if err := envoyProxy.Configure(appConfig, serverConf); err != nil {
-		log.Fatalln(err.Error())
+		logging.LogForComponent("main").Fatalln(err.Error())
 	}
 	// Start proxy
 	if err := envoyProxy.Start(); err != nil {
-		log.Fatalln(err.Error())
+		logging.LogForComponent("main").Fatalln(err.Error())
 	}
 }
 
@@ -242,7 +259,7 @@ func stopOnSIGTERM() {
 	// Block until we receive our signal.
 	<-interruptChan
 
-	log.Infoln("Caught SIGTERM...")
+	logging.LogForComponent("main").Infoln("Caught SIGTERM...")
 	// Stop telemetry provider if present
 	// This is done blocking to ensure all telemetries are sent!
 	if telemetryProvider != nil {
@@ -252,14 +269,14 @@ func stopOnSIGTERM() {
 	// Stop envoyProxy proxy if started
 	if envoyProxy != nil {
 		if err := envoyProxy.Stop(time.Second * 10); err != nil {
-			log.Warnln(err.Error())
+			logging.LogForComponent("main").Warnln(err.Error())
 		}
 	}
 
 	// Stop rest proxy if started
 	if proxy != nil {
 		if err := proxy.Stop(time.Second * 10); err != nil {
-			log.Warnln(err.Error())
+			logging.LogForComponent("main").Warnln(err.Error())
 		}
 	}
 	// Give components enough time for graceful shutdown

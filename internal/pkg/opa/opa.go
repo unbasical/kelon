@@ -13,11 +13,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
 	"github.com/open-policy-agent/opa/loader"
-	log "github.com/sirupsen/logrus"
-
 	"github.com/open-policy-agent/opa/metrics"
 	"github.com/open-policy-agent/opa/plugins"
 	"github.com/open-policy-agent/opa/plugins/discovery"
@@ -96,7 +95,7 @@ func (opa *OPA) LoadRegosFromPath(ctx context.Context, regosPath string) error {
 
 	store := opa.manager.Store
 
-	log.Debugf("Loading regos from dir: %s", regosPath)
+	logging.LogForComponent("OPA").Debugf("Loading regos from dir: %s", regosPath)
 	filter := func(abspath string, info os.FileInfo, depth int) bool {
 		return !strings.HasSuffix(abspath, ".rego")
 	}
@@ -105,9 +104,9 @@ func (opa *OPA) LoadRegosFromPath(ctx context.Context, regosPath string) error {
 		return errors.Wrap(err, "NewOPA: Error while loading rego dir")
 	}
 	for bundleName, loadedBundle := range loaded.Bundles {
-		log.Infof("Loading Bundle: %s", bundleName)
+		logging.LogForComponent("OPA").Infof("Loading Bundle: %s", bundleName)
 		for _, module := range loadedBundle.Modules {
-			log.Infof("Loaded Package: [%s] -> module [%s]", module.Parsed.Package.String(), module.Path)
+			logging.LogForComponent("OPA").Infof("Loaded Package: [%s] -> module [%s]", module.Parsed.Package.String(), module.Path)
 		}
 	}
 	txn, err := store.NewTransaction(ctx, storage.WriteParams)
