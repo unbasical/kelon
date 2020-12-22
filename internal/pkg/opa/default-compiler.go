@@ -9,11 +9,11 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/Foundato/kelon/pkg/constants"
-
 	"github.com/Foundato/kelon/configs"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
 	"github.com/Foundato/kelon/internal/pkg/util"
+	"github.com/Foundato/kelon/pkg/constants"
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	internalErrors "github.com/Foundato/kelon/pkg/errors"
 	"github.com/Foundato/kelon/pkg/opa"
 	"github.com/Foundato/kelon/pkg/request"
@@ -77,7 +77,7 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 	(*compConf.ConfigWatcher).Watch(func(changeType watcher.ChangeType, config *configs.ExternalConfig, e error) {
 		if changeType == watcher.ChangeRego {
 			if err := engine.LoadRegosFromPath(context.Background(), *compConf.RegoDir); err != nil {
-				log.Error("PolicyCompiler: Unable to reload regos on file change due to: ", err)
+				logging.LogForComponent("policyCompiler").Error("Unable to reload regos on file change due to: ", err)
 			}
 		}
 	})
@@ -87,7 +87,7 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 	compiler.appConfig = appConf
 	compiler.config = compConf
 	compiler.configured = true
-	log.Infoln("Configured PolicyCompiler")
+	logging.LogForComponent("policyCompiler").Infoln("Configured PolicyCompiler")
 	return nil
 }
 
@@ -112,7 +112,7 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 	// Extract input
 	for rootKey := range requestBody {
 		if rootKey != "input" {
-			log.WithField("UID", uid).Warnf("PolicyCompiler: Request field %q which will be ignored!", rootKey)
+			logging.LogForComponent("policyCompiler").WithField("UID", uid).Warnf("Request field %q which will be ignored!", rootKey)
 		}
 	}
 
@@ -126,7 +126,7 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 		compiler.handleError(w, uid, internalErrors.InvalidInput{Msg: "PolicyCompiler: Field 'input' in request body was no nested JSON object!"})
 		return
 	}
-	log.WithField("UID", uid).Debugf("PolicyCompiler: Received input: %+v", input)
+	logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Received input: %+v", input)
 
 	// Process path
 	output, err := compiler.processPath(input)
@@ -229,14 +229,14 @@ func writeJSON(w http.ResponseWriter, status int, x interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if _, err := w.Write(bs); err != nil {
-		log.Fatalln("PolicyCompiler: Unable to send response!")
+		logging.LogForComponent("policyCompiler").Fatalln("Unable to send response!")
 	}
 }
 
 func (compiler policyCompiler) parseRequestBody(uid string, request *http.Request) (map[string]interface{}, error) {
 	requestBody := make(map[string]interface{})
 	if log.GetLevel() == log.DebugLevel {
-		log.WithField("UID", uid).Debugf("PolicyCompiler: Received request: %+v", request)
+		logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Received request: %+v", request)
 
 		// Log body and decode already logged body
 		buf := new(bytes.Buffer)
@@ -248,7 +248,7 @@ func (compiler policyCompiler) parseRequestBody(uid string, request *http.Reques
 		if bodyString == "" {
 			return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Request had empty body!"}
 		}
-		log.WithField("UID", uid).Debugf("PolicyCompiler: Request had body: %s", bodyString)
+		logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Request had body: %s", bodyString)
 		if marshalErr := json.NewDecoder(strings.NewReader(bodyString)).Decode(&requestBody); marshalErr != nil {
 			return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
 		}
@@ -299,7 +299,7 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 	if err != nil {
 		return nil, err
 	}
-	log.Debugf("Mapped request [%s] to: Datastores [%s] Package: [%s]", inputURL, output.Datastore, output.Package)
+	logging.LogForComponent("policyCompiler").Debugf("Mapped request [%s] to: Datastores [%s] Package: [%s]", inputURL, output.Datastore, output.Package)
 	return output, nil
 }
 
@@ -311,7 +311,7 @@ func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input *m
 	opts := compiler.extractOpaOpts(output)
 	extractedInput := extractOpaInput(output, input)
 	query := fmt.Sprintf("data.%s.allow == true", output.Package)
-	log.WithField("UID", uid).Debugf("Sending query=%s", query)
+	logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Sending query=%s", query)
 
 	// Compile clientRequest and return answer
 	queries, err := compiler.engine.PartialEvaluate(clientRequest.Context(), extractedInput, query, opts...)
@@ -356,7 +356,7 @@ func extractURLFromRequestBody(input map[string]interface{}) (*url.URL, error) {
 
 func (compiler *policyCompiler) extractOpaOpts(output *request.PathProcessorOutput) []func(*rego.Rego) {
 	unknowns := []string{fmt.Sprintf("data.%s", output.Datastore)}
-	log.Debugf("Sending unknowns %+v", unknowns)
+	logging.LogForComponent("policyCompiler").Debugf("Sending unknowns %+v", unknowns)
 	return []func(*rego.Rego){
 		rego.Unknowns(unknowns),
 	}

@@ -11,9 +11,9 @@ import (
 	"github.com/Foundato/kelon/configs"
 	"github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/constants"
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/Foundato/kelon/pkg/data"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 
 	// Import mysql dirver
 	_ "github.com/go-sql-driver/mysql"
@@ -94,7 +94,7 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 		return errors.Wrap(err, "SqlDatastore:")
 	}
 	ds.callOps = operands
-	log.Infof("SqlDatastore [%s] laoded call operands", alias)
+	logging.LogForComponent("sqlDatastore").Infof("SqlDatastore [%s] laoded call operands", alias)
 
 	// Assign values
 	ds.conn = conf.Connection
@@ -104,7 +104,7 @@ func (ds *sqlDatastore) Configure(appConf *configs.AppConfig, alias string) erro
 	ds.appConf = appConf
 	ds.alias = alias
 	ds.configured = true
-	log.Infof("Configured SqlDatastore [%s]", alias)
+	logging.LogForComponent("sqlDatastore").Infof("Configured SqlDatastore [%s]", alias)
 	return nil
 }
 
@@ -159,11 +159,11 @@ func (ds sqlDatastore) Execute(query *data.Node, queryContext interface{}) (bool
 	if !ds.configured {
 		return false, errors.New("SqlDatastore was not configured! Please call Configure(). ")
 	}
-	log.Debugf("TRANSLATING QUERY: ==================%+v==================", (*query).String())
+	logging.LogForComponent("sqlDatastore").Debugf("TRANSLATING QUERY: ==================%+v==================", (*query).String())
 
 	// Translate query to into sql statement
 	statement, params := ds.translatePrepared(query)
-	log.Debugf("EXECUTING STATEMENT: ==================%s==================\nPARAMS: %+v", statement, params)
+	logging.LogForComponent("sqlDatastore").Debugf("EXECUTING STATEMENT: ==================%s==================\nPARAMS: %+v", statement, params)
 
 	startTime := time.Now()
 	rows, err := ds.dbPool.Query(statement, params...)
@@ -179,7 +179,7 @@ func (ds sqlDatastore) Execute(query *data.Node, queryContext interface{}) (bool
 	}
 	defer func() {
 		if err := rows.Close(); err != nil {
-			log.Panic("Unable to close Result-Set!")
+			logging.LogForComponent("sqlDatastore").Panic("Unable to close Result-Set!")
 		}
 	}()
 
@@ -190,14 +190,14 @@ func (ds sqlDatastore) Execute(query *data.Node, queryContext interface{}) (bool
 			return false, errors.Wrap(err, "SqlDatastore: Unable to read result")
 		}
 		if count > 0 {
-			log.Debugf("Result row with count %d found! -> ALLOWED", count)
+			logging.LogForComponent("sqlDatastore").Debugf("Result row with count %d found! -> ALLOWED", count)
 			result = true
 			break
 		}
 	}
 
 	if !result {
-		log.Debugf("No resulting row with count > 0 found! -> DENIED")
+		logging.LogForComponent("sqlDatastore").Debugf("No resulting row with count > 0 found! -> DENIED")
 	}
 	if ds.appConf.TelemetryProvider != nil {
 		httpRequest, ok := queryContext.(*http.Request)
@@ -246,7 +246,7 @@ func (ds sqlDatastore) translatePrepared(input *data.Node) (string, []interface{
 			if len(relations) > 0 {
 				condition = relations[0]
 				if len(relations) != 1 {
-					log.Errorf("Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", len(relations))
+					logging.LogForComponent("sqlDatastore").Errorf("Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", len(relations))
 				}
 			}
 
@@ -267,19 +267,19 @@ func (ds sqlDatastore) translatePrepared(input *data.Node) (string, []interface{
 				relations, rel = relations.Pop()
 				//nolint:gosec
 				relations = relations.Push(fmt.Sprintf(" WHERE %s", rel))
-				log.Debugf("CONDITION: relations |%+v <- TOP", relations)
+				logging.LogForComponent("sqlDatastore").Debugf("CONDITION: relations |%+v <- TOP", relations)
 			}
 		case data.Disjunction:
 			// Expected stack: relations-top -> [disjunctions ...]
 			if len(relations) > 0 {
 				relations = relations[:0].Push(fmt.Sprintf("(%s)", strings.Join(query, " OR ")))
-				log.Debugf("DISJUNCTION: relations |%+v <- TOP", relations)
+				logging.LogForComponent("sqlDatastore").Debugf("DISJUNCTION: relations |%+v <- TOP", relations)
 			}
 		case data.Conjunction:
 			// Expected stack: relations-top -> [conjunctions ...]
 			if len(relations) > 0 {
 				relations = relations[:0].Push(fmt.Sprintf("(%s)", strings.Join(relations, " AND ")))
-				log.Debugf("CONJUNCTION: relations |%+v <- TOP", relations)
+				logging.LogForComponent("sqlDatastore").Debugf("CONJUNCTION: relations |%+v <- TOP", relations)
 			}
 		case data.Attribute:
 			// Expected stack:  top -> [entity, ...]
@@ -296,10 +296,10 @@ func (ds sqlDatastore) translatePrepared(input *data.Node) (string, []interface{
 			var nextRel string
 			if sqlCallOp, ok := ds.callOps[op]; ok {
 				// Expected stack:  top -> [args..., call-op]
-				log.Debugln("NEW FUNCTION CALL")
+				logging.LogForComponent("sqlDatastore").Debugln("NEW FUNCTION CALL")
 				nextRel = sqlCallOp(ops[1:]...)
 			} else {
-				log.Panic(fmt.Sprintf("Datastores: Operator [%s] is not supported!", op))
+				logging.LogForComponent("sqlDatastore").Panic(fmt.Sprintf("Operator [%s] is not supported!", op))
 			}
 			if len(operands) > 0 {
 				// If we are in nested call -> push as operand
@@ -307,7 +307,7 @@ func (ds sqlDatastore) translatePrepared(input *data.Node) (string, []interface{
 			} else {
 				// We reached root operation -> relation is processed
 				relations = relations.Push(nextRel)
-				log.Debugf("RELATION DONE: relations |%+v <- TOP", relations)
+				logging.LogForComponent("sqlDatastore").Debugf("RELATION DONE: relations |%+v <- TOP", relations)
 			}
 		case data.Operator:
 			operands = operands.Push([]string{})
@@ -325,7 +325,7 @@ func (ds sqlDatastore) translatePrepared(input *data.Node) (string, []interface{
 			values = append(values, v.String())
 			operands.AppendToTop(getPreparePlaceholderForPlatform(ds.platform, len(values)))
 		default:
-			log.Warnf("SqlDatastore: Unexpected input: %T -> %+v", v, v)
+			logging.LogForComponent("sqlDatastore").Warnf("Unexpected input: %T -> %+v", v, v)
 		}
 	})
 
@@ -339,6 +339,6 @@ func (ds sqlDatastore) findSchemaForEntity(search string) (string, *configs.Enti
 			return schema, entity
 		}
 	}
-	log.Panic(fmt.Sprintf("No schema found for entity %s in datastore with alias %s", search, ds.alias))
+	logging.LogForComponent("sqlDatastore").Panic(fmt.Sprintf("No schema found for entity %s in datastore with alias %s", search, ds.alias))
 	return "", &configs.Entity{}
 }

@@ -3,8 +3,8 @@ package configs
 import (
 	"strings"
 
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 // Configuration for the Datastore-mappings used by kelon to map incoming requests to datastores.
@@ -75,10 +75,10 @@ func (schema EntitySchema) GenerateEntityPaths() map[string]map[string][]string 
 
 func crawlEntityPaths(start *Entity, curr *Entity, pathHistory []string, path map[string]map[string][]string) {
 	if start == nil {
-		log.Panic("Cannot crawl start which is nil!")
+		logging.LogForComponent("datastore").Panic("Cannot crawl start which is nil!")
 	}
 	if curr == nil {
-		log.Panic("Curr mustn't be nil!")
+		logging.LogForComponent("datastore").Panic("Curr mustn't be nil!")
 	}
 
 	if path[start.getMappedName()] == nil {

@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/Foundato/kelon/configs"
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/Foundato/kelon/pkg/request"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 type urlProcessor struct {
@@ -51,7 +51,7 @@ func (processor *urlProcessor) Configure(appConf *configs.AppConfig, processorCo
 	processor.appConf = appConf
 	processor.config = processorConf
 	processor.configured = true
-	log.Infoln("Configured UrlProcessor")
+	logging.LogForComponent("urlProcessor").Infoln("Configured")
 	return nil
 }
 
@@ -83,7 +83,7 @@ func (processor urlProcessor) handleInput(input *URLProcessorInput) (*request.Pa
 		// Build queries which are passed to OPA as part of the input object
 		queries[queryName] = queryParams.Get(queryName)
 	}
-	log.Debugf("PathProcessor: Parsed path %+v with queries %+v", path, queries)
+	logging.LogForComponent("urlProcessor").Debugf("PathProcessor: Parsed path %+v with queries %+v", path, queries)
 
 	// Map path and return
 	out, err := (*processor.config.PathMapper).Map(&pathMapperInput{

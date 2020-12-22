@@ -12,6 +12,7 @@ import (
 	"github.com/Foundato/kelon/configs"
 	utilInt "github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/api"
+	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/Foundato/kelon/pkg/telemetry"
 	ext_authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/pkg/errors"
@@ -47,7 +48,7 @@ type envoyProxy struct {
 // Implements api.ClientProxy by providing OPA's Data-REST-API.
 func NewEnvoyProxy(config EnvoyConfig) api.ClientProxy {
 	if config.Port == 0 {
-		log.Warnln("EnvoyProxy was initialized with default properties! You may have missed some arguments when creating it!")
+		logging.LogForComponent("EnvoyConfig").Warnln("EnvoyProxy was initialized with default properties! You may have missed some arguments when creating it!")
 		config.Port = 9191
 		config.DryRun = false
 		config.EnableReflection = true
@@ -95,7 +96,7 @@ func (proxy *envoyProxy) Configure(appConf *configs.AppConfig, serverConf *api.C
 	proxy.config = serverConf
 	proxy.configured = true
 	proxy.envoy.appConf = appConf
-	log.Infoln("Configured EnvoyProxy")
+	logging.LogForComponent("envoyProxy").Infoln("Configured")
 	return nil
 }
 
@@ -115,7 +116,7 @@ func (proxy *envoyProxy) Start() error {
 		reflection.Register(proxy.envoy.server)
 	}
 
-	log.Infof("Starting envoy grpc-server at: http://0.0.0.0:%d", proxy.envoy.cfg.Port)
+	logging.LogForComponent("envoyProxy").Infof("Starting envoy grpc-server at: http://0.0.0.0:%d", proxy.envoy.cfg.Port)
 	return proxy.envoy.Start(context.Background())
 }
 
@@ -125,7 +126,7 @@ func (proxy *envoyProxy) Stop(deadline time.Duration) error {
 		return errors.New("EnvoyProxy has not bin started yet")
 	}
 
-	log.Infof("Stopping envoy grpc-server at: http://0.0.0.0:%d", proxy.envoy.cfg.Port)
+	logging.LogForComponent("envoyProxy").Infof("Stopping envoy grpc-server at: http://0.0.0.0:%d", proxy.envoy.cfg.Port)
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()
 
@@ -152,20 +153,21 @@ func (p *envoyExtAuthzGrpcServer) listen() {
 	// The listener is closed automatically by Serve when it returns.
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", p.cfg.Port))
 	if err != nil {
-		log.WithField("err", err).Fatal("EnvoyProxy: Unable to create listener.")
+		logging.LogForComponent("envoyExtAuthzGrpcServer").WithError(err).Fatal("Unable to create listener.")
 	}
 
 	log.WithFields(log.Fields{
-		"port":              p.cfg.Port,
-		"dry-run":           p.cfg.DryRun,
-		"enable-reflection": p.cfg.EnableReflection,
-	}).Info("EnvoyProxy: Starting gRPC server.")
+		"port":                 p.cfg.Port,
+		"dry-run":              p.cfg.DryRun,
+		"enable-reflection":    p.cfg.EnableReflection,
+		logging.LabelComponent: "envoyExtAuthzGrpcServer",
+	}).Info("Starting gRPC server.")
 
 	if err := p.server.Serve(l); err != nil {
-		log.WithField("err", err).Fatal("EnvoyProxy: Listener failed.")
+		logging.LogForComponent("envoyExtAuthzGrpcServer").WithError(err).Fatal("Listener failed.")
 	}
 
-	log.Info("EnvoyProxy: Listener exited.")
+	logging.LogForComponent("envoyExtAuthzGrpcServer").Info("Listener exited.")
 }
 
 // Check a new incoming request
@@ -208,7 +210,7 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 	// Add unique identifier for logging purpose
 	httpRequest = utilInt.AssignRequestUID(httpRequest)
 	uid := utilInt.GetRequestUID(httpRequest)
-	log.WithField("UID", uid).Infof("Received Envoy-Ext-Auth-Check to URL: %s", httpRequest.RequestURI)
+	logging.LogForComponentAndUID("envoyExtAuthzGrpcServer", uid).Infof("Received Envoy-Ext-Auth-Check to URL: %s", httpRequest.RequestURI)
 
 	w := telemetry.NewInMemResponseWriter()
 	(*p.compiler).ServeHTTP(w, httpRequest)
@@ -216,10 +218,10 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 	resp := &ext_authz.CheckResponse{}
 	switch w.StatusCode() {
 	case http.StatusOK:
-		log.WithField("UID", uid).Infoln("Decision: ALLOW")
+		logging.LogForComponentAndUID("envoyExtAuthzGrpcServer", uid).Infoln("Decision: ALLOW")
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
 	case http.StatusForbidden:
-		log.WithField("UID", uid).Infoln("Decision: DENY")
+		logging.LogForComponentAndUID("envoyExtAuthzGrpcServer", uid).Infoln("Decision: DENY")
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_PERMISSION_DENIED)}
 	default:
 		proxyErr := errors.Wrap(errors.New(w.Body()), "EnvoyProxy: Error during request compilation")
@@ -235,14 +237,13 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 		if w.StatusCode() == http.StatusOK {
 			decision = "ALLOW"
 		}
-		log.WithFields(log.Fields{
+		logging.LogForComponent("envoyExtAuthzGrpcServer").WithFields(log.Fields{
 			"dry-run":  p.cfg.DryRun,
 			"decision": decision,
-			"err":      err,
-		}).Debug("Returning policy decision.")
+		}).WithError(err).Debug("Returning policy decision.")
 	}
 
-	// If dry-run mode, override the Status code to unconditionally Allow the request
+	// If dry-run mode, override the status code to unconditionally allow the request
 	// DecisionLogging should reflect what "would" have happened
 	if p.cfg.DryRun {
 		if resp.Status.Code != int32(code.Code_OK) {
