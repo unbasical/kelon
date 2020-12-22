@@ -58,6 +58,8 @@ jobs:
       - name: Build
         run: make build
 
+      ## Run SonarCloud Scan
+
   publish:
     name: Publish
     if: ${{ !github.base_ref }}
