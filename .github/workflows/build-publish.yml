@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2
         with:
           go-version: 1.12
 
@@ -47,6 +47,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: ${{ secrets.GITHUB_WORKSPACE }}
 
   build:
     name: Build
@@ -55,7 +57,7 @@ jobs:
     needs: [lint, test]
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2
         with:
           go-version: 1.12
 
@@ -72,7 +74,7 @@ jobs:
     needs: [lint, test, build]
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2
         with:
           go-version: 1.12
 
