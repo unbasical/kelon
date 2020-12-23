@@ -31,19 +31,12 @@ jobs:
 
       - name: Check out code
         uses: actions/checkout@v2
-
-      - name: Run Unit tests.
-        run: make test-coverage
-
-  scan:
-    name: Scan
-    runs-on: ubuntu-20.04
-    needs: [lint, test]
-    steps:
-      - uses: actions/checkout@v2
         with:
           # Disabling shallow clone is recommended for improving relevancy of reporting
           fetch-depth: 0
+
+      - name: Run Unit tests.
+        run: make test-coverage
 
       - name: SonarCloud Scan
         uses: sonarsource/sonarcloud-github-action@master
