@@ -15,7 +15,7 @@ on:
       - '**/*.txt'
       - '**/*.yml'
       - '**/*.yaml'
-      
+
 jobs:
   lint:
     name: Lint
@@ -31,7 +31,7 @@ jobs:
         run: $(go env GOPATH)/bin/golangci-lint run -c .golangci.yml --timeout=5m
 
   test:
-    name: Test
+    name: Test & Scan
     runs-on: ubuntu-20.04
     steps:
       - name: Set up Go
