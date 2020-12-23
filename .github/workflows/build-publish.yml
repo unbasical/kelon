@@ -47,16 +47,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          projectBaseDir: ${{ secrets.GITHUB_WORKSPACE }}
-          args: >
-            -Dsonar.organization=Foundato
-            -Dsonar.projectKey=kelon
-            -Dsonar.sources=.
-            -Dsonar.exclusions=examples/**,**/*_test.go,**/vendor/**,internal/pkg/data/*datastore.go,**/testdata/**,internal/pkg/api/istio/config/*
-            -Dsonar.test.exclusions=**/vendor/**
-            -Dsoner.test.inclusions=**/*_test.go
-            -Dsonar.tests=.
 
   build:
     name: Build
