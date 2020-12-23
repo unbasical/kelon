@@ -14,7 +14,7 @@ func LogForComponent(component string) *log.Entry {
 	return log.WithField(LabelComponent, component)
 }
 
-func LogForComponentAndUID(component string, uid string) *log.Entry {
+func LogForComponentAndUID(component, uid string) *log.Entry {
 	return log.WithFields(log.Fields{
 		LabelComponent: component,
 		LabelUID:       uid,

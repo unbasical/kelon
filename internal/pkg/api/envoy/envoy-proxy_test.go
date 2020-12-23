@@ -2,7 +2,6 @@ package envoy
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"testing"
 
@@ -13,6 +12,7 @@ import (
 	ext_authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/open-policy-agent/opa/plugins"
 	"github.com/open-policy-agent/opa/util"
+	"github.com/pkg/errors"
 	"google.golang.org/genproto/googleapis/rpc/code"
 )
 
@@ -60,7 +60,7 @@ func (c mockCompiler) GetEngine() *plugins.Manager {
 
 func (c mockCompiler) Configure(appConfig *configs.AppConfig, compConfig *opa.PolicyCompilerConfig) error {
 	if c.failOnConfigure {
-		return errors.New("Mock config failure ")
+		return errors.Errorf("Mock config failure ")
 	}
 	return nil
 }
@@ -82,13 +82,13 @@ func TestCheckAllow(t *testing.T) {
 		logging.LogForComponent("envoy-proxy-test").Panic(err)
 	}
 
-	proxy := NewEnvoyProxy(EnvoyConfig{
+	proxy := NewEnvoyProxy(Config{
 		Port:             9191,
 		DryRun:           false,
 		EnableReflection: true,
 	})
 
-	//nolint:gosimple
+	//nolint:gosimple,gocritic
 	var compiler opa.PolicyCompiler
 	compiler = mockCompiler{
 		failOnConfigure: false,

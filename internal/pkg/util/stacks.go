@@ -20,7 +20,7 @@ func (s SStack) Push(v string) SStack {
 }
 
 // Pop the top element of the stack.
-func (s SStack) Pop() (SStack, string) {
+func (s SStack) Pop() (stack SStack, slice string) {
 	l := len(s)
 	if l <= 0 {
 		logging.LogForComponent("SStack").Panic("Stack is empty!")
@@ -53,7 +53,7 @@ func (s OpStack) AppendToTop(v string) {
 }
 
 // Pop the top slice of the stack.
-func (s OpStack) Pop() (OpStack, []string) {
+func (s OpStack) Pop() (stack OpStack, slice []string) {
 	l := len(s)
 	if l <= 0 {
 		logging.LogForComponent("OpStack").Panic("Stack is empty!")

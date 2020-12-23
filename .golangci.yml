@@ -54,12 +54,12 @@ linters:
     - errcheck
     - gochecknoinits
     - goconst
-    # - gocritic
+    - gocritic
     - gochecknoglobals
     - gocyclo
     - gofmt
     - goimports
-    # - golint
+    - golint
     - gosec
     - gosimple
     - govet

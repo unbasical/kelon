@@ -23,7 +23,7 @@ type DatastoreTranslator interface {
 	Configure(appConf *configs.AppConfig, alias string) error
 
 	// Execute() translates the given Query-AST into a datastore's native query and executes the query afterwards via the passed data.DatastoreExecutor.
-	Execute(query *Node, queryContext interface{}) (bool, error)
+	Execute(query Node, queryContext interface{}) (bool, error)
 }
 
 // DatastoreExecutor is the interface that executes a native datastore query and returns the final decision (Allow/Deny) based on the query response.

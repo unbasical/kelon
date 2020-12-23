@@ -120,7 +120,7 @@ func (ds *mongoDatastore) Configure(appConf *configs.AppConfig, alias string) er
 	return nil
 }
 
-func (ds mongoDatastore) applyMetadataConfigs(alias string, conf *configs.Datastore, appConf *configs.AppConfig) {
+func (ds *mongoDatastore) applyMetadataConfigs(alias string, conf *configs.Datastore, appConf *configs.AppConfig) {
 	if conf.Metadata == nil {
 		ds.telemetryName = "Datasource"
 		ds.telemetryType = "MongoDB"
@@ -143,11 +143,11 @@ func (ds mongoDatastore) applyMetadataConfigs(alias string, conf *configs.Datast
 	}
 }
 
-func (ds mongoDatastore) Execute(query *data.Node, queryContext interface{}) (bool, error) {
+func (ds *mongoDatastore) Execute(query data.Node, queryContext interface{}) (bool, error) {
 	if !ds.configured {
-		return false, errors.New("MongoDatastore was not configured! Please call Configure(). ")
+		return false, errors.Errorf("MongoDatastore was not configured! Please call Configure().")
 	}
-	logging.LogForComponent("mongoDatastore").Debugf("TRANSLATING QUERY: ==================%+v==================", (*query).String())
+	logging.LogForComponent("mongoDatastore").Debugf("TRANSLATING QUERY: ==================%+v==================", query.String())
 
 	// Translate to map: collection -> filter
 	statements := ds.translate(query)
@@ -206,7 +206,7 @@ func (ds mongoDatastore) Execute(query *data.Node, queryContext interface{}) (bo
 	if ds.appConf.TelemetryProvider != nil {
 		httpRequest, ok := queryContext.(*http.Request)
 		if !ok {
-			return false, errors.New("MongoDB: Could not cast passed *http.Request from queryContext!")
+			return false, errors.Errorf("MongoDB: Could not cast passed *http.Request from queryContext!")
 		}
 		ds.appConf.TelemetryProvider.MeasureRemoteDependency(httpRequest, ds.telemetryName, ds.telemetryType, time.Since(startTime), entireQuery, true)
 	}
@@ -216,7 +216,7 @@ func (ds mongoDatastore) Execute(query *data.Node, queryContext interface{}) (bo
 			if ds.appConf.TelemetryProvider != nil {
 				httpRequest, ok := queryContext.(*http.Request)
 				if !ok {
-					return false, errors.New("MongoDB: Could not cast passed *http.Request from queryContext!")
+					return false, errors.Errorf("MongoDB: Could not cast passed *http.Request from queryContext!")
 				}
 				ds.appConf.TelemetryProvider.MeasureRemoteDependency(httpRequest, ds.telemetryName, ds.telemetryType, time.Since(startTime), entireQuery, false)
 			}
@@ -233,8 +233,8 @@ func (ds mongoDatastore) Execute(query *data.Node, queryContext interface{}) (bo
 	return decision, nil
 }
 
-// nolint:gocyclo
-func (ds mongoDatastore) translate(input *data.Node) map[string]string {
+// nolint:gocyclo,gocritic
+func (ds *mongoDatastore) translate(input data.Node) map[string]string {
 	type colFilter struct {
 		collection string
 		filter     string
@@ -248,7 +248,7 @@ func (ds mongoDatastore) translate(input *data.Node) map[string]string {
 	var operands util.OpStack
 
 	// Walk input
-	(*input).Walk(func(q data.Node) {
+	input.Walk(func(q data.Node) {
 		switch v := q.(type) {
 		case data.Union:
 			// Sort collection filters by collection

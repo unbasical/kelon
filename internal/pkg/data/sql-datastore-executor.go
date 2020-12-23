@@ -123,7 +123,7 @@ func (ds *sqlDatastoreExecutor) Execute(statement interface{}, params []interfac
 		if ds.appConf.TelemetryProvider != nil {
 			httpRequest, ok := queryContext.(*http.Request)
 			if !ok {
-				return false, errors.New("sqlDatastoreExecutor: Could not cast passed *http.Request from queryContext!")
+				return false, errors.Errorf("sqlDatastoreExecutor: Could not cast passed *http.Request from queryContext!")
 			}
 			ds.appConf.TelemetryProvider.MeasureRemoteDependency(httpRequest, ds.telemetryName, ds.telemetryType, time.Since(startTime), sqlStatement, false)
 		}
@@ -154,7 +154,7 @@ func (ds *sqlDatastoreExecutor) Execute(statement interface{}, params []interfac
 	if ds.appConf.TelemetryProvider != nil {
 		httpRequest, ok := queryContext.(*http.Request)
 		if !ok {
-			return false, errors.New("sqlDatastoreExecutor: Could not cast passed *http.Request from queryContext!")
+			return false, errors.Errorf("sqlDatastoreExecutor: Could not cast passed *http.Request from queryContext!")
 		}
 		ds.appConf.TelemetryProvider.MeasureRemoteDependency(httpRequest, ds.telemetryName, ds.telemetryType, time.Since(startTime), sqlStatement, true)
 	}

@@ -45,7 +45,7 @@ func (ds *sqlDatastoreTranslator) Configure(appConf *configs.AppConfig, alias st
 
 	// Configure executor
 	if ds.executor == nil {
-		return errors.New("SqlDatastoreTranslator: DatastoreExecutor not configured!")
+		return errors.Errorf("SqlDatastoreTranslator: DatastoreExecutor not configured!")
 	}
 	if err := ds.executor.Configure(appConf, alias); err != nil {
 		return errors.Wrap(err, "SqlDatastoreTranslator: Error while configuring datastore executor")
@@ -89,11 +89,11 @@ func (ds *sqlDatastoreTranslator) Configure(appConf *configs.AppConfig, alias st
 	return nil
 }
 
-func (ds sqlDatastoreTranslator) Execute(query *data.Node, queryContext interface{}) (bool, error) {
+func (ds *sqlDatastoreTranslator) Execute(query data.Node, queryContext interface{}) (bool, error) {
 	if !ds.configured {
-		return false, errors.New("SqlDatastoreTranslator was not configured! Please call Configure(). ")
+		return false, errors.Errorf("SqlDatastoreTranslator was not configured! Please call Configure(). ")
 	}
-	logging.LogForComponent("sqlDatastoreTranslator").Debugf("TRANSLATING QUERY: ==================%+v==================", (*query).String())
+	logging.LogForComponent("sqlDatastoreTranslator").Debugf("TRANSLATING QUERY: ==================%+v==================", query.String())
 
 	// Translate query to into sql statement
 	statement, params := ds.translatePrepared(query)
@@ -102,8 +102,8 @@ func (ds sqlDatastoreTranslator) Execute(query *data.Node, queryContext interfac
 	return ds.executor.Execute(statement, params, queryContext)
 }
 
-// nolint:gocyclo
-func (ds sqlDatastoreTranslator) translatePrepared(input *data.Node) (string, []interface{}) {
+// nolint:gocyclo,gocritic
+func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, params []interface{}) {
 	var query util.SStack
 	var selects util.SStack
 	var entities util.SStack
@@ -116,7 +116,7 @@ func (ds sqlDatastoreTranslator) translatePrepared(input *data.Node) (string, []
 	var values []interface{}
 
 	// Walk input
-	(*input).Walk(func(q data.Node) {
+	input.Walk(func(q data.Node) {
 		switch v := q.(type) {
 		case data.Union:
 			// Expected stack:  top -> [Queries...]
@@ -225,7 +225,7 @@ func (ds sqlDatastoreTranslator) translatePrepared(input *data.Node) (string, []
 	return strings.Join(query, ""), values
 }
 
-func (ds sqlDatastoreTranslator) findSchemaForEntity(search string) (string, *configs.Entity) {
+func (ds *sqlDatastoreTranslator) findSchemaForEntity(search string) (string, *configs.Entity) {
 	// Find custom mapping
 	for schema, es := range ds.schemas {
 		if found, entity := es.ContainsEntity(search); found {

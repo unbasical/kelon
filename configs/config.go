@@ -40,10 +40,10 @@ type ByteConfigLoader struct {
 // Implementing Load from configs.ConfigLoader by using the properties of the ByteConfigLoader.
 func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 	if l.DatastoreConfigBytes == nil {
-		return nil, errors.New("DatastoreConfigBytes must not be nil! ")
+		return nil, errors.Errorf("DatastoreConfigBytes must not be nil!")
 	}
 	if l.APIConfigBytes == nil {
-		return nil, errors.New("APIConfigBytes must not be nil! ")
+		return nil, errors.Errorf("APIConfigBytes must not be nil! ")
 	}
 
 	result := new(ExternalConfig)
@@ -53,13 +53,13 @@ func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 	// Expand datastore config with environment variables
 	l.DatastoreConfigBytes = []byte(os.ExpandEnv(string(l.DatastoreConfigBytes)))
 	if err := yaml.Unmarshal(l.DatastoreConfigBytes, result.Data); err != nil {
-		return nil, errors.New("Unable to parse datastore config: " + err.Error())
+		return nil, errors.Errorf("Unable to parse datastore config: " + err.Error())
 	}
 
 	// Load API config
 	result.API = new(APIConfig)
 	if err := yaml.Unmarshal(l.APIConfigBytes, result.API); err != nil {
-		return nil, errors.New("Unable to parse api config: " + err.Error())
+		return nil, errors.Errorf("Unable to parse api config: " + err.Error())
 	}
 
 	// Validate configs
@@ -80,10 +80,10 @@ type FileConfigLoader struct {
 // Implementing Load from configs.ConfigLoader by using the properties of the FileConfigLoader.
 func (l FileConfigLoader) Load() (*ExternalConfig, error) {
 	if l.DatastoreConfigPath == "" {
-		return nil, errors.New("DatastoreConfigPath must not be empty! ")
+		return nil, errors.Errorf("DatastoreConfigPath must not be empty!")
 	}
 	if l.APIConfigPath == "" {
-		return nil, errors.New("APIConfigPath must not be empty! ")
+		return nil, errors.Errorf("APIConfigPath must not be empty! ")
 	}
 
 	// Load dsConfigBytes from file
