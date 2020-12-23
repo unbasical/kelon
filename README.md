@@ -4,18 +4,7 @@ Kelon is a policy enforcement point, that is wrapping the [Open Policy Agent](ht
 
 ### Status
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=alert_status)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=ncloc)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FFoundato%2Fkelon.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FFoundato%2Fkelon?ref=badge_shield)
-
-[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=code_smells)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=bugs)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
-[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=duplicated_lines_density)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
-
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=security_rating)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=vulnerabilities)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
-[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=Foundato_kelon&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=Foundato_kelon)
-
 
 ## Problems you face when applying authorizing to your services
 

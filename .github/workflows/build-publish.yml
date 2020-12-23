@@ -4,8 +4,18 @@ on:
     branches:
       - master
       - develop
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.txt'
+      - '**/*.yml'
+      - '**/*.yaml'
   pull_request:
-
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.txt'
+      - '**/*.yml'
+      - '**/*.yaml'
+      
 jobs:
   lint:
     name: Lint
