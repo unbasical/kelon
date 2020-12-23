@@ -11,8 +11,10 @@ jobs:
     name: Lint
     runs-on: ubuntu-20.04
     steps:
-      - name: Check out code
-        uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          # Disabling shallow clone is recommended for improving relevancy of reporting
+          fetch-depth: 0
 
       - name: Install golangci-lint
         run: curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(go env GOPATH)/bin v1.24.0
@@ -34,6 +36,17 @@ jobs:
 
       - name: Run Unit tests.
         run: make test-coverage
+
+  scan:
+    name: Scan
+    runs-on: ubuntu-20.04
+    needs: [lint, test]
+    steps:
+      - name: SonarCloud Scan
+        uses: sonarsource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   build:
     name: Build
