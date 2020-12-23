@@ -8,14 +8,10 @@ on:
     paths-ignore:
       - '**/*.md'
       - '**/*.txt'
-      - '**/*.yml'
-      - '**/*.yaml'
   pull_request:
     paths-ignore:
       - '**/*.md'
       - '**/*.txt'
-      - '**/*.yml'
-      - '**/*.yaml'
 
 jobs:
   lint:
