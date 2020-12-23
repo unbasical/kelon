@@ -39,12 +39,12 @@ type mongoQueryResult struct {
 	count int64
 }
 
-// Return a new data.Datastore which is able to connect to PostgreSQL and MySQL databases.
-func NewMongoDatastore() data.Datastore {
+// Return a new data.DatastoreTranslator which is able to connect to PostgreSQL and MySQL databases.
+func NewMongoDatastore() data.DatastoreTranslator {
 	return &mongoDatastore{
 		appConf:       nil,
 		alias:         "",
-		telemetryName: "Datastore",
+		telemetryName: "DatastoreTranslator",
 		telemetryType: "MongoDB",
 		callOps:       nil,
 		configured:    false,
@@ -64,10 +64,10 @@ func (ds *mongoDatastore) Configure(appConf *configs.AppConfig, alias string) er
 	}
 	if schemas, ok := appConf.Data.DatastoreSchemas[alias]; ok {
 		if len(schemas) == 0 {
-			return errors.Errorf("MongoDatastore: Datastore with alias [%s] has no schemas configured!", alias)
+			return errors.Errorf("MongoDatastore: DatastoreTranslator with alias [%s] has no schemas configured!", alias)
 		}
 	} else {
-		return errors.Errorf("MongoDatastore: Datastore with alias [%s] has no entity-schema-mapping configured!", alias)
+		return errors.Errorf("MongoDatastore: DatastoreTranslator with alias [%s] has no entity-schema-mapping configured!", alias)
 	}
 
 	// Connect client

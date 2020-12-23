@@ -106,7 +106,7 @@ func getConnectionStringForPlatform(platform string, conn map[string]string) str
 	case data.TypeMongo:
 		return fmt.Sprintf("mongodb://%s:%s@%s:%s/%s%s", user, password, host, port, dbname, createConnOptionsString(options, "&", "?"))
 	default:
-		logging.LogForComponent("datastore").Panic(fmt.Sprintf("Platform [%s] is not a supported Datastore!", platform))
+		logging.LogForComponent("datastore").Panic(fmt.Sprintf("Platform [%s] is not a supported DatastoreTranslator!", platform))
 		return ""
 	}
 }
