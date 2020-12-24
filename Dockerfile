@@ -8,7 +8,7 @@ RUN go mod download
 RUN go build -o /go/bin/app github.com/Foundato/kelon/cmd/kelon
 
 # final stage
-FROM gcr.io/distroless/base
+FROM gcr.io/distroless/base as build
 ARG PORT=8181
 
 COPY --from=builder /go/bin/app /

@@ -70,7 +70,7 @@ jobs:
 
   publish:
     name: Publish
-    if: ${{ !github.base_ref }}
+    if: ${{ !github.base_ref }} # Do not execute on PRs
     runs-on: ubuntu-20.04
     needs: [lint, test, build]
     steps:
@@ -89,7 +89,7 @@ jobs:
         if: ${{ endsWith(github.ref, 'master') }}
 
       - name: Run Trivy vulnerability scanner
-        if: ${{ !github.base_ref }}
+        # if: ${{ !github.base_ref }}
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'kelonio/kelon:${{ github.sha }}'
@@ -99,7 +99,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy scan results to GitHub Security tab
-        if: ${{ !github.base_ref }}
+        # if: ${{ !github.base_ref }}
         uses: github/codeql-action/upload-sarif@v1
         with:
           sarif_file: 'trivy-results.sarif'
