@@ -16,7 +16,7 @@ func MakeDatastores(config *configs.DatastoreConfig) map[string]*data.DatastoreT
 			continue
 		}
 		if ds.Type == data.TypeMongo {
-			newDs := NewMongoDatastore()
+			newDs := NewMongoDatastore(NewMongoDatastoreExecuter())
 			logging.LogForComponent("factory").Infof("Init MongoDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
 			continue
