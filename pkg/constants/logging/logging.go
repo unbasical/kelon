@@ -22,7 +22,7 @@ const LabelDuration string = "Duration"
 // Label for decision decision
 const LabelDecision string = "Decision"
 
-func LogAccessDecision(accessDecissionLogLevel string, path string, method string, duration string, decision string) *log.Entry {
+func LogAccessDecision(accessDecissionLogLevel, path, method, duration, decision string) *log.Entry {
 	if checkAccessDecisionLogLevel(accessDecissionLogLevel, decision) {
 		return log.WithFields(log.Fields{
 			LabelPath:     path,
@@ -34,7 +34,7 @@ func LogAccessDecision(accessDecissionLogLevel string, path string, method strin
 	return nil
 }
 
-func checkAccessDecisionLogLevel(logLevel string, decision string) bool {
+func checkAccessDecisionLogLevel(logLevel, decision string) bool {
 	loggingStatus := false
 	switch logLevel {
 	case "ALL":

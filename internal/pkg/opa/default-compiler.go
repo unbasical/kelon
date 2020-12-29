@@ -96,7 +96,6 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 
 // See Process() from opa.PolicyCompiler
 func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-
 	// Set start time for request duration
 	startTime := time.Now()
 
