@@ -27,11 +27,10 @@ import (
 )
 
 type policyCompiler struct {
-	configured             bool
-	appConfig              *configs.AppConfig
-	config                 *opa.PolicyCompilerConfig
-	engine                 *OPA
-	accessDecisionLogLevel string
+	configured bool
+	appConfig  *configs.AppConfig
+	config     *opa.PolicyCompilerConfig
+	engine     *OPA
 }
 
 type apiResponse struct {
@@ -85,7 +84,6 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 	})
 
 	// Assign variables
-	compiler.accessDecisionLogLevel = compConf.AccessDecisionLogLevel
 	compiler.engine = engine
 	compiler.appConfig = appConf
 	compiler.config = compConf
@@ -151,13 +149,13 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	// OPA decided denied
 	if queries.Queries == nil {
 		compiler.writeDeny(w, uid)
-		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "DENY")
+		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "DENY")
 		return
 	}
 	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
 		compiler.writeAllow(w, uid)
-		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "ALLOW")
+		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "ALLOW")
 		return
 	}
 
@@ -171,10 +169,10 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	// If we receive something from the datastore, the query was successful
 	if result {
 		compiler.writeAllow(w, uid)
-		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "ALLOW")
+		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "ALLOW")
 	} else {
 		compiler.writeDeny(w, uid)
-		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "DENY")
+		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "DENY")
 	}
 }
 
