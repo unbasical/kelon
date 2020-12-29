@@ -151,13 +151,13 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	// OPA decided denied
 	if queries.Queries == nil {
 		compiler.writeDeny(w, uid)
-		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "Decision: DENY")
+		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "DENY").Info("Access decision:")
 		return
 	}
 	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
 		compiler.writeAllow(w, uid)
-		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "Decision: ALLOW")
+		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "ALLOW").Info("Access decision:")
 		return
 	}
 
@@ -171,10 +171,10 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	// If we receive something from the datastore, the query was successful
 	if result {
 		compiler.writeAllow(w, uid)
-		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "Decision: ALLOW")
+		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "ALLOW").Info("Access decision:")
 	} else {
 		compiler.writeDeny(w, uid)
-		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "Decision: DENY")
+		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "DENY").Info("Access decision:")
 	}
 }
 
@@ -324,7 +324,6 @@ func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input ma
 	// Compile clientRequest and return answer
 	queries, err := compiler.engine.PartialEvaluate(clientRequest.Context(), extractedInput, query, opts...)
 	if err == nil {
-		log.WithField("UID", uid).Infof("Partial Evaluation for %q with extractedInput: %+vReturned %d queries:", query, extractedInput, len(queries.Queries))
 		if log.IsLevelEnabled(log.DebugLevel) {
 			for _, q := range queries.Queries {
 				log.WithField("UID", uid).Debugf("[%+v]", q)
