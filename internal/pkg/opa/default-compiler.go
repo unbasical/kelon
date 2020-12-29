@@ -151,13 +151,13 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	// OPA decided denied
 	if queries.Queries == nil {
 		compiler.writeDeny(w, uid)
-		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "DENY").Info("Access decision:")
+		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "DENY")
 		return
 	}
 	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
 		compiler.writeAllow(w, uid)
-		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "ALLOW").Info("Access decision:")
+		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "ALLOW")
 		return
 	}
 
@@ -171,10 +171,10 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	// If we receive something from the datastore, the query was successful
 	if result {
 		compiler.writeAllow(w, uid)
-		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "ALLOW").Info("Access decision:")
+		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "ALLOW")
 	} else {
 		compiler.writeDeny(w, uid)
-		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "DENY").Info("Access decision:")
+		logging.LogAccessDecision(compiler.accessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "DENY")
 	}
 }
 

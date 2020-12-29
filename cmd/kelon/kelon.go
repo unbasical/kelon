@@ -52,7 +52,7 @@ var (
 	// Logging
 	logLevel               = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
 	logFormat              = app.Flag("log-format", "Log-Format for Kelon. Must be one of [TEXT, JSON]").Default("TEXT").Envar("LOG_FORMAT").Enum("TEXT", "JSON")
-	accessDecisionLogLevel = app.Flag("access-decision-log-level", "Access decision Log-Level for Kelon. Must be one of [ALL, ALLOW, DENY, NONE]").Default("ALL").Envar("ACCESS-DECISION-LOG-LEVEL").Enum("ALL", "ALLOW", "DENY", "NONE")
+	accessDecisionLogLevel = app.Flag("access-decision-log-level", "Access decision Log-Level for Kelon. Must be one of [ALL, ALLOW, DENY, NONE]").Default("ALL").Envar("ACCESS-DECISION-LOG-LEVEL").Enum("ALL", "ALLOW", "DENY", "NONE", "all", "allow", "deny", "none")
 
 	// Configs for envoy external auth
 	envoyPort       = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
@@ -248,7 +248,7 @@ func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
 				Datastores: data.MakeDatastores(loadedConf.Data),
 			},
-			AccessDecisionLogLevel: accessDecisionLogLevel,
+			AccessDecisionLogLevel: strings.ToUpper(accessDecisionLogLevel),
 		},
 	}
 	return serverConf
