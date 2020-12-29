@@ -112,7 +112,7 @@ func (ds *mongoDatastoreExecuter) Execute(statements interface{}, params []inter
 	entireQuery := ""
 	for collection, filterString := range mongoStatements {
 		entireQuery += fmt.Sprintf("%s->[%s]\n", collection, filterString)
-		logging.LogForComponent("mongoDatastore").Debugf("EXECUTING Filter: ==================%s.find( %s )==================", collection, filterString)
+		logging.LogForComponent("mongoDatastoreExecutor").Debugf("EXECUTING Filter: ==================%s.find( %s )==================", collection, filterString)
 
 		// Execute each of the resulting queries for each collection parallel
 		go func(wait *sync.WaitGroup, index int, coll string, fString string) {
@@ -122,7 +122,7 @@ func (ds *mongoDatastoreExecuter) Execute(statements interface{}, params []inter
 			var filter bson.M
 			unmarshalErr := json.Unmarshal([]byte(fString), &filter)
 			if unmarshalErr != nil {
-				logging.LogForComponent("mongoDatastore").Fatal("json.Unmarshal() ERROR:", unmarshalErr)
+				logging.LogForComponent("mongoDatastoreExecutor").Fatal("json.Unmarshal() ERROR:", unmarshalErr)
 			}
 
 			// Execute query
@@ -153,7 +153,7 @@ func (ds *mongoDatastoreExecuter) Execute(statements interface{}, params []inter
 	// Wait till all queries returned
 	wg.Wait()
 
-	logging.LogForComponent("mongoDatastore").Debugf("RECEIVED RESULTS: %+v", queryResults)
+	logging.LogForComponent("mongoDatastoreExecutor").Debugf("RECEIVED RESULTS: %+v", queryResults)
 	if ds.appConf.TelemetryProvider != nil {
 		httpRequest, ok := queryContext.(*http.Request)
 		if !ok {
@@ -174,12 +174,12 @@ func (ds *mongoDatastoreExecuter) Execute(statements interface{}, params []inter
 			return false, errors.Wrap(result.err, "MongoDB: Error while sending Queries to DB")
 		}
 		if result.count > 0 {
-			logging.LogForComponent("mongoDatastore").Debugf("Result row with count %d found! -> ALLOWED", result.count)
+			logging.LogForComponent("mongoDatastoreExecutor").Debugf("Result row with count %d found! -> ALLOWED", result.count)
 			decision = true
 		}
 	}
 	if !decision {
-		logging.LogForComponent("mongoDatastore").Debugf("No resulting row with count > 0 found! -> DENIED")
+		logging.LogForComponent("mongoDatastoreExecutor").Debugf("No resulting row with count > 0 found! -> DENIED")
 	}
 	return decision, nil
 }
