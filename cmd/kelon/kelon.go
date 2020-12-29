@@ -50,8 +50,9 @@ var (
 	respondWithStatusCode = app.Flag("respond-with-status-code", "Communicate Decision via status code 200 (ALLOW) or 403 (DENY).").Default("false").Envar("RESPOND_WITH_STATUS_CODE").Bool()
 
 	// Logging
-	logLevel  = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
-	logFormat = app.Flag("log-format", "Log-Format for Kelon. Must be one of [TEXT, JSON]").Default("TEXT").Envar("LOG_FORMAT").Enum("TEXT", "JSON")
+	logLevel               = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
+	logFormat              = app.Flag("log-format", "Log-Format for Kelon. Must be one of [TEXT, JSON]").Default("TEXT").Envar("LOG_FORMAT").Enum("TEXT", "JSON")
+	accessDecisionLogLevel = app.Flag("access-decision-log-level", "Access decision Log-Level for Kelon. Must be one of [ALL, ALLOW, DENY, NONE]").Default("ALL").Envar("ACCESS-DECISION-LOG-LEVEL").Enum("ALL", "ALLOW", "DENY", "NONE")
 
 	// Configs for envoy external auth
 	envoyPort       = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
@@ -143,7 +144,7 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		config.Data = loadedConf.Data
 		config.TelemetryProvider = makeTelemetryProvider()
 		telemetryProvider = config.TelemetryProvider // Stopped gracefully later on
-		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
+		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf, *accessDecisionLogLevel)
 
 		if *preprocessRegos {
 			*regoDir = util.PrepocessPoliciesInDir(config, *regoDir)
@@ -229,7 +230,7 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 	}
 }
 
-func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
+func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig, accessDecisionLogLevel string) api.ClientProxyConfig {
 	// Build server config
 	serverConf := api.ClientProxyConfig{
 		Compiler: &compiler,
@@ -247,6 +248,7 @@ func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
 				Datastores: data.MakeDatastores(loadedConf.Data),
 			},
+			AccessDecisionLogLevel: accessDecisionLogLevel,
 		},
 	}
 	return serverConf

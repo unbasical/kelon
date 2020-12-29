@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/Foundato/kelon/configs"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
@@ -26,10 +27,11 @@ import (
 )
 
 type policyCompiler struct {
-	configured bool
-	appConfig  *configs.AppConfig
-	config     *opa.PolicyCompilerConfig
-	engine     *OPA
+	configured             bool
+	appConfig              *configs.AppConfig
+	config                 *opa.PolicyCompilerConfig
+	engine                 *OPA
+	accessDecisionLogLevel string
 }
 
 type apiResponse struct {
@@ -83,6 +85,7 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 	})
 
 	// Assign variables
+	compiler.accessDecisionLogLevel = compConf.AccessDecisionLogLevel
 	compiler.engine = engine
 	compiler.appConfig = appConf
 	compiler.config = compConf
@@ -93,6 +96,10 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 
 // See Process() from opa.PolicyCompiler
 func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Request) {
+
+	// Set start time for request duration
+	startTime := time.Now()
+
 	// Extract uid from request
 	uid := util.GetRequestUID(request)
 
@@ -145,11 +152,13 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 	// OPA decided denied
 	if queries.Queries == nil {
 		compiler.writeDeny(w, uid)
+		logging.LogAccessDecision(compiler.accessDecisionLogLevel, request.RequestURI, request.Method, time.Since(startTime).String(), "Decision: DENY")
 		return
 	}
 	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
 		compiler.writeAllow(w, uid)
+		logging.LogAccessDecision(compiler.accessDecisionLogLevel, request.RequestURI, request.Method, time.Since(startTime).String(), "Decision: ALLOW")
 		return
 	}
 
@@ -163,8 +172,10 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 	// If we receive something from the datastore, the query was successful
 	if result {
 		compiler.writeAllow(w, uid)
+		logging.LogAccessDecision(compiler.accessDecisionLogLevel, request.RequestURI, request.Method, time.Since(startTime).String(), "Decision: ALLOW")
 	} else {
 		compiler.writeDeny(w, uid)
+		logging.LogAccessDecision(compiler.accessDecisionLogLevel, request.RequestURI, request.Method, time.Since(startTime).String(), "Decision: DENY")
 	}
 }
 
@@ -203,7 +214,6 @@ func writeError(w http.ResponseWriter, status int, code string, err error) {
 }
 
 func (compiler policyCompiler) writeAllow(w http.ResponseWriter, requestID string) {
-	log.WithField("UID", requestID).Infoln("Decision: ALLOW")
 	if compiler.config.RespondWithStatusCode {
 		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		w.WriteHeader(http.StatusOK)
@@ -214,7 +224,6 @@ func (compiler policyCompiler) writeAllow(w http.ResponseWriter, requestID strin
 }
 
 func (compiler policyCompiler) writeDeny(w http.ResponseWriter, requestID string) {
-	log.WithField("UID", requestID).Infoln("Decision: DENY")
 	if compiler.config.RespondWithStatusCode {
 		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		w.WriteHeader(http.StatusForbidden)
