@@ -48,7 +48,7 @@ func (mapper *pathMapper) Configure(appConf *configs.AppConfig) error {
 	}
 
 	if appConf == nil {
-		return errors.New("PathMapper: AppConfig not configured! ")
+		return errors.Errorf("PathMapper: AppConfig not configured!")
 	}
 	mapper.appConf = appConf
 	if err := mapper.generateMappings(); err != nil {
@@ -62,21 +62,21 @@ func (mapper *pathMapper) Configure(appConf *configs.AppConfig) error {
 // See request.PathMapper
 func (mapper pathMapper) Map(input interface{}) (*request.MapperOutput, error) {
 	if !mapper.configured {
-		return nil, errors.New("PathMapper was not configured! Please call Configure(). ")
+		return nil, errors.Errorf("PathMapper was not configured! Please call Configure(). ")
 	}
 
 	// Check type and handle request
 	switch in := input.(type) {
 	case *pathMapperInput:
 		if in.URL == nil {
-			return nil, errors.New("PathMapper: Argument URL mustn't be nil! ")
+			return nil, errors.Errorf("PathMapper: Argument URL mustn't be nil! ")
 		}
-		if len(in.Method) == 0 {
-			return nil, errors.New("PathMapper: Argument Method mustn't be empty! ")
+		if in.Method == "" {
+			return nil, errors.Errorf("PathMapper: Argument Method mustn't be empty! ")
 		}
 		return mapper.handleInput(in)
 	default:
-		return nil, errors.New("PathMapper: Input of Process() was not of type *request.pathMapperInput! Type was: " + reflect.TypeOf(input).String())
+		return nil, errors.Errorf("PathMapper: Input of Process() was not of type *request.pathMapperInput! Type was: " + reflect.TypeOf(input).String())
 	}
 }
 

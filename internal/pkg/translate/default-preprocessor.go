@@ -88,7 +88,7 @@ func (processor *astPreprocessor) transformRefs(value interface{}) (interface{},
 		// self-links currently. Self-links require namespacing in the SQL
 		// value.
 		if match, ok := processor.tableNames[tableName]; ok && match != rowID.String() {
-			return nil, errors.New("invalid reference: self-links not supported")
+			return nil, errors.Errorf("invalid reference: self-links not supported")
 		}
 		processor.tableNames[tableName] = rowID.String()
 

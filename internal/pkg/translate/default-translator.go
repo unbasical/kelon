@@ -32,10 +32,10 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *tra
 
 	// Configure subcomponents
 	if transConf.Datastores == nil {
-		return errors.New("AstTranslator: Datastores not configured! ")
+		return errors.Errorf("AstTranslator: Datastores not configured! ")
 	}
 	if len(transConf.Datastores) == 0 {
-		return errors.New("AstTranslator: At least one datastore is needed! ")
+		return errors.Errorf("AstTranslator: At least one datastore is needed! ")
 	}
 	for dsName, ds := range transConf.Datastores {
 		if err := (*ds).Configure(appConf, dsName); err != nil {
@@ -54,7 +54,7 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *tra
 // See translate.AstTranslator.
 func (trans astTranslator) Process(response *rego.PartialQueries, datastore string, queryContext interface{}) (bool, error) {
 	if !trans.configured {
-		return false, errors.New("AstTranslator was not configured! Please call Configure(). ")
+		return false, errors.Errorf("AstTranslator was not configured! Please call Configure(). ")
 	}
 
 	preprocessedQueries, preprocessErr := newAstPreprocessor().Process(response.Queries, datastore)
@@ -70,5 +70,5 @@ func (trans astTranslator) Process(response *rego.PartialQueries, datastore stri
 	if targetDB, ok := trans.config.Datastores[datastore]; ok {
 		return (*targetDB).Execute(processedQuery, queryContext)
 	}
-	return false, errors.New("AstTranslator: Unable to find datastore: " + datastore)
+	return false, errors.Errorf("AstTranslator: Unable to find datastore: " + datastore)
 }

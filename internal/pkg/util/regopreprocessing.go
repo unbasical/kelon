@@ -11,7 +11,7 @@ import (
 	"github.com/Foundato/kelon/pkg/constants/logging"
 )
 
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals,gocritic
 var separator = "_"
 
 func PreprocessPolicy(config *configs.AppConfig, rego string) string {
@@ -24,7 +24,7 @@ func PreprocessPolicy(config *configs.AppConfig, rego string) string {
 	return "# Preprocessed\n" + rego
 }
 
-func preprocessPolicyFile(config *configs.AppConfig, inPath string, outPath string) {
+func preprocessPolicyFile(config *configs.AppConfig, inPath, outPath string) {
 	// read the whole file at once
 	b, err := ioutil.ReadFile(inPath)
 	if err != nil {

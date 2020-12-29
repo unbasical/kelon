@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals,gocritic
 var wantDatatoreConfig = configs.DatastoreConfig{
 	Datastores: map[string]*configs.Datastore{
 		"mysql": {
@@ -51,7 +51,7 @@ var wantDatatoreConfig = configs.DatastoreConfig{
 	},
 }
 
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals,gocritic
 var wantAPIConfig = &configs.APIConfig{
 	Mappings: []*configs.DatastoreAPIMapping{
 		{

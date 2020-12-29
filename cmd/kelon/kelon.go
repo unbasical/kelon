@@ -29,7 +29,7 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals,gocritic
 var (
 	app = kingpin.New("kelon", "Kelon policy enforcer.")
 
@@ -215,7 +215,7 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 	}
 
 	// Create Rest proxy and start
-	envoyProxy = envoy.NewEnvoyProxy(envoy.EnvoyConfig{
+	envoyProxy = envoy.NewEnvoyProxy(envoy.Config{
 		Port:             *envoyPort,
 		DryRun:           *envoyDryRun,
 		EnableReflection: *envoyReflection,

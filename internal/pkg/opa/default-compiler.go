@@ -92,18 +92,18 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 }
 
 // See Process() from opa.PolicyCompiler
-func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Request) {
+func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Extract uid from request
-	uid := util.GetRequestUID(request)
+	uid := util.GetRequestUID(req)
 
 	// Validate if policy compiler was configured correctly
 	if !compiler.configured {
-		compiler.handleError(w, uid, errors.New("PolicyCompiler was not configured! Please call Configure(). "))
+		compiler.handleError(w, uid, errors.Errorf("PolicyCompiler was not configured! Please call Configure(). "))
 		return
 	}
 
 	// Parse body of request
-	requestBody, bodyErr := compiler.parseRequestBody(uid, request)
+	requestBody, bodyErr := compiler.parseRequestBody(uid, req)
 	if bodyErr != nil {
 		compiler.handleError(w, uid, bodyErr)
 		return
@@ -136,7 +136,7 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 	}
 
 	// Compile mapped path
-	queries, err := compiler.opaCompile(request, &input, output)
+	queries, err := compiler.opaCompile(req, input, output)
 	if err != nil {
 		compiler.handleError(w, uid, errors.Wrap(err, "PolicyCompiler: Error during policy compilation"))
 		return
@@ -154,7 +154,7 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Re
 	}
 
 	// Otherwise translate ast
-	result, err := (*compiler.config.Translator).Process(queries, output.Datastore, request)
+	result, err := (*compiler.config.Translator).Process(queries, output.Datastore, req)
 	if err != nil {
 		compiler.handleError(w, uid, errors.Wrap(err, "PolicyCompiler: Error during ast translation"))
 		return
@@ -174,7 +174,7 @@ func (compiler policyCompiler) handleError(w http.ResponseWriter, requestID stri
 	// Monitor error
 	compiler.handleErrorMetrics(err)
 
-	//Write response
+	// Write response
 	switch errors.Cause(err).(type) {
 	case request.PathAmbiguousError:
 		writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
@@ -233,14 +233,14 @@ func writeJSON(w http.ResponseWriter, status int, x interface{}) {
 	}
 }
 
-func (compiler policyCompiler) parseRequestBody(uid string, request *http.Request) (map[string]interface{}, error) {
+func (compiler policyCompiler) parseRequestBody(uid string, req *http.Request) (map[string]interface{}, error) {
 	requestBody := make(map[string]interface{})
 	if log.GetLevel() == log.DebugLevel {
-		logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Received request: %+v", request)
+		logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Received request: %+v", req)
 
 		// Log body and decode already logged body
 		buf := new(bytes.Buffer)
-		if _, parseErr := buf.ReadFrom(request.Body); parseErr != nil {
+		if _, parseErr := buf.ReadFrom(req.Body); parseErr != nil {
 			return nil, internalErrors.InvalidInput{Cause: parseErr, Msg: "PolicyCompiler: Error while parsing request body!"}
 		}
 
@@ -252,11 +252,11 @@ func (compiler policyCompiler) parseRequestBody(uid string, request *http.Reques
 		if marshalErr := json.NewDecoder(strings.NewReader(bodyString)).Decode(&requestBody); marshalErr != nil {
 			return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
 		}
-	} else {
-		// Decode raw body
-		if marshalErr := json.NewDecoder(request.Body).Decode(&requestBody); marshalErr != nil {
-			return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
-		}
+	}
+
+	// Decode raw body
+	if marshalErr := json.NewDecoder(req.Body).Decode(&requestBody); marshalErr != nil {
+		return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
 	}
 	return requestBody, nil
 }
@@ -303,7 +303,7 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 	return output, nil
 }
 
-func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input *map[string]interface{}, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
+func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input map[string]interface{}, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
 	// Extract uid from request
 	uid := util.GetRequestUID(clientRequest)
 
@@ -362,12 +362,12 @@ func (compiler *policyCompiler) extractOpaOpts(output *request.PathProcessorOutp
 	}
 }
 
-func extractOpaInput(output *request.PathProcessorOutput, input *map[string]interface{}) map[string]interface{} {
+func extractOpaInput(output *request.PathProcessorOutput, input map[string]interface{}) map[string]interface{} {
 	extracted := map[string]interface{}{
 		"queries": output.Queries,
 	}
 	// Append custom fields to received body
-	for key, value := range *input {
+	for key, value := range input {
 		extracted[key] = value
 	}
 
@@ -379,7 +379,7 @@ func extractOpaInput(output *request.PathProcessorOutput, input *map[string]inte
 func initDependencies(compConf *opa.PolicyCompilerConfig, appConf *configs.AppConfig) error {
 	// Configure PathProcessor
 	if compConf.PathProcessor == nil {
-		return errors.New("PolicyCompiler: PathProcessor not configured! ")
+		return errors.Errorf("PolicyCompiler: PathProcessor not configured!")
 	}
 	parser := *compConf.PathProcessor
 	if err := parser.Configure(appConf, &compConf.PathProcessorConfig); err != nil {
@@ -387,7 +387,7 @@ func initDependencies(compConf *opa.PolicyCompilerConfig, appConf *configs.AppCo
 	}
 	// Configure AstTranslator
 	if compConf.Translator == nil {
-		return errors.New("PolicyCompiler: Translator not configured! ")
+		return errors.Errorf("PolicyCompiler: Translator not configured!")
 	}
 	translator := *compConf.Translator
 	if err := translator.Configure(appConf, &compConf.AstTranslatorConfig); err != nil {

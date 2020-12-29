@@ -73,12 +73,14 @@ func (schema EntitySchema) GenerateEntityPaths() map[string]map[string][]string 
 	return result
 }
 
-func crawlEntityPaths(start *Entity, curr *Entity, pathHistory []string, path map[string]map[string][]string) {
+func crawlEntityPaths(start, curr *Entity, pathHistory []string, path map[string]map[string][]string) {
 	if start == nil {
 		logging.LogForComponent("datastore").Panic("Cannot crawl start which is nil!")
+		return
 	}
 	if curr == nil {
 		logging.LogForComponent("datastore").Panic("Curr mustn't be nil!")
+		return
 	}
 
 	if path[start.getMappedName()] == nil {

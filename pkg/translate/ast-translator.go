@@ -1,7 +1,7 @@
 // Package translate contains components that help to process a partially evaluated AST returned by OPA.
 //
 // As a result, a final decision for this AST should be returned (Allow/Deny) as boolean.
-// There is the possibility to use data.Datastore internally to evaluate queries inside datastores.
+// There is the possibility to use data.DatastoreTranslator internally to evaluate queries inside datastores.
 package translate
 
 import (
@@ -16,11 +16,11 @@ import (
 // instance of a AstTranslator can be seen as a standalone thread with all its subcomponents attached to it.
 // As a result, two AstTranslators should be able to run in parallel.
 type AstTranslatorConfig struct {
-	Datastores map[string]*data.Datastore
+	Datastores map[string]*data.DatastoreTranslator
 }
 
 // AstTranslator is the interface that maps a partially evaluated AST returned by OPA to a final decision (Allow/Deny).
-// This can either be done by just processing the AST or by using a Datastore to evaluate the translated query inside an external datasource.
+// This can either be done by just processing the AST or by using a DatastoreTranslator to evaluate the translated query inside an external datasource.
 //
 // To use a datastore, the AstTranslator has to translate the partial evaluated AST from OPA into an intermediate format which is basically another AST with a
 // root node of type data.node. This intermediate ast should be then translated into a datastore-native query by the datastore itself.
@@ -33,7 +33,7 @@ type AstTranslator interface {
 	Configure(appConf *configs.AppConfig, transConf *AstTranslatorConfig) error
 
 	// Process() evaluates a list of partial evaluated OPA-queries by generally translating them to a AST with root-node of type data.Node.
-	// This AST is then handed over to a Datastore to be translated into a datastore-native query which will be executed and interpreted as a final decision (Allow/Deny).
+	// This AST is then handed over to a DatastoreTranslator to be translated into a datastore-native query which will be executed and interpreted as a final decision (Allow/Deny).
 	//
 	// If any error occurred during the translation or the datastore access, the error will be returned.
 	Process(response *rego.PartialQueries, datastore string, queryContext interface{}) (bool, error)

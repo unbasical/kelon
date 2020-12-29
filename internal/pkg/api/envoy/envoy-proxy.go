@@ -24,14 +24,14 @@ import (
 )
 
 // Config represents the plugin configuration.
-type EnvoyConfig struct {
+type Config struct {
 	Port             uint32 `json:"port"`
 	DryRun           bool   `json:"dry-run"`
 	EnableReflection bool   `json:"enable-reflection"`
 }
 
 type envoyExtAuthzGrpcServer struct {
-	cfg                 EnvoyConfig
+	cfg                 Config
 	appConf             *configs.AppConfig
 	server              *grpc.Server
 	compiler            *http.Handler
@@ -46,9 +46,9 @@ type envoyProxy struct {
 }
 
 // Implements api.ClientProxy by providing OPA's Data-REST-API.
-func NewEnvoyProxy(config EnvoyConfig) api.ClientProxy {
+func NewEnvoyProxy(config Config) api.ClientProxy {
 	if config.Port == 0 {
-		logging.LogForComponent("EnvoyConfig").Warnln("EnvoyProxy was initialized with default properties! You may have missed some arguments when creating it!")
+		logging.LogForComponent("Config").Warnln("EnvoyProxy was initialized with default properties! You may have missed some arguments when creating it!")
 		config.Port = 9191
 		config.DryRun = false
 		config.EnableReflection = true
@@ -77,7 +77,7 @@ func (proxy *envoyProxy) Configure(appConf *configs.AppConfig, serverConf *api.C
 
 	// Configure subcomponents
 	if serverConf.Compiler == nil {
-		return errors.New("EnvoyProxy: Compiler not configured! ")
+		return errors.Errorf("EnvoyProxy: Compiler not configured! ")
 	}
 	compiler := *serverConf.Compiler
 	if err := compiler.Configure(appConf, &serverConf.PolicyCompilerConfig); err != nil {
@@ -103,7 +103,7 @@ func (proxy *envoyProxy) Configure(appConf *configs.AppConfig, serverConf *api.C
 // See Start() of api.ClientProxy
 func (proxy *envoyProxy) Start() error {
 	if !proxy.configured {
-		return errors.New("EnvoyProxy was not configured! Please call Configure(). ")
+		return errors.Errorf("EnvoyProxy was not configured! Please call Configure(). ")
 	}
 
 	// Init grpc server
@@ -123,7 +123,7 @@ func (proxy *envoyProxy) Start() error {
 // See Stop() of api.ClientProxy
 func (proxy *envoyProxy) Stop(deadline time.Duration) error {
 	if proxy.envoy.server == nil {
-		return errors.New("EnvoyProxy has not bin started yet")
+		return errors.Errorf("EnvoyProxy has not bin started yet")
 	}
 
 	logging.LogForComponent("envoyProxy").Infof("Stopping envoy grpc-server at: http://0.0.0.0:%d", proxy.envoy.cfg.Port)

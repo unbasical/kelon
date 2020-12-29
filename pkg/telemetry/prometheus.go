@@ -14,7 +14,7 @@ type Prometheus struct {
 	registry *prometheus.Registry
 }
 
-// nolint:gochecknoglobals
+// nolint:gochecknoglobals,gocritic
 var (
 	version = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "version",
@@ -86,7 +86,7 @@ func (p *Prometheus) CheckError(err error) {
 	// not needed in prometheus
 }
 
-func (p *Prometheus) MeasureRemoteDependency(request *http.Request, alias string, dependencyType string, queryTime time.Duration, data string, success bool) {
+func (p *Prometheus) MeasureRemoteDependency(request *http.Request, alias, dependencyType string, queryTime time.Duration, data string, success bool) {
 	// not needed in prometheus
 }
 
