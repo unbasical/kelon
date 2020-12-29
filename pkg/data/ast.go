@@ -61,7 +61,7 @@ type Entity struct {
 	Value string
 }
 
-// An Operator.
+// An Operator of the AST.
 type Operator struct {
 	Value string
 }

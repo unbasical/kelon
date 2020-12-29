@@ -32,7 +32,7 @@ type ApplicationInsights struct {
 
 func (p *ApplicationInsights) Configure() error {
 	if p.AppInsightsInstrumentationKey == "" {
-		return errors.New("ApplicationInsights: No Instrumentation-Key was provided before configuration!")
+		return errors.Errorf("ApplicationInsights: No Instrumentation-Key was provided before configuration!")
 	}
 	telemetryConfig := appinsights.NewTelemetryConfiguration(p.AppInsightsInstrumentationKey)
 	// Configure how many items can be sent in one call to the data collector:
@@ -179,7 +179,7 @@ func (p *ApplicationInsights) GetHTTPMiddleware() (func(handler http.Handler) ht
 }
 
 func (p *ApplicationInsights) GetHTTPMetricsHandler() (http.Handler, error) {
-	return nil, errors.New("Metrics endpoint not supported by ApplicationInsights")
+	return nil, errors.Errorf("Metrics endpoint not supported by ApplicationInsights")
 }
 
 func (p *ApplicationInsights) CheckError(err error) {
@@ -188,7 +188,7 @@ func (p *ApplicationInsights) CheckError(err error) {
 	}
 }
 
-func (p *ApplicationInsights) MeasureRemoteDependency(request *http.Request, name string, dependencyType string, queryTime time.Duration, data string, success bool) {
+func (p *ApplicationInsights) MeasureRemoteDependency(request *http.Request, name, dependencyType string, queryTime time.Duration, data string, success bool) {
 	dependency := appinsights.RemoteDependencyTelemetry{}
 	dependency.Name = name
 	dependency.Type = dependencyType

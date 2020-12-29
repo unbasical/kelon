@@ -60,7 +60,7 @@ type loadedCallHandler struct {
 	indexMapping  []int
 }
 
-func (h loadedCallHandler) Handles() string {
+func (h *loadedCallHandler) Handles() string {
 	return h.Operator
 }
 
@@ -83,7 +83,7 @@ func (h *loadedCallHandler) Init() error {
 	return nil
 }
 
-func (h loadedCallHandler) Map(args ...string) string {
+func (h *loadedCallHandler) Map(args ...string) string {
 	argsLen := len(args)
 	if argsLen < h.ArgsCount || argsLen > (h.ArgsCount+1) {
 		logging.LogForComponent("GenericCallOpMapper").Fatalf("Call-Handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.Operator, h.ArgsCount, h.ArgsCount+1, args)
@@ -110,13 +110,13 @@ func (h loadedCallHandler) Map(args ...string) string {
 
 func LoadDatastoreCallOpsBytes(input []byte) ([]data.CallOpMapper, error) {
 	if input == nil {
-		return nil, errors.New("Data must not be nil! ")
+		return nil, errors.Errorf("Data must not be nil! ")
 	}
 
 	loadedConf := callHandlers{}
 	// Load call operands
 	if err := yaml.Unmarshal(input, &loadedConf); err != nil {
-		return nil, errors.New("Unable to parse datastore call-operands config: " + err.Error())
+		return nil, errors.Errorf("Unable to parse datastore call-operands config: " + err.Error())
 	}
 
 	result := make([]data.CallOpMapper, len(loadedConf.CallOperands))
@@ -132,7 +132,7 @@ func LoadDatastoreCallOpsBytes(input []byte) ([]data.CallOpMapper, error) {
 
 func LoadDatastoreCallOpsFile(filePath string) ([]data.CallOpMapper, error) {
 	if filePath == "" {
-		return nil, errors.New("FilePath must not be empty! ")
+		return nil, errors.Errorf("FilePath must not be empty! ")
 	}
 
 	// Load datastoreOpsBytes from file
