@@ -144,7 +144,7 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		config.Data = loadedConf.Data
 		config.TelemetryProvider = makeTelemetryProvider()
 		telemetryProvider = config.TelemetryProvider // Stopped gracefully later on
-		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf, *accessDecisionLogLevel)
+		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
 
 		if *preprocessRegos {
 			*regoDir = util.PrepocessPoliciesInDir(config, *regoDir)
@@ -217,9 +217,10 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 
 	// Create Rest proxy and start
 	envoyProxy = envoy.NewEnvoyProxy(envoy.Config{
-		Port:             *envoyPort,
-		DryRun:           *envoyDryRun,
-		EnableReflection: *envoyReflection,
+		Port:                   *envoyPort,
+		DryRun:                 *envoyDryRun,
+		EnableReflection:       *envoyReflection,
+		AccessDecisionLogLevel: *accessDecisionLogLevel,
 	})
 	if err := envoyProxy.Configure(appConfig, serverConf); err != nil {
 		logging.LogForComponent("main").Fatalln(err.Error())
@@ -230,7 +231,7 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 	}
 }
 
-func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig, accessDecisionLogLevel string) api.ClientProxyConfig {
+func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
 	// Build server config
 	serverConf := api.ClientProxyConfig{
 		Compiler: &compiler,
@@ -248,7 +249,7 @@ func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
 				Datastores: data.MakeDatastores(loadedConf.Data),
 			},
-			AccessDecisionLogLevel: strings.ToUpper(accessDecisionLogLevel),
+			AccessDecisionLogLevel: strings.ToUpper(*accessDecisionLogLevel),
 		},
 	}
 	return serverConf

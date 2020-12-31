@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/Foundato/kelon/configs"
-	utilInt "github.com/Foundato/kelon/internal/pkg/util"
 	"github.com/Foundato/kelon/pkg/api"
 	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/Foundato/kelon/pkg/telemetry"
@@ -25,9 +24,10 @@ import (
 
 // Config represents the plugin configuration.
 type Config struct {
-	Port             uint32 `json:"port"`
-	DryRun           bool   `json:"dry-run"`
-	EnableReflection bool   `json:"enable-reflection"`
+	Port                   uint32 `json:"port"`
+	DryRun                 bool   `json:"dry-run"`
+	EnableReflection       bool   `json:"enable-reflection"`
+	AccessDecisionLogLevel string
 }
 
 type envoyExtAuthzGrpcServer struct {
@@ -172,6 +172,9 @@ func (p *envoyExtAuthzGrpcServer) listen() {
 
 // Check a new incoming request
 func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.CheckRequest) (*ext_authz.CheckResponse, error) {
+	// Set start time for request duration
+	startTime := time.Now()
+
 	// Rebuild http request
 	r := req.GetAttributes().GetRequest().GetHttp()
 	path := r.GetPath()
@@ -207,21 +210,16 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 		httpRequest.Header.Set(headerKey, headerValue)
 	}
 
-	// Add unique identifier for logging purpose
-	httpRequest = utilInt.AssignRequestUID(httpRequest)
-	uid := utilInt.GetRequestUID(httpRequest)
-	logging.LogForComponentAndUID("envoyExtAuthzGrpcServer", uid).Infof("Received Envoy-Ext-Auth-Check to URL: %s", httpRequest.RequestURI)
-
 	w := telemetry.NewInMemResponseWriter()
 	(*p.compiler).ServeHTTP(w, httpRequest)
 
 	resp := &ext_authz.CheckResponse{}
 	switch w.StatusCode() {
 	case http.StatusOK:
-		logging.LogForComponentAndUID("envoyExtAuthzGrpcServer", uid).Infoln("Decision: ALLOW")
+		logging.LogAccessDecision(p.cfg.AccessDecisionLogLevel, path, r.GetMethod(), time.Since(startTime).String(), "ALLOW", "envoyProxy")
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
 	case http.StatusForbidden:
-		logging.LogForComponentAndUID("envoyExtAuthzGrpcServer", uid).Infoln("Decision: DENY")
+		logging.LogAccessDecision(p.cfg.AccessDecisionLogLevel, path, r.GetMethod(), time.Since(startTime).String(), "DENY", "envoyProxy")
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_PERMISSION_DENIED)}
 	default:
 		proxyErr := errors.Wrap(errors.New(w.Body()), "EnvoyProxy: Error during request compilation")
