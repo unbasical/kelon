@@ -12,8 +12,6 @@ import (
 
 	"github.com/Foundato/kelon/configs"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
-	"github.com/Foundato/kelon/internal/pkg/util"
-	"github.com/Foundato/kelon/pkg/constants"
 	"github.com/Foundato/kelon/pkg/constants/logging"
 	internalErrors "github.com/Foundato/kelon/pkg/errors"
 	"github.com/Foundato/kelon/pkg/opa"
@@ -97,88 +95,91 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	// Set start time for request duration
 	startTime := time.Now()
 
-	// Extract uid from request
-	uid := util.GetRequestUID(req)
-
 	// Validate if policy compiler was configured correctly
 	if !compiler.configured {
-		compiler.handleError(w, uid, errors.Errorf("PolicyCompiler was not configured! Please call Configure(). "))
+		compiler.handleError(w, errors.Errorf("PolicyCompiler was not configured! Please call Configure(). "))
 		return
 	}
 
 	// Parse body of request
-	requestBody, bodyErr := compiler.parseRequestBody(uid, req)
+	requestBody, bodyErr := compiler.parseRequestBody(req)
 	if bodyErr != nil {
-		compiler.handleError(w, uid, bodyErr)
+		compiler.handleError(w, bodyErr)
 		return
 	}
 
 	// Extract input
 	for rootKey := range requestBody {
 		if rootKey != "input" {
-			logging.LogForComponent("policyCompiler").WithField("UID", uid).Warnf("Request field %q which will be ignored!", rootKey)
+			logging.LogForComponent("policyCompiler").Warnf("Request field %q which will be ignored!", rootKey)
 		}
 	}
 
 	rawInput, exists := requestBody["input"]
 	if !exists {
-		compiler.handleError(w, uid, internalErrors.InvalidInput{Msg: "PolicyCompiler: Incoming request had no field 'input'!"})
+		compiler.handleError(w, internalErrors.InvalidInput{Msg: "PolicyCompiler: Incoming request had no field 'input'!"})
 		return
 	}
 	input, ok := rawInput.(map[string]interface{})
 	if !ok {
-		compiler.handleError(w, uid, internalErrors.InvalidInput{Msg: "PolicyCompiler: Field 'input' in request body was no nested JSON object!"})
+		compiler.handleError(w, internalErrors.InvalidInput{Msg: "PolicyCompiler: Field 'input' in request body was no nested JSON object!"})
 		return
 	}
-	logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Received input: %+v", input)
+	logging.LogForComponent("policyCompiler").Debugf("Received input: %+v", input)
 
 	// Process path
 	output, err := compiler.processPath(input)
 	if err != nil {
-		compiler.handleError(w, uid, err)
+		compiler.handleError(w, err)
+		return
+	}
+
+	path, errPath := extractURLFromRequestBody(input)
+	method, errMethod := input["method"].(string)
+	if errPath != nil || !errMethod {
+		compiler.handleError(w, err)
 		return
 	}
 
 	// Compile mapped path
 	queries, err := compiler.opaCompile(req, input, output)
 	if err != nil {
-		compiler.handleError(w, uid, errors.Wrap(err, "PolicyCompiler: Error during policy compilation"))
+		compiler.handleError(w, errors.Wrap(err, "PolicyCompiler: Error during policy compilation"))
 		return
 	}
 
 	// OPA decided denied
 	if queries.Queries == nil {
-		compiler.writeDeny(w, uid)
-		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "DENY")
+		compiler.writeDeny(w)
+		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, path.String(), method, time.Since(startTime).String(), "DENY", "policyCompiler")
 		return
 	}
 	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
-		compiler.writeAllow(w, uid)
-		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "ALLOW")
+		compiler.writeAllow(w)
+		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, path.String(), method, time.Since(startTime).String(), "ALLOW", "policyCompiler")
 		return
 	}
 
 	// Otherwise translate ast
 	result, err := (*compiler.config.Translator).Process(queries, output.Datastore, req)
 	if err != nil {
-		compiler.handleError(w, uid, errors.Wrap(err, "PolicyCompiler: Error during ast translation"))
+		compiler.handleError(w, errors.Wrap(err, "PolicyCompiler: Error during ast translation"))
 		return
 	}
 
 	// If we receive something from the datastore, the query was successful
 	if result {
-		compiler.writeAllow(w, uid)
-		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "ALLOW")
+		compiler.writeAllow(w)
+		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, path.String(), method, time.Since(startTime).String(), "ALLOW", "policyCompiler")
 	} else {
-		compiler.writeDeny(w, uid)
-		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, req.RequestURI, req.Method, time.Since(startTime).String(), "DENY")
+		compiler.writeDeny(w)
+		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, path.String(), method, time.Since(startTime).String(), "DENY", "policyCompiler")
 	}
 }
 
-func (compiler policyCompiler) handleError(w http.ResponseWriter, requestID string, err error) {
-	log.WithField("UID", requestID).WithError(err).Error("PolicyCompiler encountered an error")
-	w.Header().Set(string(constants.ContextKeyRequestID), requestID)
+func (compiler policyCompiler) handleError(w http.ResponseWriter, err error) {
+	log.WithError(err).Error("PolicyCompiler encountered an error")
 	// Monitor error
 	compiler.handleErrorMetrics(err)
 
@@ -210,22 +211,18 @@ func writeError(w http.ResponseWriter, status int, code string, err error) {
 	writeJSON(w, status, resp)
 }
 
-func (compiler policyCompiler) writeAllow(w http.ResponseWriter, requestID string) {
+func (compiler policyCompiler) writeAllow(w http.ResponseWriter) {
 	if compiler.config.RespondWithStatusCode {
-		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		w.WriteHeader(http.StatusOK)
 	} else {
-		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		writeJSON(w, http.StatusOK, apiResponse{Result: true})
 	}
 }
 
-func (compiler policyCompiler) writeDeny(w http.ResponseWriter, requestID string) {
+func (compiler policyCompiler) writeDeny(w http.ResponseWriter) {
 	if compiler.config.RespondWithStatusCode {
-		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		w.WriteHeader(http.StatusForbidden)
 	} else {
-		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		writeJSON(w, http.StatusOK, apiResponse{Result: false})
 	}
 }
@@ -239,10 +236,10 @@ func writeJSON(w http.ResponseWriter, status int, x interface{}) {
 	}
 }
 
-func (compiler policyCompiler) parseRequestBody(uid string, req *http.Request) (map[string]interface{}, error) {
+func (compiler policyCompiler) parseRequestBody(req *http.Request) (map[string]interface{}, error) {
 	requestBody := make(map[string]interface{})
 	if log.GetLevel() == log.DebugLevel {
-		logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Received request: %+v", req)
+		logging.LogForComponent("policyCompiler").Debugf("Received request: %+v", req)
 
 		// Log body and decode already logged body
 		buf := new(bytes.Buffer)
@@ -254,7 +251,7 @@ func (compiler policyCompiler) parseRequestBody(uid string, req *http.Request) (
 		if bodyString == "" {
 			return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Request had empty body!"}
 		}
-		logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Request had body: %s", bodyString)
+		logging.LogForComponent("policyCompiler").Debugf("Request had body: %s", bodyString)
 		if marshalErr := json.NewDecoder(strings.NewReader(bodyString)).Decode(&requestBody); marshalErr != nil {
 			return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
 		}
@@ -310,21 +307,18 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 }
 
 func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input map[string]interface{}, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
-	// Extract uid from request
-	uid := util.GetRequestUID(clientRequest)
-
 	// Extract parameters for partial evaluation
 	opts := compiler.extractOpaOpts(output)
 	extractedInput := extractOpaInput(output, input)
 	query := fmt.Sprintf("data.%s.allow == true", output.Package)
-	logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Sending query=%s", query)
+	logging.LogForComponent("policyCompiler").Debugf("Sending query=%s", query)
 
 	// Compile clientRequest and return answer
 	queries, err := compiler.engine.PartialEvaluate(clientRequest.Context(), extractedInput, query, opts...)
 	if err == nil {
 		if log.IsLevelEnabled(log.DebugLevel) {
 			for _, q := range queries.Queries {
-				log.WithField("UID", uid).Debugf("[%+v]", q)
+				log.Debugf("[%+v]", q)
 			}
 		}
 		return queries, nil
