@@ -172,9 +172,6 @@ func (p *envoyExtAuthzGrpcServer) listen() {
 
 // Check a new incoming request
 func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.CheckRequest) (*ext_authz.CheckResponse, error) {
-	// Set start time for request duration
-	startTime := time.Now()
-
 	// Rebuild http request
 	r := req.GetAttributes().GetRequest().GetHttp()
 	path := r.GetPath()
@@ -210,16 +207,16 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 		httpRequest.Header.Set(headerKey, headerValue)
 	}
 
+	logging.LogForComponent("envoyExtAuthzGrpcServer").Infof("Received Envoy-Ext-Auth-Check to URL: %s", httpRequest.RequestURI)
+
 	w := telemetry.NewInMemResponseWriter()
 	(*p.compiler).ServeHTTP(w, httpRequest)
 
 	resp := &ext_authz.CheckResponse{}
 	switch w.StatusCode() {
 	case http.StatusOK:
-		logging.LogAccessDecision(p.cfg.AccessDecisionLogLevel, path, r.GetMethod(), time.Since(startTime).String(), "ALLOW", "envoyProxy")
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
 	case http.StatusForbidden:
-		logging.LogAccessDecision(p.cfg.AccessDecisionLogLevel, path, r.GetMethod(), time.Since(startTime).String(), "DENY", "envoyProxy")
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_PERMISSION_DENIED)}
 	default:
 		proxyErr := errors.Wrap(errors.New(w.Body()), "EnvoyProxy: Error during request compilation")
