@@ -42,7 +42,7 @@ type apiError struct {
 	} `json:"error"`
 }
 
-type decisionLoggingInformation struct {
+type decisionContext struct {
 	Path     string
 	Method   string
 	Duration string
@@ -160,12 +160,12 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 	// OPA decided denied
 	if queries.Queries == nil {
-		compiler.writeDeny(w, decisionLoggingInformation{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
+		compiler.writeDeny(w, decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 		return
 	}
 	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
-		compiler.writeAllow(w, decisionLoggingInformation{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
+		compiler.writeAllow(w, decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 		return
 	}
 
@@ -178,9 +178,9 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 	// If we receive something from the datastore, the query was successful
 	if result {
-		compiler.writeAllow(w, decisionLoggingInformation{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
+		compiler.writeAllow(w, decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 	} else {
-		compiler.writeDeny(w, decisionLoggingInformation{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
+		compiler.writeDeny(w, decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 	}
 }
 
@@ -217,7 +217,7 @@ func writeError(w http.ResponseWriter, status int, code string, err error) {
 	writeJSON(w, status, resp)
 }
 
-func (compiler policyCompiler) writeAllow(w http.ResponseWriter, loggingInfo decisionLoggingInformation) {
+func (compiler policyCompiler) writeAllow(w http.ResponseWriter, loggingInfo decisionContext) {
 	if compiler.config.RespondWithStatusCode {
 		w.WriteHeader(http.StatusOK)
 	} else {
@@ -226,7 +226,7 @@ func (compiler policyCompiler) writeAllow(w http.ResponseWriter, loggingInfo dec
 	logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration, "ALLOW", "policyCompiler")
 }
 
-func (compiler policyCompiler) writeDeny(w http.ResponseWriter, loggingInfo decisionLoggingInformation) {
+func (compiler policyCompiler) writeDeny(w http.ResponseWriter, loggingInfo decisionContext) {
 	if compiler.config.RespondWithStatusCode {
 		w.WriteHeader(http.StatusForbidden)
 	} else {
