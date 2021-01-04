@@ -42,6 +42,12 @@ type apiError struct {
 	} `json:"error"`
 }
 
+type decisionLoggingInformation struct {
+	Path     string
+	Method   string
+	Duration string
+}
+
 // Return a new instance of the default implementation of the opa.PolicyCompiler.
 func NewPolicyCompiler() opa.PolicyCompiler {
 	return &policyCompiler{
@@ -134,9 +140,13 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	path, errPath := extractURLFromRequestBody(input)
-	method, errMethod := input["method"].(string)
-	if errPath != nil || !errMethod {
+	path, err := extractURLFromRequestBody(input)
+	if err != nil {
+		compiler.handleError(w, err)
+		return
+	}
+	method, err := extractMethodFromRequestBody(input)
+	if err != nil {
 		compiler.handleError(w, err)
 		return
 	}
@@ -150,14 +160,12 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 	// OPA decided denied
 	if queries.Queries == nil {
-		compiler.writeDeny(w)
-		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, path.String(), method, time.Since(startTime).String(), "DENY", "policyCompiler")
+		compiler.writeDeny(w, decisionLoggingInformation{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 		return
 	}
 	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
-		compiler.writeAllow(w)
-		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, path.String(), method, time.Since(startTime).String(), "ALLOW", "policyCompiler")
+		compiler.writeAllow(w, decisionLoggingInformation{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 		return
 	}
 
@@ -170,11 +178,9 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 	// If we receive something from the datastore, the query was successful
 	if result {
-		compiler.writeAllow(w)
-		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, path.String(), method, time.Since(startTime).String(), "ALLOW", "policyCompiler")
+		compiler.writeAllow(w, decisionLoggingInformation{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 	} else {
-		compiler.writeDeny(w)
-		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, path.String(), method, time.Since(startTime).String(), "DENY", "policyCompiler")
+		compiler.writeDeny(w, decisionLoggingInformation{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 	}
 }
 
@@ -211,20 +217,22 @@ func writeError(w http.ResponseWriter, status int, code string, err error) {
 	writeJSON(w, status, resp)
 }
 
-func (compiler policyCompiler) writeAllow(w http.ResponseWriter) {
+func (compiler policyCompiler) writeAllow(w http.ResponseWriter, loggingInfo decisionLoggingInformation) {
 	if compiler.config.RespondWithStatusCode {
 		w.WriteHeader(http.StatusOK)
 	} else {
 		writeJSON(w, http.StatusOK, apiResponse{Result: true})
 	}
+	logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration, "ALLOW", "policyCompiler")
 }
 
-func (compiler policyCompiler) writeDeny(w http.ResponseWriter) {
+func (compiler policyCompiler) writeDeny(w http.ResponseWriter, loggingInfo decisionLoggingInformation) {
 	if compiler.config.RespondWithStatusCode {
 		w.WriteHeader(http.StatusForbidden)
 	} else {
 		writeJSON(w, http.StatusOK, apiResponse{Result: false})
 	}
+	logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration, "Deny", "policyCompiler")
 }
 
 func writeJSON(w http.ResponseWriter, status int, x interface{}) {
@@ -284,15 +292,9 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 	if err != nil {
 		return nil, err
 	}
-	var method string
-	if sentMethod, ok := input["method"]; ok {
-		if m, ok := sentMethod.(string); ok {
-			method = strings.ToUpper(m)
-		} else {
-			return nil, internalErrors.InvalidInput{Msg: fmt.Sprintf("PolicyCompiler: Attribute 'method' of request body was not of type string! Type was %T", sentMethod)}
-		}
-	} else {
-		return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Object 'input' of request body didn't contain a 'method'"}
+	method, err := extractMethodFromRequestBody(input)
+	if err != nil {
+		return nil, err
 	}
 
 	output, err := (*compiler.config.PathProcessor).Process(&requestInt.URLProcessorInput{
@@ -324,6 +326,16 @@ func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input ma
 		return queries, nil
 	}
 	return nil, err
+}
+
+func extractMethodFromRequestBody(input map[string]interface{}) (string, error) {
+	if inputMethod, ok := input["method"]; ok {
+		if m, ok := inputMethod.(string); ok {
+			return strings.ToUpper(m), nil
+		}
+		return "", internalErrors.InvalidInput{Msg: fmt.Sprintf("PolicyCompiler: Attribute 'method' of request body was not of type string! Type was %T", inputMethod)}
+	}
+	return "", internalErrors.InvalidInput{Msg: "PolicyCompiler: Object 'input' of request body didn't contain a 'method'"}
 }
 
 func extractURLFromRequestBody(input map[string]interface{}) (*url.URL, error) {
