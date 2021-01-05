@@ -11,7 +11,6 @@ import (
 
 	"github.com/Foundato/kelon/pkg/constants/logging"
 
-	"github.com/Foundato/kelon/pkg/constants"
 	"github.com/Microsoft/ApplicationInsights-Go/appinsights"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/cpu"
@@ -160,7 +159,6 @@ func (p *ApplicationInsights) GetHTTPMiddleware() (func(handler http.Handler) ht
 			passThroughWriter := NewPassThroughResponseWriter(writer)
 			handler.ServeHTTP(passThroughWriter, request)
 			duration := time.Since(startTime)
-			uid := passThroughWriter.Header().Get(string(constants.ContextKeyRequestID))
 
 			// Build trace
 			trace := appinsights.NewRequestTelemetry(request.Method, request.URL.Path, duration, strconv.Itoa(passThroughWriter.StatusCode()))
@@ -169,7 +167,7 @@ func (p *ApplicationInsights) GetHTTPMiddleware() (func(handler http.Handler) ht
 			trace.Tags.Operation().SetCorrelationVector(request.Header.Get("correlation-context"))
 			parentID := request.Header.Get("request-id")
 			trace.Tags.Operation().SetParentId(parentID)
-			trace.Tags.Operation().SetId(parentID + uid)
+			trace.Tags.Operation().SetId(parentID)
 			trace.Properties["user-agent"] = request.Header.Get("User-agent")
 
 			// Send trace
@@ -196,12 +194,8 @@ func (p *ApplicationInsights) MeasureRemoteDependency(request *http.Request, nam
 	dependency.Data = data
 	dependency.Success = success
 
-	uid, ok := request.Context().Value(constants.ContextKeyRequestID).(string)
-	if !ok {
-		uid = ""
-	}
 	dependency.BaseTelemetry.Tags.Operation().SetCorrelationVector(request.Header.Get("correlation-context"))
-	parentID := request.Header.Get("request-id") + uid
+	parentID := request.Header.Get("request-id")
 	dependency.Id = parentID + "_1."
 
 	// Submit the telemetry

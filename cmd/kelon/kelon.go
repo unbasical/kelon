@@ -50,8 +50,9 @@ var (
 	respondWithStatusCode = app.Flag("respond-with-status-code", "Communicate Decision via status code 200 (ALLOW) or 403 (DENY).").Default("false").Envar("RESPOND_WITH_STATUS_CODE").Bool()
 
 	// Logging
-	logLevel  = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
-	logFormat = app.Flag("log-format", "Log-Format for Kelon. Must be one of [TEXT, JSON]").Default("TEXT").Envar("LOG_FORMAT").Enum("TEXT", "JSON")
+	logLevel               = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
+	logFormat              = app.Flag("log-format", "Log-Format for Kelon. Must be one of [TEXT, JSON]").Default("TEXT").Envar("LOG_FORMAT").Enum("TEXT", "JSON")
+	accessDecisionLogLevel = app.Flag("access-decision-log-level", "Access decision Log-Level for Kelon. Must be one of [ALL, ALLOW, DENY, NONE]").Default("ALL").Envar("ACCESS_DECISION_LOG_LEVEL").Enum("ALL", "ALLOW", "DENY", "NONE", "all", "allow", "deny", "none")
 
 	// Configs for envoy external auth
 	envoyPort       = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
@@ -59,7 +60,7 @@ var (
 	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
 
 	// Configs for telemetry
-	telemetryService                = app.Flag("telemetry-service", "Service that is used for telemetry [Prometheus, ApplicationInsights]").Envar("TELEMETRY_SERVICE").Enum("Prometheus", "prometheus", "ApplicationInsights", "applicationinsights")
+	telemetryService                = app.Flag("telemetry-service", "Service that is used for telemetry [Prometheus]").Envar("TELEMETRY_SERVICE").Enum("Prometheus", "prometheus")
 	instrumentationKey              = app.Flag("instrumentation-key", "The ApplicationInsights-InstrumentationKey that is used to connect to the API.").Envar("INSTRUMENTATION_KEY").String()
 	appInsightsServiceName          = app.Flag("application-insights-service-name", "The name which will be displayed for kelon inside application insights.").Default("Kelon").Envar("APPLICATION_INSIGHTS_SERVICE_NAME").String()
 	appInsightsMaxBatchSize         = app.Flag("application-insights-max-batch-size", "Configure how many items can be sent in one call to the data collector.").Default("8192").Envar("APPLICATION_INSIGHTS_MAX_BATCH_SIZE").Int()
@@ -216,9 +217,10 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 
 	// Create Rest proxy and start
 	envoyProxy = envoy.NewEnvoyProxy(envoy.Config{
-		Port:             *envoyPort,
-		DryRun:           *envoyDryRun,
-		EnableReflection: *envoyReflection,
+		Port:                   *envoyPort,
+		DryRun:                 *envoyDryRun,
+		EnableReflection:       *envoyReflection,
+		AccessDecisionLogLevel: *accessDecisionLogLevel,
 	})
 	if err := envoyProxy.Configure(appConfig, serverConf); err != nil {
 		logging.LogForComponent("main").Fatalln(err.Error())
@@ -247,6 +249,7 @@ func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
 				Datastores: data.MakeDatastores(loadedConf.Data),
 			},
+			AccessDecisionLogLevel: strings.ToUpper(*accessDecisionLogLevel),
 		},
 	}
 	return serverConf

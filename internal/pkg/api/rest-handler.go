@@ -61,11 +61,6 @@ func (proxy *restProxy) handleV1DataGet(w http.ResponseWriter, r *http.Request) 
 }
 
 func (proxy *restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request) {
-	// Add unique identifier for logging purpose
-	r = utilInt.AssignRequestUID(r)
-	uid := utilInt.GetRequestUID(r)
-	logging.LogForComponent("restProxy").WithField("UID", uid).Infof("Received OPA Data-API POST to URL: %s", r.RequestURI)
-
 	// Compile
 	(*proxy.config.Compiler).ServeHTTP(w, r)
 }
