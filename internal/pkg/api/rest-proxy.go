@@ -115,7 +115,7 @@ func (proxy *restProxy) Start() error {
 		logging.LogForComponent("restProxy").Infof("Starting server at: http://0.0.0.0:%d%s", proxy.port, proxy.pathPrefix)
 		if err := proxy.server.ListenAndServe(); err != nil {
 			proxy.handleErrorMetrics(err)
-			logging.LogForComponent("restProxy").Fatal(err)
+			logging.LogForComponent("restProxy").Warn(err)
 		}
 	}()
 	return nil
@@ -141,12 +141,24 @@ func (proxy *restProxy) Stop(deadline time.Duration) error {
 	}
 
 	logging.LogForComponent("restProxy").Infof("Stopping server at: http://localhost:%d%s", proxy.port, proxy.pathPrefix)
+
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
+	onShutdown := make(chan struct{})
 	defer cancel()
+
+	proxy.server.RegisterOnShutdown(func() {
+		onShutdown <- struct{}{}
+	})
 	proxy.server.SetKeepAlivesEnabled(false)
 	if err := proxy.server.Shutdown(ctx); err != nil {
-		proxy.handleErrorMetrics(err)
-		return errors.Wrap(err, "Error while shutting down server")
+		logging.LogForComponent("restProxy").WithError(err).Error("Error while shutting down server")
 	}
-	return nil
+
+	select {
+	case <-onShutdown:
+		logging.LogForComponent("restProxy").Info("Server shutdown completed")
+		return nil
+	case <-ctx.Done():
+		return errors.Errorf("Server failed to shutdown before timeout!")
+	}
 }
