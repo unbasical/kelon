@@ -186,8 +186,6 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 func (compiler policyCompiler) handleError(w http.ResponseWriter, err error) {
 	log.WithError(err).Error("PolicyCompiler encountered an error")
-	// Monitor error
-	compiler.handleErrorMetrics(err)
 
 	// Write response
 	switch errors.Cause(err).(type) {
@@ -199,12 +197,6 @@ func (compiler policyCompiler) handleError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 	default:
 		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
-	}
-}
-
-func (compiler policyCompiler) handleErrorMetrics(err error) {
-	if compiler.appConfig.TelemetryProvider != nil {
-		compiler.appConfig.TelemetryProvider.CheckError(err)
 	}
 }
 

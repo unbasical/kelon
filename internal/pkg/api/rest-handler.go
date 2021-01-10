@@ -55,7 +55,6 @@ func (proxy *restProxy) handleV1DataGet(w http.ResponseWriter, r *http.Request) 
 		// Handle request like post
 		proxy.handleV1DataPost(w, trans)
 	} else {
-		proxy.handleErrorMetrics(errors.Wrap(err, "RestProxy: Unable to map GET request to POST"))
 		logging.LogForComponent("restProxy").Fatal("Unable to map GET request to POST: ", err.Error())
 	}
 }
@@ -73,20 +72,15 @@ func (proxy *restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) 
 	// Parse input
 	var value interface{}
 	if err := util.NewJSONDecoder(r.Body).Decode(&value); err != nil {
-		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		return
 	}
 
 	// Prepare transaction
-	path, txn, err := proxy.preparePathCheckedTransaction(ctx, r.URL.Path, opa, w)
-	if err != nil {
-		proxy.handleErrorMetrics(err)
-		return
-	}
+	path, txn := proxy.preparePathCheckedTransaction(ctx, r.URL.Path, opa, w)
 
 	// Read from store and check if data already exists
-	_, err = opa.Store.Read(ctx, txn, path)
+	_, err := opa.Store.Read(ctx, txn, path)
 	if err != nil {
 		if !storage.IsNotFound(err) {
 			proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
@@ -127,14 +121,12 @@ func (proxy *restProxy) handleV1DataPatch(w http.ResponseWriter, r *http.Request
 	// Parse input
 	var ops []types.PatchV1
 	if err := util.NewJSONDecoder(r.Body).Decode(&ops); err != nil {
-		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		return
 	}
 
 	patches, err := proxy.prepareV1PatchSlice(path.String(), ops)
 	if err != nil {
-		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
 		return
 	}
@@ -142,7 +134,6 @@ func (proxy *restProxy) handleV1DataPatch(w http.ResponseWriter, r *http.Request
 	// Start transaction
 	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
 	if err != nil {
-		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
 		return
 	}
@@ -171,13 +162,9 @@ func (proxy *restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Reques
 	opa := (*proxy.config.Compiler).GetEngine()
 
 	// Prepare transaction
-	path, txn, err := proxy.preparePathCheckedTransaction(ctx, r.URL.Path, opa, w)
-	if err != nil {
-		proxy.handleErrorMetrics(err)
-		return
-	}
+	path, txn := proxy.preparePathCheckedTransaction(ctx, r.URL.Path, opa, w)
 
-	_, err = opa.Store.Read(ctx, txn, path)
+	_, err := opa.Store.Read(ctx, txn, path)
 	if err != nil {
 		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
@@ -212,7 +199,6 @@ func (proxy *restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request
 	// Read request body
 	buf, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		return
 	}
@@ -230,7 +216,6 @@ func (proxy *restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request
 	// Start transaction
 	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
 	if err != nil {
-		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
 		return
 	}
@@ -299,7 +284,6 @@ func (proxy *restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Requ
 	// Start transaction
 	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
 	if err != nil {
-		proxy.handleErrorMetrics(err)
 		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
 		return
 	}
@@ -349,13 +333,11 @@ func (proxy *restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Requ
 
 func (proxy *restProxy) abortWithInternalServerError(ctx context.Context, opa *plugins.Manager, txn storage.Transaction, w http.ResponseWriter, err error) {
 	opa.Store.Abort(ctx, txn)
-	proxy.handleErrorMetrics(err)
 	writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 }
 
 func (proxy *restProxy) abortWithBadRequest(ctx context.Context, opa *plugins.Manager, txn storage.Transaction, w http.ResponseWriter, err error) {
 	opa.Store.Abort(ctx, txn)
-	proxy.handleErrorMetrics(err)
 	writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 }
 
@@ -447,25 +429,25 @@ func (proxy *restProxy) prepareV1PatchSlice(root string, ops []types.PatchV1) (r
 	return result, nil
 }
 
-func (proxy *restProxy) preparePathCheckedTransaction(ctx context.Context, rawPath string, opa *plugins.Manager, w http.ResponseWriter) (storage.Path, storage.Transaction, error) {
+func (proxy *restProxy) preparePathCheckedTransaction(ctx context.Context, rawPath string, opa *plugins.Manager, w http.ResponseWriter) (storage.Path, storage.Transaction) {
 	// Parse Path
 	path, ok := storage.ParsePathEscaped("/" + strings.Trim(rawPath, "/"))
 	if !ok {
 		writeBadPath(w, rawPath)
-		return nil, nil, errors.Errorf("Error while parsing path")
+		return nil, nil
 	}
 	// Start transaction
 	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
-		return nil, nil, err
+		return nil, nil
 	}
 	// Check path scope before start
 	if err := proxy.checkPathScope(ctx, txn, path); err != nil {
 		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
-		return nil, nil, err
+		return nil, nil
 	}
-	return path, txn, nil
+	return path, txn
 }
 
 func (proxy *restProxy) checkPathConflictsCommitAndRespond(ctx context.Context, txn storage.Transaction, opa *plugins.Manager, w http.ResponseWriter, path storage.Path) {
