@@ -2,7 +2,6 @@ package telemetry
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/Foundato/kelon/common"
 	"github.com/Foundato/kelon/pkg/constants/logging"
@@ -83,10 +82,6 @@ func (p *Prometheus) GetHTTPMetricsHandler() (http.Handler, error) {
 }
 
 func (p *Prometheus) CheckError(err error) {
-	// not needed in prometheus
-}
-
-func (p *Prometheus) MeasureRemoteDependency(request *http.Request, alias, dependencyType string, queryTime time.Duration, data string, success bool) {
 	// not needed in prometheus
 }
 

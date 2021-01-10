@@ -170,7 +170,7 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	}
 
 	// Otherwise translate ast
-	result, err := (*compiler.config.Translator).Process(queries, output.Datastore, req)
+	result, err := (*compiler.config.Translator).Process(queries, output.Datastore)
 	if err != nil {
 		compiler.handleError(w, errors.Wrap(err, "PolicyCompiler: Error during ast translation"))
 		return
