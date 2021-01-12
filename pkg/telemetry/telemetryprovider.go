@@ -2,7 +2,6 @@ package telemetry
 
 import (
 	"net/http"
-	"time"
 )
 
 type Provider interface {
@@ -12,10 +11,6 @@ type Provider interface {
 	GetHTTPMiddleware() (func(handler http.Handler) http.Handler, error)
 	// Get a handler which can be exposed as "/metrics" endpoint
 	GetHTTPMetricsHandler() (http.Handler, error)
-	// Check errors for additional metrics
-	CheckError(err error)
-	// Measure datastore endpoint
-	MeasureRemoteDependency(request *http.Request, alias string, dependencyType string, queryTime time.Duration, data string, success bool)
 	// Gracefully shutdown
 	Shutdown()
 }

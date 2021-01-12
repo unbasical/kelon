@@ -80,7 +80,6 @@ func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 func (proxy *restProxy) Start() error {
 	if !proxy.configured {
 		err := errors.Errorf("RestProxy was not configured! Please call Configure(). ")
-		proxy.handleErrorMetrics(err)
 		return err
 	}
 
@@ -114,7 +113,6 @@ func (proxy *restProxy) Start() error {
 	go func() {
 		logging.LogForComponent("restProxy").Infof("Starting server at: http://0.0.0.0:%d%s", proxy.port, proxy.pathPrefix)
 		if err := proxy.server.ListenAndServe(); err != nil {
-			proxy.handleErrorMetrics(err)
 			logging.LogForComponent("restProxy").Warn(err)
 		}
 	}()
@@ -126,12 +124,6 @@ func (proxy *restProxy) applyHandlerMiddlewareIfSet(handlerFunc func(http.Respon
 		return proxy.telemetryMiddleware(http.HandlerFunc(handlerFunc))
 	}
 	return http.HandlerFunc(handlerFunc)
-}
-
-func (proxy *restProxy) handleErrorMetrics(err error) {
-	if proxy.appConf.TelemetryProvider != nil {
-		proxy.appConf.TelemetryProvider.CheckError(err)
-	}
 }
 
 // See Stop() of api.ClientProxy
@@ -152,6 +144,7 @@ func (proxy *restProxy) Stop(deadline time.Duration) error {
 	proxy.server.SetKeepAlivesEnabled(false)
 	if err := proxy.server.Shutdown(ctx); err != nil {
 		logging.LogForComponent("restProxy").WithError(err).Error("Error while shutting down server")
+		return errors.Wrap(err, "Error while shutting down server")
 	}
 
 	select {

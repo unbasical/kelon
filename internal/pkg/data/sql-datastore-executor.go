@@ -2,7 +2,6 @@ package data
 
 import (
 	"database/sql"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -19,18 +18,14 @@ import (
 )
 
 type sqlDatastoreExecutor struct {
-	dbPool        *sql.DB
-	appConf       *configs.AppConfig
-	telemetryName string
-	telemetryType string
+	dbPool  *sql.DB
+	appConf *configs.AppConfig
 }
 
 func NewSQLDatastoreExecutor() data.DatastoreExecutor {
 	return &sqlDatastoreExecutor{
-		dbPool:        nil,
-		appConf:       nil,
-		telemetryName: "",
-		telemetryType: "",
+		dbPool:  nil,
+		appConf: nil,
 	}
 }
 
@@ -48,7 +43,7 @@ func (ds *sqlDatastoreExecutor) Configure(appConf *configs.AppConfig, alias stri
 	}
 
 	// Configure metadata
-	metadataError := ds.applyMetadataConfigs(alias, conf, appConf, db)
+	metadataError := ds.applyMetadataConfigs(conf, db)
 	if metadataError != nil {
 		return errors.Wrap(err, "sqlDatastoreExecutor: Error while configuring metadata")
 	}
@@ -64,13 +59,10 @@ func (ds *sqlDatastoreExecutor) Configure(appConf *configs.AppConfig, alias stri
 	return nil
 }
 
-func (ds *sqlDatastoreExecutor) applyMetadataConfigs(alias string, conf *configs.Datastore, appConf *configs.AppConfig, db *sql.DB) error {
+func (ds *sqlDatastoreExecutor) applyMetadataConfigs(conf *configs.Datastore, db *sql.DB) error {
 	if conf.Metadata == nil {
-		ds.telemetryName = constants.DefaultTelemetryName
-		ds.telemetryType = "SQL"
 		return nil
 	}
-
 	// Setup DatastoreTranslator
 	if maxOpenValue, ok := conf.Metadata[constants.MetaMaxOpenConnections]; ok {
 		maxOpen, err := strconv.Atoi(maxOpenValue)
@@ -93,40 +85,17 @@ func (ds *sqlDatastoreExecutor) applyMetadataConfigs(alias string, conf *configs
 		}
 		db.SetConnMaxLifetime(time.Second * time.Duration(maxLifetimeSeconds))
 	}
-
-	// Setup Telemetry
-	if appConf.TelemetryProvider != nil {
-		if telemetryName, ok := conf.Metadata[constants.MetaTelemetryName]; ok {
-			ds.telemetryName = telemetryName
-		} else {
-			ds.telemetryName = alias
-		}
-
-		if telemetryType, ok := conf.Metadata[constants.MetaTelemetryType]; ok {
-			ds.telemetryType = telemetryType
-		} else {
-			ds.telemetryType = conf.Type
-		}
-	}
 	return nil
 }
 
-func (ds *sqlDatastoreExecutor) Execute(statement interface{}, params []interface{}, queryContext interface{}) (bool, error) {
+func (ds *sqlDatastoreExecutor) Execute(statement interface{}, params []interface{}) (bool, error) {
 	sqlStatement, ok := statement.(string)
 	if !ok {
 		return false, errors.Errorf("Passed statement was not of type string but of type: %T", statement)
 	}
 
-	startTime := time.Now()
 	rows, err := ds.dbPool.Query(sqlStatement, params...)
 	if err != nil {
-		if ds.appConf.TelemetryProvider != nil {
-			httpRequest, ok := queryContext.(*http.Request)
-			if !ok {
-				return false, errors.Errorf("sqlDatastoreExecutor: Could not cast passed *http.Request from queryContext!")
-			}
-			ds.appConf.TelemetryProvider.MeasureRemoteDependency(httpRequest, ds.telemetryName, ds.telemetryType, time.Since(startTime), sqlStatement, false)
-		}
 		return false, errors.Wrap(err, "sqlDatastoreExecutor: Error while executing statement")
 	}
 	defer func() {
@@ -150,13 +119,6 @@ func (ds *sqlDatastoreExecutor) Execute(statement interface{}, params []interfac
 
 	if !result {
 		logging.LogForComponent("sqlDatastoreExecutor").Debugf("No resulting row with count > 0 found! -> DENIED")
-	}
-	if ds.appConf.TelemetryProvider != nil {
-		httpRequest, ok := queryContext.(*http.Request)
-		if !ok {
-			return false, errors.Errorf("sqlDatastoreExecutor: Could not cast passed *http.Request from queryContext!")
-		}
-		ds.appConf.TelemetryProvider.MeasureRemoteDependency(httpRequest, ds.telemetryName, ds.telemetryType, time.Since(startTime), sqlStatement, true)
 	}
 	return result, nil
 }

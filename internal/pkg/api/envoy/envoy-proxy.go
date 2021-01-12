@@ -220,10 +220,6 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_PERMISSION_DENIED)}
 	default:
 		proxyErr := errors.Wrap(errors.New(w.Body()), "EnvoyProxy: Error during request compilation")
-		// Write telemetry
-		if p.appConf.TelemetryProvider != nil {
-			p.appConf.TelemetryProvider.CheckError(proxyErr)
-		}
 		return nil, proxyErr
 	}
 

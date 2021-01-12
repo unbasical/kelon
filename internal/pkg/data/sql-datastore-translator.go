@@ -89,7 +89,7 @@ func (ds *sqlDatastoreTranslator) Configure(appConf *configs.AppConfig, alias st
 	return nil
 }
 
-func (ds *sqlDatastoreTranslator) Execute(query data.Node, queryContext interface{}) (bool, error) {
+func (ds *sqlDatastoreTranslator) Execute(query data.Node) (bool, error) {
 	if !ds.configured {
 		return false, errors.Errorf("SqlDatastoreTranslator was not configured! Please call Configure(). ")
 	}
@@ -99,7 +99,7 @@ func (ds *sqlDatastoreTranslator) Execute(query data.Node, queryContext interfac
 	statement, params := ds.translatePrepared(query)
 	logging.LogForComponent("sqlDatastoreTranslator").Debugf("EXECUTING STATEMENT: ==================%s==================\nPARAMS: %+v", statement, params)
 
-	return ds.executor.Execute(statement, params, queryContext)
+	return ds.executor.Execute(statement, params)
 }
 
 // nolint:gocyclo,gocritic

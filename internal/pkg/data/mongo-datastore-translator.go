@@ -89,7 +89,7 @@ func (ds *mongoDatastoreTranslator) Configure(appConf *configs.AppConfig, alias 
 	return nil
 }
 
-func (ds *mongoDatastoreTranslator) Execute(query data.Node, queryContext interface{}) (bool, error) {
+func (ds *mongoDatastoreTranslator) Execute(query data.Node) (bool, error) {
 	if !ds.configured {
 		return false, errors.Errorf("MongoDatastore was not configured! Please call Configure().")
 	}
@@ -99,7 +99,7 @@ func (ds *mongoDatastoreTranslator) Execute(query data.Node, queryContext interf
 	statements := ds.translate(query)
 	logging.LogForComponent("mongoDatastoreTranslator").Debugf("EXECUTING STATEMENT: ==================%s==================\n", statements)
 
-	return ds.executor.Execute(statements, nil, queryContext)
+	return ds.executor.Execute(statements, nil)
 }
 
 // nolint:gocyclo,gocritic
