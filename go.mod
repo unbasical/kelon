@@ -8,14 +8,14 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20190910110746-680d30ca3117 // indirect
-	github.com/envoyproxy/go-control-plane v0.9.1
+	github.com/envoyproxy/go-control-plane v0.9.7
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/golang/snappy v0.0.1 // indirect
-	github.com/google/go-cmp v0.3.1
-	github.com/google/uuid v1.1.1
+	github.com/google/go-cmp v0.5.0
+	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.7.3
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.2.0
@@ -29,7 +29,7 @@ require (
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/shirou/gopsutil v2.20.1+incompatible
 	github.com/sirupsen/logrus v1.4.2
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/tedsuo/ifrit v0.0.0-20191009134036-9a97d0632f00 // indirect
 	github.com/tidwall/pretty v1.0.1 // indirect
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
@@ -40,8 +40,8 @@ require (
 	golang.org/x/sys v0.0.0-20191010194322-b09406accb47 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	google.golang.org/appengine v1.5.0 // indirect
-	google.golang.org/genproto v0.0.0-20191009194640-548a555dbc03
-	google.golang.org/grpc v1.25.1
+	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
+	google.golang.org/grpc v1.34.1
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v2 v2.2.4 // indirect
