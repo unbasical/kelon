@@ -143,8 +143,8 @@ func (proxy *restProxy) Stop(deadline time.Duration) error {
 	})
 	proxy.server.SetKeepAlivesEnabled(false)
 	if err := proxy.server.Shutdown(ctx); err != nil {
-		return errors.Wrap(err, "Error while shutting down server")
 		logging.LogForComponent("restProxy").WithError(err).Error("Error while shutting down server")
+		return errors.Wrap(err, "Error while shutting down server")
 	}
 
 	select {

@@ -77,10 +77,12 @@ func (proxy *restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Prepare transaction
-	path, txn := proxy.preparePathCheckedTransaction(ctx, r.URL.Path, opa, w)
-
+	path, txn, err := proxy.preparePathCheckedTransaction(ctx, r.URL.Path, opa, w)
+	if err != nil {
+		return
+	}
 	// Read from store and check if data already exists
-	_, err := opa.Store.Read(ctx, txn, path)
+	_, err = opa.Store.Read(ctx, txn, path)
 	if err != nil {
 		if !storage.IsNotFound(err) {
 			proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
@@ -162,9 +164,11 @@ func (proxy *restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Reques
 	opa := (*proxy.config.Compiler).GetEngine()
 
 	// Prepare transaction
-	path, txn := proxy.preparePathCheckedTransaction(ctx, r.URL.Path, opa, w)
-
-	_, err := opa.Store.Read(ctx, txn, path)
+	path, txn, err := proxy.preparePathCheckedTransaction(ctx, r.URL.Path, opa, w)
+	if err != nil {
+		return
+	}
+	_, err = opa.Store.Read(ctx, txn, path)
 	if err != nil {
 		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
 		return
@@ -429,25 +433,25 @@ func (proxy *restProxy) prepareV1PatchSlice(root string, ops []types.PatchV1) (r
 	return result, nil
 }
 
-func (proxy *restProxy) preparePathCheckedTransaction(ctx context.Context, rawPath string, opa *plugins.Manager, w http.ResponseWriter) (storage.Path, storage.Transaction) {
+func (proxy *restProxy) preparePathCheckedTransaction(ctx context.Context, rawPath string, opa *plugins.Manager, w http.ResponseWriter) (storage.Path, storage.Transaction, error) {
 	// Parse Path
 	path, ok := storage.ParsePathEscaped("/" + strings.Trim(rawPath, "/"))
 	if !ok {
 		writeBadPath(w, rawPath)
-		return nil, nil
+		return nil, nil, errors.Errorf("Error while parsing path")
 	}
 	// Start transaction
 	txn, err := opa.Store.NewTransaction(ctx, storage.WriteParams)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, types.CodeInternal, err)
-		return nil, nil
+		return nil, nil, err
 	}
 	// Check path scope before start
 	if err := proxy.checkPathScope(ctx, txn, path); err != nil {
 		proxy.abortWithInternalServerError(ctx, opa, txn, w, err)
-		return nil, nil
+		return nil, nil, err
 	}
-	return path, txn
+	return path, txn, nil
 }
 
 func (proxy *restProxy) checkPathConflictsCommitAndRespond(ctx context.Context, txn storage.Transaction, opa *plugins.Manager, w http.ResponseWriter, path storage.Path) {
