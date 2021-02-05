@@ -1,0 +1,774 @@
+{
+  "info": {
+    "_postman_id": "5420eb9d-150f-4d42-a1ae-15487bd695bf",
+    "name": "Kelon CI/CD E2E",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "MySQL",
+      "item": [
+        {
+          "name": "MySQL: First App visible for everyone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/1\",\n        \"user\": \"Test\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MySQL: Arnold can access his app",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": [\"api\", \"mysql\", \"apps\", \"2\"],\n        \"user\": \"Arnold\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MySQL: Anyone can't access Arnold's app",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Anyone\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MySQL: Kevin can access Arnold's app",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MySQL: Anyone can access app with 5 stars",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "PostgreSQL",
+      "item": [
+        {
+          "name": "PostgreSQL: First App visible for everyone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/1\",\n        \"user\": \"Test\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PostgreSQL: Arnold can access his app",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Arnold\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PostgreSQL: Anyone can't access Arnold's app",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Anyone\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PostgreSQL: Kevin can access Arnold's app",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PostgreSQL: Anyone can access app with 5 stars",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "MongoDB",
+      "item": [
+        {
+          "name": "MongoDB: First App visible for everyone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/1\",\n        \"user\": \"Test\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MongoDB: Arnold can access his app",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Arnold\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MongoDB: Anyone can't access Arnold's app",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Anyone\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MongoDB: Kevin can access Arnold's app",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MongoDB: Anyone can access app with 5 stars",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

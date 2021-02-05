@@ -46,3 +46,4 @@ allow = true {
     data.pg.users[user].name == input.user
     user.friend == "Kevin"
 }
+
