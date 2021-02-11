@@ -51,7 +51,7 @@ e2e-test:
 load-test:
 	docker-compose up --build -d
 
-	if [[ $$(ls ./test/load/scripts | wc -l ) -eq 4 ]]; then make load-test-update-postman; fi
+	if [[ $$(ls ./test/load/scripts | wc -l ) -ne 4 ]]; then make load-test-update-postman; fi
 
 	while [[ "$$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8181/health)" != "200" ]]; do sleep 2; done
 
