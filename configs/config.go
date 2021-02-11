@@ -1,4 +1,4 @@
-// Central package for app-global configs.
+// Central package for app-global config.
 package configs
 
 import (
@@ -16,7 +16,7 @@ type AppConfig struct {
 	TelemetryProvider telemetry.Provider
 }
 
-// External configs.
+// External config.
 type ExternalConfig struct {
 	Data *DatastoreConfig
 	API  *APIConfig
@@ -30,7 +30,7 @@ type ConfigLoader interface {
 	Load() (*ExternalConfig, error)
 }
 
-// ByteConfigLoader implements configs.ConfigLoader by loading configs from
+// ByteConfigLoader implements configs.ConfigLoader by loading config from
 // two provided bytes slices.
 type ByteConfigLoader struct {
 	DatastoreConfigBytes []byte
@@ -62,7 +62,7 @@ func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 		return nil, errors.Errorf("Unable to parse api config: " + err.Error())
 	}
 
-	// Validate configs
+	// Validate config
 	if err := result.Data.validate(); err != nil {
 		return nil, errors.Wrap(err, "Loaded invalid datastore config")
 	}
@@ -70,7 +70,7 @@ func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 	return result, nil
 }
 
-// FileConfigLoader implements configs.ConfigLoader by loading configs from
+// FileConfigLoader implements configs.ConfigLoader by loading config from
 // two files located at given paths.
 type FileConfigLoader struct {
 	DatastoreConfigPath string

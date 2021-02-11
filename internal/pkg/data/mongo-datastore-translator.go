@@ -16,7 +16,7 @@ type mongoDatastoreTranslator struct {
 	appConf     *configs.AppConfig
 	alias       string
 	entityPaths map[string]map[string][]string
-	callOps     map[string]func(args ...string) string
+	callOps     map[string]func(args ...string) (string, error)
 	configured  bool
 	executor    data.DatastoreExecutor
 }
@@ -96,14 +96,18 @@ func (ds *mongoDatastoreTranslator) Execute(query data.Node) (bool, error) {
 	logging.LogForComponent("mongoDatastoreTranslator").Debugf("TRANSLATING QUERY: ==================%+v==================", query.String())
 
 	// Translate to map: collection -> filter
-	statements := ds.translate(query)
+	statements, err := ds.translate(query)
+	if err != nil {
+		return false, err
+	}
+
 	logging.LogForComponent("mongoDatastoreTranslator").Debugf("EXECUTING STATEMENT: ==================%s==================\n", statements)
 
 	return ds.executor.Execute(statements, nil)
 }
 
 // nolint:gocyclo,gocritic
-func (ds *mongoDatastoreTranslator) translate(input data.Node) map[string]string {
+func (ds *mongoDatastoreTranslator) translate(input data.Node) (map[string]string, error) {
 	type colFilter struct {
 		collection string
 		filter     string
@@ -115,9 +119,8 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) map[string]string
 	var entities util.SStack
 	var relations util.SStack
 	var operands util.OpStack
-
 	// Walk input
-	input.Walk(func(q data.Node) {
+	err := input.Walk(func(q data.Node) error {
 		switch v := q.(type) {
 		case data.Union:
 			// Sort collection filters by collection
@@ -139,6 +142,7 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) map[string]string
 				// Postprocessing
 				// If the collection is i.e. apps, then remove all occurrences of 'apps.' in the mapped filters
 				collection := collection // pin!
+				var err error
 				finalFilter := entityMatcher.ReplaceAllStringFunc(combinedFilter, func(match string) string {
 					entity := match[2 : len(match)-3] // Extract entity. Each match has format: {{<entity>.}}
 
@@ -152,9 +156,14 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) map[string]string
 						// Skip collection in path
 						return strings.Join(path[1:], ".") + "."
 					}
-					logging.LogForComponent("mongoDatastoreTranslator").Panic(fmt.Sprintf("Unable to find mapping for entity %q in collection %q", entity, collection))
+					err = errors.Errorf("Unable to find mapping for entity %q in collection %q", entity, collection)
 					return ""
 				})
+
+				// Stop function in case of error
+				if err != nil {
+					return err
+				}
 
 				result[collection] = finalFilter
 			}
@@ -170,7 +179,7 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) map[string]string
 			if len(relations) > 0 {
 				condition = relations[0]
 				if len(relations) != 1 {
-					logging.LogForComponent("mongoDatastoreTranslator").Errorf("Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", len(relations))
+					return errors.Errorf("Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", len(relations))
 				}
 			}
 
@@ -218,9 +227,15 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) map[string]string
 			if mongoCallOp, ok := ds.callOps[op]; ok {
 				// Expected stack:  top -> [args..., call-op]
 				logging.LogForComponent("mongoDatastoreTranslator").Debugln("NEW FUNCTION CALL")
-				nextRel = mongoCallOp(ops[1:]...)
+				var callOpError error
+				nextRel, callOpError = mongoCallOp(ops[1:]...)
+				// Check for call operand error
+				if callOpError != nil {
+					return callOpError
+				}
 			} else {
-				logging.LogForComponent("mongoDatastoreTranslator").Panic(fmt.Sprintf("Datastores: Operator [%s] is not supported!", op))
+				// Stop function in case of error
+				return errors.Errorf("Datastores: Operator [%s] is not supported!", op)
 			}
 
 			if len(operands) > 0 {
@@ -243,9 +258,13 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) map[string]string
 				operands.AppendToTop(fmt.Sprintf("\"%s\"", v.String()))
 			}
 		default:
-			logging.LogForComponent("mongoDatastoreTranslator").Warnf("Unexpected input: %T -> %+v", v, v)
+			// Stop function in case of error
+			return errors.Errorf("Unexpected input: %T -> %+v", v, v)
 		}
+		return nil
 	})
-
-	return result
+	if err != nil {
+		logging.LogForComponent("mongoDatastoreTranslator").Debug(err)
+	}
+	return result, errors.Wrap(err, "mongoDatastoreTranslator")
 }

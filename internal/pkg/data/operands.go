@@ -24,10 +24,11 @@ func (h GenericCallOpMapper) Handles() string {
 	return h.operator
 }
 
-func (h GenericCallOpMapper) Map(args ...string) string {
+func (h GenericCallOpMapper) Map(args ...string) (string, error) {
 	argsLen := len(args)
 	if argsLen < h.argsCount || argsLen > (h.argsCount+1) {
-		logging.LogForComponent("GenericCallOpMapper").Fatalf("Call-handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.operator, h.argsCount, h.argsCount+1, args)
+		logging.LogForComponent("GenericCallOpMapper").Debugf("Call-handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.operator, h.argsCount, h.argsCount+1, args)
+		return "", errors.Errorf("Call-handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.operator, h.argsCount, h.argsCount+1, args)
 	}
 
 	var (
@@ -45,7 +46,7 @@ func (h GenericCallOpMapper) Map(args ...string) string {
 	if err != nil {
 		logging.LogForComponent("GenericCallOpMapper").Fatalf("Call-handler [%s] failed due to error: %s", h.operator, err.Error())
 	}
-	return result
+	return result, nil
 }
 
 type callHandlers struct {
@@ -83,10 +84,11 @@ func (h *loadedCallHandler) Init() error {
 	return nil
 }
 
-func (h *loadedCallHandler) Map(args ...string) string {
+func (h *loadedCallHandler) Map(args ...string) (string, error) {
 	argsLen := len(args)
 	if argsLen < h.ArgsCount || argsLen > (h.ArgsCount+1) {
-		logging.LogForComponent("GenericCallOpMapper").Fatalf("Call-Handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.Operator, h.ArgsCount, h.ArgsCount+1, args)
+		logging.LogForComponent("GenericCallOpMapper").Debugf("Call-Handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.Operator, h.ArgsCount, h.ArgsCount+1, args)
+		return "", errors.Errorf("Call-Handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.Operator, h.ArgsCount, h.ArgsCount+1, args)
 	}
 
 	// Rearrange args if mapping is specified
@@ -102,10 +104,10 @@ func (h *loadedCallHandler) Map(args ...string) string {
 
 	// Handle call with default comparison
 	if argsLen > h.ArgsCount {
-		return fmt.Sprintf(h.targetMapping+" = %s", rearangedArgs...)
+		return fmt.Sprintf(h.targetMapping+" = %s", rearangedArgs...), nil
 	}
 	// Handle any other
-	return fmt.Sprintf(h.targetMapping, rearangedArgs...)
+	return fmt.Sprintf(h.targetMapping, rearangedArgs...), nil
 }
 
 func LoadDatastoreCallOpsBytes(input []byte) ([]data.CallOpMapper, error) {

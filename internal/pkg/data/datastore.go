@@ -62,14 +62,14 @@ func pingUntilReachable(alias string, ping func() error) error {
 	return nil
 }
 
-func loadCallOperands(conf *configs.Datastore) (map[string]func(args ...string) string, error) {
+func loadCallOperands(conf *configs.Datastore) (map[string]func(args ...string) (string, error), error) {
 	callOpsFile := fmt.Sprintf("./call-operands/%s.yml", strings.ToLower(conf.Type))
 	handlers, err := LoadDatastoreCallOpsFile(callOpsFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to load call operands as handlers")
 	}
 
-	operands := map[string]func(args ...string) string{}
+	operands := map[string]func(args ...string) (string, error){}
 	for _, handler := range handlers {
 		operands[handler.Handles()] = handler.Map
 	}

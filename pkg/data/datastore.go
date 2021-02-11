@@ -54,5 +54,5 @@ type CallOpMapper interface {
 	Handles() string
 
 	// Return the corresponding datastore native function (i.e. 'ABS(<arguments>)').
-	Map(args ...string) string
+	Map(args ...string) (string, error)
 }
