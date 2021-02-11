@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -11,9 +12,10 @@ import (
 	"strings"
 	"testing"
 
+	opa2 "github.com/Foundato/kelon/internal/pkg/opa"
+
 	"github.com/Foundato/kelon/configs"
 	dataInt "github.com/Foundato/kelon/internal/pkg/data"
-	opa2 "github.com/Foundato/kelon/internal/pkg/opa"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
 	translateInt "github.com/Foundato/kelon/internal/pkg/translate"
 	watcherInt "github.com/Foundato/kelon/internal/pkg/watcher"
@@ -32,9 +34,19 @@ func TestMain(m *testing.M) {
 	os.Exit(exitVal)
 }
 
+type PolicyCompilerTestEnvironment struct {
+	configWatcher  watcher.ConfigWatcher
+	policyCompiler opa.PolicyCompiler
+	t              *testing.T
+}
+
 func TestPolicyCompiler(t *testing.T) {
 	// change root path for files
-	_, filename, _, _ := runtime.Caller(0)
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Error(errors.New("error changing root for policyCompilerIntegration_test"))
+		t.FailNow()
+	}
 	dir := path.Join(path.Dir(filename), "../..")
 	err := os.Chdir(dir)
 	if err != nil {
@@ -47,12 +59,15 @@ func TestPolicyCompiler(t *testing.T) {
 		APIConfigPath:       "./examples/local/config/api.yml",
 	}
 
-	// init configwatcher to setup policycompiler
-	newConfigWatcher := watcherInt.NewFileWatcher(configLoader, "./examples/local/policies")
-	var compiler opa.PolicyCompiler
-	newConfigWatcher.Watch(
+	// init policyCompiler to setup configWatcher
+	testEnvironment := PolicyCompilerTestEnvironment{
+		policyCompiler: opa2.NewPolicyCompiler(),
+		configWatcher:  watcherInt.NewFileWatcher(configLoader, "./examples/local/policies"),
+	}
+
+	testEnvironment.configWatcher.Watch(
 		func(changeType watcher.ChangeType, config *configs.ExternalConfig, err error) {
-			onConfigLoaded(changeType, config, err, &compiler, &newConfigWatcher, t)
+			testEnvironment.onConfigLoaded(changeType, config, err)
 		})
 
 	// open and parse policycompiler test requests
@@ -82,7 +97,7 @@ func TestPolicyCompiler(t *testing.T) {
 			t.FailNow()
 		}
 		w := httptest.NewRecorder()
-		compiler.ServeHTTP(w, kelonRequest)
+		testEnvironment.policyCompiler.ServeHTTP(w, kelonRequest)
 
 		// assert response status
 		resp := w.Result()
@@ -98,10 +113,10 @@ func TestPolicyCompiler(t *testing.T) {
 	}
 }
 
-func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfig, err error, pCompiler *opa.PolicyCompiler, configWatcher *watcher.ConfigWatcher, t *testing.T) {
+func (p *PolicyCompilerTestEnvironment) onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfig, err error) {
 	if err != nil {
-		t.Error(err)
-		t.FailNow()
+		p.t.Error(err)
+		p.t.FailNow()
 	}
 
 	if change == watcher.ChangeAll {
@@ -113,40 +128,38 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 			translator = translateInt.NewAstTranslator()
 		)
 
-		*pCompiler = opa2.NewPolicyCompiler()
-
 		// Build config
 		config.API = loadedConf.API
 		config.Data = loadedConf.Data
-		serverConf := makeServerConfig(*pCompiler, parser, mapper, translator, loadedConf, configWatcher, t)
-		if configErr := (*pCompiler).Configure(config, &serverConf.PolicyCompilerConfig); configErr != nil {
-			t.Error(err)
-			t.FailNow()
+		serverConf := p.makeServerConfig(parser, mapper, translator, loadedConf)
+		if configErr := p.policyCompiler.Configure(config, &serverConf.PolicyCompilerConfig); configErr != nil {
+			p.t.Error(err)
+			p.t.FailNow()
 		}
 	}
 }
 
-func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig, configWatcher *watcher.ConfigWatcher, t *testing.T) api.ClientProxyConfig {
+func (p *PolicyCompilerTestEnvironment) makeServerConfig(parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
 	pathPrefix := "/v1"
 	opaPath := "./examples/local/config/opa.yml"
 	regoDir := "./examples/local/policies"
 
 	// Build server config
 	serverConf := api.ClientProxyConfig{
-		Compiler: &compiler,
+		Compiler: &p.policyCompiler,
 		PolicyCompilerConfig: opa.PolicyCompilerConfig{
 			RespondWithStatusCode: false,
 			Prefix:                &pathPrefix,
 			OpaConfigPath:         &opaPath,
 			RegoDir:               &regoDir,
-			ConfigWatcher:         configWatcher,
+			ConfigWatcher:         &p.configWatcher,
 			PathProcessor:         &parser,
 			PathProcessorConfig: request.PathProcessorConfig{
 				PathMapper: &mapper,
 			},
 			Translator: &translator,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
-				Datastores: mockMakeDatastores(loadedConf.Data, t),
+				Datastores: p.mockMakeDatastores(loadedConf.Data),
 			},
 			AccessDecisionLogLevel: strings.ToUpper("ALL"),
 		},
@@ -154,10 +167,10 @@ func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor,
 	return serverConf
 }
 
-func mockMakeDatastores(config *configs.DatastoreConfig, t *testing.T) map[string]*data.DatastoreTranslator {
+func (p *PolicyCompilerTestEnvironment) mockMakeDatastores(config *configs.DatastoreConfig) map[string]*data.DatastoreTranslator {
 	result := make(map[string]*data.DatastoreTranslator)
 	// create and insert mocked db executor into all datastores
-	mocked := NewMockedDatastoreExecuter(t)
+	mocked := NewMockedDatastoreExecuter(p.t)
 	for dsName, ds := range config.Datastores {
 		if ds.Type == data.TypeMysql || ds.Type == data.TypePostgres {
 			newDs := dataInt.NewSQLDatastore(mocked)
