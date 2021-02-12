@@ -91,7 +91,7 @@ func (ds *sqlDatastoreTranslator) Configure(appConf *configs.AppConfig, alias st
 
 func (ds *sqlDatastoreTranslator) Execute(query data.Node) (bool, error) {
 	if !ds.configured {
-		return false, errors.Errorf("SqlDatastoreTranslator was not configured! Please call Configure(). ")
+		return false, errors.Errorf("SqlDatastoreTranslator: DatastoreTranslator was not configured! Please call Configure(). ")
 	}
 	logging.LogForComponent("sqlDatastoreTranslator").Debugf("TRANSLATING QUERY: ==================%+v==================", query.String())
 
@@ -143,7 +143,7 @@ func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, 
 			if len(relations) > 0 {
 				condition = relations[0]
 				if len(relations) != 1 {
-					return errors.Errorf("Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", len(relations))
+					return errors.Errorf("SqlDatastoreTranslator: Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", len(relations))
 				}
 			}
 
@@ -201,7 +201,7 @@ func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, 
 					return callOpError
 				}
 			} else {
-				return errors.Errorf("Operator [%s] is not supported!", op)
+				return errors.Errorf("SqlDatastoreTranslator: Unable to find mapping for operator [%s] in your policy by any of your datastore config!", op)
 			}
 			if len(operands) > 0 {
 				// If we are in nested call -> push as operand
@@ -230,14 +230,14 @@ func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, 
 			values = append(values, v.String())
 			operands.AppendToTop(getPreparePlaceholderForPlatform(ds.platform, len(values)))
 		default:
-			return errors.Errorf("Unexpected input: %T -> %+v", v, v)
+			return errors.Errorf("SqlDatastoreTranslator: Unexpected input: %T -> %+v", v, v)
 		}
 		return nil
 	})
 	if err != nil {
-		logging.LogForComponent("sqlDatastoreTranslator").Debug(err)
+		logging.LogForComponent("sqlDatastoreTranslator: ").Debug(err)
 	}
-	return strings.Join(query, ""), values, errors.Wrap(err, "sqlDatastoreTranslator")
+	return strings.Join(query, ""), values, err
 }
 
 func (ds *sqlDatastoreTranslator) findSchemaForEntity(search string) (string, *configs.Entity, error) {
@@ -247,6 +247,6 @@ func (ds *sqlDatastoreTranslator) findSchemaForEntity(search string) (string, *c
 			return schema, entity, nil
 		}
 	}
-	err := errors.Errorf("No schema found for entity %s in datastore with alias %s", search, ds.alias)
+	err := errors.Errorf("SqlDatastoreTranslator: No schema found for entity %s in datastore with alias %s", search, ds.alias)
 	return "", &configs.Entity{}, err
 }

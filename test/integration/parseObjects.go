@@ -5,9 +5,9 @@ type DBTranslatorResponses struct {
 }
 
 type DBQuery struct {
-	Query  string `yaml:"query"`
-	Params string `yaml:"params"`
-	Text   string `yaml:"text"`
+	Query  map[string]string `yaml:"query"`
+	Params string            `yaml:"params"`
+	Text   string            `yaml:"text"`
 }
 
 type DBTranslatorRequests struct {

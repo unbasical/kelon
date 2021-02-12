@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -29,22 +28,59 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestMain(m *testing.M) {
-	exitVal := m.Run()
-	os.Exit(exitVal)
+func Test_integration_policyCompiler(t *testing.T) {
+	type fields struct {
+		dsConfigPath         string
+		apiConfigPath        string
+		policiesPath         string
+		evaluatedQueriesPath string
+		requestPath          string
+		opaPath              string
+		pathPrefix           string
+	}
+
+	tests := []struct {
+		name   string
+		fields fields
+	}{
+		{
+			name: "Test",
+			fields: fields{
+				"./examples/local/config/datastore.yml",
+				"./examples/local/config/api.yml",
+				"./examples/local/policies",
+				"./test/integration/config/dbQueries.yml",
+				"./test/integration/config/dbRequests.yml",
+				"./examples/local/config/opa.yml",
+				"/v1",
+			},
+		},
+	}
+	for _, tt := range tests {
+		// redefining scope variable for to bypass parallel execution error
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			runPolicyCompilerTest(t, tt.name, tt.fields.dsConfigPath, tt.fields.apiConfigPath, tt.fields.policiesPath, tt.fields.evaluatedQueriesPath, tt.fields.requestPath, tt.fields.opaPath, tt.fields.pathPrefix)
+		})
+	}
 }
 
 type PolicyCompilerTestEnvironment struct {
-	configWatcher  watcher.ConfigWatcher
-	policyCompiler opa.PolicyCompiler
-	t              *testing.T
+	name                 string
+	configWatcher        watcher.ConfigWatcher
+	policyCompiler       opa.PolicyCompiler
+	t                    *testing.T
+	opaPath              string
+	pathPrefix           string
+	policiesPath         string
+	evaluatedQueriesPath string
 }
 
-func TestPolicyCompiler(t *testing.T) {
+func runPolicyCompilerTest(t *testing.T, testName, dsConfigPath, apiConfigPath, policiesPath, evaluatedQueriesPath, requestPath, opaPath, pathPrefix string) {
 	// change root path for files
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		t.Error(errors.New("error changing root for policyCompilerIntegration_test"))
+		t.Errorf("error while changing root for test %s", testName)
 		t.FailNow()
 	}
 	dir := path.Join(path.Dir(filename), "../..")
@@ -55,14 +91,19 @@ func TestPolicyCompiler(t *testing.T) {
 
 	// init configloader
 	configLoader := configs.FileConfigLoader{
-		DatastoreConfigPath: "./examples/local/config/datastore.yml",
-		APIConfigPath:       "./examples/local/config/api.yml",
+		DatastoreConfigPath: dsConfigPath,
+		APIConfigPath:       apiConfigPath,
 	}
 
 	// init policyCompiler to setup configWatcher
 	testEnvironment := PolicyCompilerTestEnvironment{
-		policyCompiler: opa2.NewPolicyCompiler(),
-		configWatcher:  watcherInt.NewFileWatcher(configLoader, "./examples/local/policies"),
+		name:                 testName,
+		policyCompiler:       opa2.NewPolicyCompiler(),
+		configWatcher:        watcherInt.NewFileWatcher(configLoader, policiesPath),
+		opaPath:              opaPath,
+		pathPrefix:           pathPrefix,
+		policiesPath:         policiesPath,
+		evaluatedQueriesPath: evaluatedQueriesPath,
 	}
 
 	testEnvironment.configWatcher.Watch(
@@ -72,7 +113,7 @@ func TestPolicyCompiler(t *testing.T) {
 
 	// open and parse policycompiler test requests
 	requests := &DBTranslatorRequests{}
-	inputBytes, err := ioutil.ReadFile("./test/integration/config/dbRequests.yml")
+	inputBytes, err := ioutil.ReadFile(requestPath)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
@@ -103,7 +144,7 @@ func TestPolicyCompiler(t *testing.T) {
 		resp := w.Result()
 		statusCode := requests.Requests[strconv.Itoa(counter)].ResponseStatus
 		if strconv.Itoa(resp.StatusCode) != statusCode {
-			t.Error(err)
+			t.Errorf("Response status %s does not match expected status: %s in %s", strconv.Itoa(resp.StatusCode), statusCode, testName)
 			t.FailNow()
 		}
 
@@ -140,9 +181,9 @@ func (p *PolicyCompilerTestEnvironment) onConfigLoaded(change watcher.ChangeType
 }
 
 func (p *PolicyCompilerTestEnvironment) makeServerConfig(parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
-	pathPrefix := "/v1"
-	opaPath := "./examples/local/config/opa.yml"
-	regoDir := "./examples/local/policies"
+	pathPrefix := p.pathPrefix
+	opaPath := p.opaPath
+	regoDir := p.policiesPath
 
 	// Build server config
 	serverConf := api.ClientProxyConfig{
@@ -170,7 +211,7 @@ func (p *PolicyCompilerTestEnvironment) makeServerConfig(parser request.PathProc
 func (p *PolicyCompilerTestEnvironment) mockMakeDatastores(config *configs.DatastoreConfig) map[string]*data.DatastoreTranslator {
 	result := make(map[string]*data.DatastoreTranslator)
 	// create and insert mocked db executor into all datastores
-	mocked := NewMockedDatastoreExecuter(p.t)
+	mocked := NewMockedDatastoreExecuter(p.t, p.evaluatedQueriesPath, p.name)
 	for dsName, ds := range config.Datastores {
 		if ds.Type == data.TypeMysql || ds.Type == data.TypePostgres {
 			newDs := dataInt.NewSQLDatastore(mocked)

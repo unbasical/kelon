@@ -17,10 +17,12 @@ type MockedDatastoreExecuter struct {
 	counter   int
 	responses DBTranslatorResponses
 	t         *testing.T
+	testName  string
 }
 
-func NewMockedDatastoreExecuter(t *testing.T) *MockedDatastoreExecuter {
+func NewMockedDatastoreExecuter(t *testing.T, dbQueriesPath, testName string) *MockedDatastoreExecuter {
 	mocked := new(MockedDatastoreExecuter)
+	mocked.testName = testName
 	mocked.On("Configure", mock.Anything, mock.Anything).Return(nil)
 	mocked.On("Execute", mock.Anything, mock.Anything).Return(true, nil)
 
@@ -30,7 +32,7 @@ func NewMockedDatastoreExecuter(t *testing.T) *MockedDatastoreExecuter {
 	response := &DBTranslatorResponses{}
 
 	// Open config file
-	inputBytes, err := ioutil.ReadFile("./test/integration/config/dbQueries.yml")
+	inputBytes, err := ioutil.ReadFile(dbQueriesPath)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
@@ -50,20 +52,12 @@ func (m *MockedDatastoreExecuter) Execute(statement interface{}, params []interf
 
 	// statement map check for mongo datastores, sql datastores have simple string statement
 	if reflect.ValueOf(statement).Kind() == reflect.Map {
-		statementString := ""
-		statementMap := statement.(map[string]string)
-		for _, value := range []string{"apps", "users"} {
-			if statementString == "" {
-				statementString = fmt.Sprintf("%s, %s", value, statementMap[value])
-			} else {
-				statementString = fmt.Sprintf("%s, %s, %s", statementString, value, statementMap[value])
+		convertedStatement := statement.(map[string]string)
+		for key, value := range convertedStatement {
+			if currentResponse.Query[key] != value {
+				m.t.Errorf("Testname: %s / Count %d / Key %s : Query %s does not match expected result %s", m.testName, m.counter, key, value, currentResponse.Query[key])
+				m.t.FailNow()
 			}
-		}
-
-		// assert statement
-		if statementString != currentResponse.Query {
-			m.t.Errorf("Query %d does not match equal. Expected result %s /%s and translated result %s /%s ", m.counter, currentResponse.Query, currentResponse.Params, statementString, params)
-			m.t.FailNow()
 		}
 	} else {
 		// convert params slice to single string
@@ -77,12 +71,11 @@ func (m *MockedDatastoreExecuter) Execute(statement interface{}, params []interf
 		}
 
 		// assert statement and params
-		if statement != currentResponse.Query && paramsString != currentResponse.Params {
-			m.t.Errorf("Query %d does not match equal. Expected result %s /%s and translated result %s /%s ", m.counter, currentResponse.Query, currentResponse.Params, statement, paramsString)
+		if statement != currentResponse.Query["sql"] && paramsString != currentResponse.Params {
+			m.t.Errorf("Testname: %s / Count %d : Query %s / %s does not match expected result %s / %s", m.testName, m.counter, statement, paramsString, currentResponse.Query, currentResponse.Params)
 			m.t.FailNow()
 		}
 	}
-
 	m.counter++
 	return true, nil
 }

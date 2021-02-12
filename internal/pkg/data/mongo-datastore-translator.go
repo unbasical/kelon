@@ -48,7 +48,7 @@ func (ds *mongoDatastoreTranslator) Configure(appConf *configs.AppConfig, alias 
 		return errors.Errorf("MongoDatastoreTranslator: DatastoreExecutor not configured!")
 	}
 	if err := ds.executor.Configure(appConf, alias); err != nil {
-		return errors.Wrap(err, "MongoDatastoreTranslator: Error while configuring datastore executor")
+		return errors.Wrap(err, "Error while configuring datastore executor")
 	}
 
 	// Validate config
@@ -91,7 +91,7 @@ func (ds *mongoDatastoreTranslator) Configure(appConf *configs.AppConfig, alias 
 
 func (ds *mongoDatastoreTranslator) Execute(query data.Node) (bool, error) {
 	if !ds.configured {
-		return false, errors.Errorf("MongoDatastore was not configured! Please call Configure().")
+		return false, errors.Errorf("MongoDatastoreTranslator: Datastore was not configured! Please call Configure().")
 	}
 	logging.LogForComponent("mongoDatastoreTranslator").Debugf("TRANSLATING QUERY: ==================%+v==================", query.String())
 
@@ -156,7 +156,7 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) (map[string]strin
 						// Skip collection in path
 						return strings.Join(path[1:], ".") + "."
 					}
-					err = errors.Errorf("Unable to find mapping for entity %q in collection %q", entity, collection)
+					err = errors.Errorf("MongoDatastoreTranslator: Unable to find mapping for entity %q in collection %q", entity, collection)
 					return ""
 				})
 
@@ -179,7 +179,7 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) (map[string]strin
 			if len(relations) > 0 {
 				condition = relations[0]
 				if len(relations) != 1 {
-					return errors.Errorf("Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", len(relations))
+					return errors.Errorf("MongoDatastoreTranslator: Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", len(relations))
 				}
 			}
 
@@ -235,7 +235,7 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) (map[string]strin
 				}
 			} else {
 				// Stop function in case of error
-				return errors.Errorf("Datastores: Operator [%s] is not supported!", op)
+				return errors.Errorf("MongoDatastoreTranslator: Unable to find mapping for operator [%s] in your policy by any of your datastore config!", op)
 			}
 
 			if len(operands) > 0 {
@@ -259,12 +259,12 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) (map[string]strin
 			}
 		default:
 			// Stop function in case of error
-			return errors.Errorf("Unexpected input: %T -> %+v", v, v)
+			return errors.Errorf("MongoDatastoreTranslator: Unexpected input: %T -> %+v", v, v)
 		}
 		return nil
 	})
 	if err != nil {
 		logging.LogForComponent("mongoDatastoreTranslator").Debug(err)
 	}
-	return result, errors.Wrap(err, "mongoDatastoreTranslator")
+	return result, err
 }

@@ -113,8 +113,7 @@ func (a Attribute) String() string {
 
 // Implements data.Node
 func (a Attribute) Walk(vis func(v Node) error) error {
-	err := a.Entity.Walk(vis)
-	if err != nil {
+	if err := a.Entity.Walk(vis); err != nil {
 		return err
 	}
 	return vis(a)
@@ -132,14 +131,12 @@ func (c Call) String() string {
 
 // Implements data.Node
 func (c Call) Walk(vis func(v Node) error) error {
-	err := c.Operator.Walk(vis)
-	if err != nil {
+	if err := c.Operator.Walk(vis); err != nil {
 		return err
 	}
 	for _, o := range c.Operands {
-		operandErr := o.Walk(vis)
-		if operandErr != nil {
-			return operandErr
+		if err := o.Walk(vis); err != nil {
+			return err
 		}
 	}
 	return vis(c)
@@ -157,8 +154,7 @@ func (c Conjunction) String() string {
 // Implements data.Node
 func (c Conjunction) Walk(vis func(v Node) error) error {
 	for _, o := range c.Clauses {
-		err := o.Walk(vis)
-		if err != nil {
+		if err := o.Walk(vis); err != nil {
 			return err
 		}
 	}
@@ -177,8 +173,7 @@ func (d Disjunction) String() string {
 // Implements data.Node
 func (d Disjunction) Walk(vis func(v Node) error) error {
 	for _, o := range d.Clauses {
-		err := o.Walk(vis)
-		if err != nil {
+		if err := o.Walk(vis); err != nil {
 			return err
 		}
 	}
@@ -192,8 +187,7 @@ func (c Condition) String() string {
 
 // Implements data.Node
 func (c Condition) Walk(vis func(v Node) error) error {
-	err := c.Clause.Walk(vis)
-	if err != nil {
+	if err := c.Clause.Walk(vis); err != nil {
 		return err
 	}
 	return vis(c)
@@ -211,8 +205,7 @@ func (l Link) String() string {
 // Implements data.Node
 func (l Link) Walk(vis func(v Node) error) error {
 	for _, e := range l.Entities {
-		err := e.Walk(vis)
-		if err != nil {
+		if err := e.Walk(vis); err != nil {
 			return err
 		}
 	}
@@ -226,16 +219,13 @@ func (q Query) String() string {
 
 // Implements data.Node
 func (q Query) Walk(vis func(v Node) error) error {
-	err := q.Link.Walk(vis)
-	if err != nil {
+	if err := q.Link.Walk(vis); err != nil {
 		return err
 	}
-	err = q.Condition.Walk(vis)
-	if err != nil {
+	if err := q.Condition.Walk(vis); err != nil {
 		return err
 	}
-	err = q.From.Walk(vis)
-	if err != nil {
+	if err := q.From.Walk(vis); err != nil {
 		return err
 	}
 	return vis(q)
@@ -253,8 +243,7 @@ func (u Union) String() string {
 // Implements data.Node
 func (u Union) Walk(vis func(v Node) error) error {
 	for _, c := range u.Clauses {
-		err := c.Walk(vis)
-		if err != nil {
+		if err := c.Walk(vis); err != nil {
 			return err
 		}
 	}

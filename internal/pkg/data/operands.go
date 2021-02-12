@@ -27,8 +27,7 @@ func (h GenericCallOpMapper) Handles() string {
 func (h GenericCallOpMapper) Map(args ...string) (string, error) {
 	argsLen := len(args)
 	if argsLen < h.argsCount || argsLen > (h.argsCount+1) {
-		logging.LogForComponent("GenericCallOpMapper").Debugf("Call-handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.operator, h.argsCount, h.argsCount+1, args)
-		return "", errors.Errorf("Call-handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.operator, h.argsCount, h.argsCount+1, args)
+		return "", errors.Errorf("GenericCallOpMapper: Call-handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.operator, h.argsCount, h.argsCount+1, args)
 	}
 
 	var (
@@ -87,8 +86,7 @@ func (h *loadedCallHandler) Init() error {
 func (h *loadedCallHandler) Map(args ...string) (string, error) {
 	argsLen := len(args)
 	if argsLen < h.ArgsCount || argsLen > (h.ArgsCount+1) {
-		logging.LogForComponent("GenericCallOpMapper").Debugf("Call-Handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.Operator, h.ArgsCount, h.ArgsCount+1, args)
-		return "", errors.Errorf("Call-Handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.Operator, h.ArgsCount, h.ArgsCount+1, args)
+		return "", errors.Errorf("GenericCallOpMapper: Call-Handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.Operator, h.ArgsCount, h.ArgsCount+1, args)
 	}
 
 	// Rearrange args if mapping is specified
@@ -118,7 +116,7 @@ func LoadDatastoreCallOpsBytes(input []byte) ([]data.CallOpMapper, error) {
 	loadedConf := callHandlers{}
 	// Load call operands
 	if err := yaml.Unmarshal(input, &loadedConf); err != nil {
-		return nil, errors.Errorf("Unable to parse datastore call-operands config: " + err.Error())
+		return nil, errors.Errorf("GenericCallOpMapper: Unable to parse datastore call-operands config: " + err.Error())
 	}
 
 	result := make([]data.CallOpMapper, len(loadedConf.CallOperands))
