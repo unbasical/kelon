@@ -28,39 +28,40 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func Test_integration_policyCompiler(t *testing.T) {
-	type fields struct {
-		dsConfigPath         string
-		apiConfigPath        string
-		policiesPath         string
-		evaluatedQueriesPath string
-		requestPath          string
-		opaPath              string
-		pathPrefix           string
-	}
+type testConfiguration struct {
+	dsConfigPath         string
+	apiConfigPath        string
+	policiesPath         string
+	evaluatedQueriesPath string
+	requestPath          string
+	opaPath              string
+	pathPrefix           string
+}
 
+func Test_integration_policyCompiler(t *testing.T) {
 	tests := []struct {
 		name   string
-		fields fields
+		fields testConfiguration
 	}{
 		{
 			name: "Test",
-			fields: fields{
-				"./examples/local/config/datastore.yml",
-				"./examples/local/config/api.yml",
-				"./examples/local/policies",
-				"./test/integration/config/dbQueries.yml",
-				"./test/integration/config/dbRequests.yml",
-				"./examples/local/config/opa.yml",
-				"/v1",
+			fields: testConfiguration{
+				dsConfigPath:         "./examples/local/config/datastore.yml",
+				apiConfigPath:        "./examples/local/config/api.yml",
+				policiesPath:         "./examples/local/policies",
+				evaluatedQueriesPath: "./test/integration/config/dbQueries.yml",
+				requestPath:          "./test/integration/config/dbRequests.yml",
+				opaPath:              "./examples/local/config/opa.yml",
+				pathPrefix:           "/v1",
 			},
 		},
 	}
 	for _, tt := range tests {
 		// redefining scope variable for to bypass parallel execution error
-		tt := tt
+		testConfig := tt.fields
+		testName := tt.name
 		t.Run(tt.name, func(t *testing.T) {
-			runPolicyCompilerTest(t, tt.name, tt.fields.dsConfigPath, tt.fields.apiConfigPath, tt.fields.policiesPath, tt.fields.evaluatedQueriesPath, tt.fields.requestPath, tt.fields.opaPath, tt.fields.pathPrefix)
+			runPolicyCompilerTest(t, testName, &testConfig)
 		})
 	}
 }
@@ -76,11 +77,11 @@ type PolicyCompilerTestEnvironment struct {
 	evaluatedQueriesPath string
 }
 
-func runPolicyCompilerTest(t *testing.T, testName, dsConfigPath, apiConfigPath, policiesPath, evaluatedQueriesPath, requestPath, opaPath, pathPrefix string) {
+func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration) {
 	// change root path for files
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		t.Errorf("error while changing root for test %s", testName)
+		t.Errorf("error while changing root for test %s", name)
 		t.FailNow()
 	}
 	dir := path.Join(path.Dir(filename), "../..")
@@ -91,19 +92,19 @@ func runPolicyCompilerTest(t *testing.T, testName, dsConfigPath, apiConfigPath, 
 
 	// init configloader
 	configLoader := configs.FileConfigLoader{
-		DatastoreConfigPath: dsConfigPath,
-		APIConfigPath:       apiConfigPath,
+		DatastoreConfigPath: config.dsConfigPath,
+		APIConfigPath:       config.apiConfigPath,
 	}
 
 	// init policyCompiler to setup configWatcher
 	testEnvironment := PolicyCompilerTestEnvironment{
-		name:                 testName,
+		name:                 name,
 		policyCompiler:       opa2.NewPolicyCompiler(),
-		configWatcher:        watcherInt.NewFileWatcher(configLoader, policiesPath),
-		opaPath:              opaPath,
-		pathPrefix:           pathPrefix,
-		policiesPath:         policiesPath,
-		evaluatedQueriesPath: evaluatedQueriesPath,
+		configWatcher:        watcherInt.NewFileWatcher(configLoader, config.policiesPath),
+		opaPath:              config.opaPath,
+		pathPrefix:           config.pathPrefix,
+		policiesPath:         config.policiesPath,
+		evaluatedQueriesPath: config.evaluatedQueriesPath,
 	}
 
 	testEnvironment.configWatcher.Watch(
@@ -113,7 +114,7 @@ func runPolicyCompilerTest(t *testing.T, testName, dsConfigPath, apiConfigPath, 
 
 	// open and parse policycompiler test requests
 	requests := &DBTranslatorRequests{}
-	inputBytes, err := ioutil.ReadFile(requestPath)
+	inputBytes, err := ioutil.ReadFile(config.requestPath)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
@@ -144,7 +145,7 @@ func runPolicyCompilerTest(t *testing.T, testName, dsConfigPath, apiConfigPath, 
 		resp := w.Result()
 		statusCode := requests.Requests[strconv.Itoa(counter)].ResponseStatus
 		if strconv.Itoa(resp.StatusCode) != statusCode {
-			t.Errorf("Response status %s does not match expected status: %s in %s", strconv.Itoa(resp.StatusCode), statusCode, testName)
+			t.Errorf("Response status %s does not match expected status: %s in %s", strconv.Itoa(resp.StatusCode), statusCode, name)
 			t.FailNow()
 		}
 
