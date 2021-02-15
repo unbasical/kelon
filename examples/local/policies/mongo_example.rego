@@ -50,3 +50,17 @@ allow = true {
     data.mongo.users[user].name == input.user
     user.friend == "Kevin"
 }
+
+# Path: GET /api/mongo/apps/:app_id
+# Test for count function
+allow = true {
+    some app
+    input.method == "GET"
+    input.path = ["api", "mongo", "apps", "4"]
+
+    # Get all apps with 5 starts
+    data.mongo.apps[app].stars > 4
+
+    #If there is any one return true
+    count(app) > 0
+}

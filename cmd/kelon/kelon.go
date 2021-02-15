@@ -42,7 +42,7 @@ var (
 	opaPath           = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
 	regoDir           = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Short('r').Envar("REGO_DIR").ExistingDir()
 
-	// Additional configs
+	// Additional config
 	pathPrefix            = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
 	port                  = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
 	preprocessRegos       = app.Flag("preprocess-policies", "Preprocess incoming policies for internal use-case (EXPERIMENTAL FEATURE! DO NOT USE!).").Default("false").Envar("PREPROCESS_POLICIES").Bool()
@@ -126,7 +126,7 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 			translator = translateInt.NewAstTranslator()
 		)
 
-		// Build configs
+		// Build config
 		config.API = loadedConf.API
 		config.Data = loadedConf.Data
 		config.TelemetryProvider = makeTelemetryProvider()

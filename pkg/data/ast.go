@@ -9,7 +9,7 @@ type Node interface {
 	String() string
 
 	// Walk the current node (Buttom-Up, Left-to-Right).
-	Walk(func(v Node))
+	Walk(func(v Node) error) error
 }
 
 // Union of multiple queries.
@@ -82,8 +82,8 @@ func (o Operator) String() string {
 }
 
 // Implements data.Node
-func (o Operator) Walk(vis func(v Node)) {
-	vis(o)
+func (o Operator) Walk(vis func(v Node) error) error {
+	return vis(o)
 }
 
 // Implements data.Node
@@ -92,8 +92,8 @@ func (c Constant) String() string {
 }
 
 // Implements data.Node
-func (c Constant) Walk(vis func(v Node)) {
-	vis(c)
+func (c Constant) Walk(vis func(v Node) error) error {
+	return vis(c)
 }
 
 // Implements data.Node
@@ -102,8 +102,8 @@ func (e Entity) String() string {
 }
 
 // Implements data.Node
-func (e Entity) Walk(vis func(v Node)) {
-	vis(e)
+func (e Entity) Walk(vis func(v Node) error) error {
+	return vis(e)
 }
 
 // Implements data.Node
@@ -112,9 +112,11 @@ func (a Attribute) String() string {
 }
 
 // Implements data.Node
-func (a Attribute) Walk(vis func(v Node)) {
-	a.Entity.Walk(vis)
-	vis(a)
+func (a Attribute) Walk(vis func(v Node) error) error {
+	if err := a.Entity.Walk(vis); err != nil {
+		return err
+	}
+	return vis(a)
 }
 
 // Implements data.Node
@@ -128,12 +130,16 @@ func (c Call) String() string {
 }
 
 // Implements data.Node
-func (c Call) Walk(vis func(v Node)) {
-	c.Operator.Walk(vis)
-	for _, o := range c.Operands {
-		o.Walk(vis)
+func (c Call) Walk(vis func(v Node) error) error {
+	if err := c.Operator.Walk(vis); err != nil {
+		return err
 	}
-	vis(c)
+	for _, o := range c.Operands {
+		if err := o.Walk(vis); err != nil {
+			return err
+		}
+	}
+	return vis(c)
 }
 
 // Implements data.Node
@@ -146,11 +152,13 @@ func (c Conjunction) String() string {
 }
 
 // Implements data.Node
-func (c Conjunction) Walk(vis func(v Node)) {
+func (c Conjunction) Walk(vis func(v Node) error) error {
 	for _, o := range c.Clauses {
-		o.Walk(vis)
+		if err := o.Walk(vis); err != nil {
+			return err
+		}
 	}
-	vis(c)
+	return vis(c)
 }
 
 // Implements data.Node
@@ -163,11 +171,13 @@ func (d Disjunction) String() string {
 }
 
 // Implements data.Node
-func (d Disjunction) Walk(vis func(v Node)) {
+func (d Disjunction) Walk(vis func(v Node) error) error {
 	for _, o := range d.Clauses {
-		o.Walk(vis)
+		if err := o.Walk(vis); err != nil {
+			return err
+		}
 	}
-	vis(d)
+	return vis(d)
 }
 
 // Implements data.Node
@@ -176,9 +186,11 @@ func (c Condition) String() string {
 }
 
 // Implements data.Node
-func (c Condition) Walk(vis func(v Node)) {
-	c.Clause.Walk(vis)
-	vis(c)
+func (c Condition) Walk(vis func(v Node) error) error {
+	if err := c.Clause.Walk(vis); err != nil {
+		return err
+	}
+	return vis(c)
 }
 
 // Implements data.Node
@@ -191,11 +203,13 @@ func (l Link) String() string {
 }
 
 // Implements data.Node
-func (l Link) Walk(vis func(v Node)) {
+func (l Link) Walk(vis func(v Node) error) error {
 	for _, e := range l.Entities {
-		e.Walk(vis)
+		if err := e.Walk(vis); err != nil {
+			return err
+		}
 	}
-	vis(l)
+	return vis(l)
 }
 
 // Implements data.Node
@@ -204,11 +218,17 @@ func (q Query) String() string {
 }
 
 // Implements data.Node
-func (q Query) Walk(vis func(v Node)) {
-	q.Link.Walk(vis)
-	q.Condition.Walk(vis)
-	q.From.Walk(vis)
-	vis(q)
+func (q Query) Walk(vis func(v Node) error) error {
+	if err := q.Link.Walk(vis); err != nil {
+		return err
+	}
+	if err := q.Condition.Walk(vis); err != nil {
+		return err
+	}
+	if err := q.From.Walk(vis); err != nil {
+		return err
+	}
+	return vis(q)
 }
 
 // Implements data.Node
@@ -221,9 +241,11 @@ func (u Union) String() string {
 }
 
 // Implements data.Node
-func (u Union) Walk(vis func(v Node)) {
+func (u Union) Walk(vis func(v Node) error) error {
 	for _, c := range u.Clauses {
-		c.Walk(vis)
+		if err := c.Walk(vis); err != nil {
+			return err
+		}
 	}
-	vis(u)
+	return vis(u)
 }

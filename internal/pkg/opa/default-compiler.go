@@ -172,7 +172,7 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	// Otherwise translate ast
 	result, err := (*compiler.config.Translator).Process(queries, output.Datastore)
 	if err != nil {
-		compiler.handleError(w, errors.Wrap(err, "PolicyCompiler: Error during ast translation"))
+		compiler.handleError(w, internalErrors.InvalidRequestTranslation{Cause: err})
 		return
 	}
 
@@ -185,7 +185,7 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 }
 
 func (compiler policyCompiler) handleError(w http.ResponseWriter, err error) {
-	log.WithError(err).Error("PolicyCompiler encountered an error")
+	logging.LogForComponent("PolicyCompiler").Errorf("Handle error response: %s", err)
 
 	// Write response
 	switch errors.Cause(err).(type) {
@@ -195,6 +195,8 @@ func (compiler policyCompiler) handleError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
 	case internalErrors.InvalidInput:
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
+	case internalErrors.InvalidRequestTranslation:
+		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 	default:
 		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 	}

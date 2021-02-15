@@ -46,3 +46,17 @@ allow = true {
     data.pg.users[user].name == input.user
     user.friend == "Kevin"
 }
+
+# Path: GET /api/pg/apps/:app_id
+# Test for count function
+allow = true {
+    some app
+    input.method == "GET"
+    input.path = ["api", "pg", "apps", "4"]
+
+    # Get all apps with 5 starts
+    data.pg.apps[app].stars > 4
+
+    #If there is any one return true
+    count(app) > 0
+}
