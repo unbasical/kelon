@@ -3,6 +3,8 @@ services:
   kelon:
     build: .
     restart: always
+    networks:
+      - compose_network
     ports:
       - "8181:8181"
       - "9191:9191"
@@ -25,6 +27,8 @@ services:
       MYSQL_USER: 'You'
       MYSQL_PASSWORD: 'SuperSecure'
       MYSQL_ROOT_PASSWORD: 'root-beats-everything'
+    networks:
+      - compose_network
     ports:
       - '3306:3306'
     volumes:
@@ -37,6 +41,8 @@ services:
       POSTGRES_DB: 'appstore'
       POSTGRES_USER: 'You'
       POSTGRES_PASSWORD: 'SuperSecure'
+    networks:
+      - compose_network
     ports:
       - '5432:5432'
     volumes:
@@ -45,6 +51,8 @@ services:
   mongo:
     image: mongo:4.2
     restart: always
+    networks:
+      - compose_network
     ports:
       - "27017-27019:27017-27019"
     environment:
@@ -53,3 +61,7 @@ services:
       MONGO_INITDB_DATABASE: appstore
     volumes:
       - ./examples/docker-compose/init/Init-Mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
+
+networks:
+  compose_network:
+    driver: bridge

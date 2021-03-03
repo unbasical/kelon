@@ -14,15 +14,11 @@ allow = true {
     data.mongo.apps[app].id == appId
 
     # Nest elements
-    data.mongo.rights[right].id == app.id
-    data.mongo.users[user].id == right.id
+    data.mongo.rights[right].right == "OWNER"
+    data.mongo.users[user].name == input.user
 
     # Query root
     app.stars > 2
-
-    # Query nested
-    right.right == "OWNER"
-    user.name == input.user
 }
 
 # Path: GET /api/mongo/apps/:app_id

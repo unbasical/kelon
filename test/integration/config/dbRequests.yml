@@ -1,0 +1,88 @@
+requests:
+    0:
+        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/1", "user": "Test" } }'
+        text: "MySQL: First App visible for everyone"
+        responseStatus: "200"
+    1:
+        body: '{ "input": { "method": "GET", "path": ["api", "mysql", "apps", "2"], "user": "Arnold" } }'
+        text: "MySQL: Arnold can access his app"
+        responseStatus: "200"
+    2:
+        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/2", "user": "Anyone" } }'
+        text: "MySQL: Anyone can't access Arnold's app"
+        responseStatus: "200"
+    3:
+        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/2", "user": "Kevin" } }'
+        text: "MySQL: Kevin can access Arnold's app"
+        responseStatus: "200"
+    4:
+        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/3", "user": "Anyone" } }'
+        text: "MySQL: Anyone can access app with 5 stars"
+        responseStatus: "200"
+    5:
+        body: '{ "input": { "method": "GET", "path": "/api/mysql/error/2", "user": "Nobody" } }'
+        text: "MySQL: Request has unknown path (Config allows * path)"
+        responseStatus: "200"
+    6:
+        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/4", "user": "Nobody" } }'
+        text: "MySQL: Policy has unknown function"
+        responseStatus: "500"
+    7:
+        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/1", "user": "Test" } }'
+        text: "PostgreSQL: First App visible for everyone"
+        responseStatus: "200"
+    8:
+        body: '{ "input": { "method": "GET", "path": [ "api", "pg", "apps", "2" ], "user": "Arnold" } }'
+        text: "PostgreSQL: Arnold can access his app"
+        responseStatus: "200"
+    9:
+        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/2", "user": "Anyone" } }'
+        text: "PostgreSQL: Anyone can't access Arnold's app"
+        responseStatus: "200"
+    10:
+        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/2", "user": "Kevin" } }'
+        text: "PostgreSQL: Kevin can access Arnold's app"
+        responseStatus: "200"
+    11:
+        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/3", "user": "Anyone" } }'
+        text: "PostgreSQL: Anyone can access app with 5 stars"
+        responseStatus: "200"
+    12:
+        body: '{ "input": { "method": "GET", "path": "/api/pg/error/2", "user": "Nobody" } }'
+        text: "PostgreSQL: Request has unknown path"
+        responseStatus: "404"
+    13:
+        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/4", "user": "Nobody" } }'
+        text: "PostgreSQL: Policy has unknown function"
+        responseStatus: "500"
+    14:
+        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/1", "user": "Test" } }'
+        text: "Mongo: First App visible for everyone"
+        responseStatus: "200"
+    15:
+        body: '{ "input": { "method": "GET", "path": [ "api", "mongo", "apps", "2" ], "user": "Arnold" } }'
+        text: "Mongo: Arnold can access his app"
+        responseStatus: "200"
+    16:
+        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/2", "user": "Anyone" } }'
+        text: "Mongo: Anyone can't access Arnold's app"
+        responseStatus: "200"
+    17:
+        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/2", "user": "Kevin" } }'
+        text: "Mongo: Kevin can access Arnold's app"
+        responseStatus: "200"
+    18:
+        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/3", "user": "Anyone" } }'
+        text: "Mongo: Anyone can access app with 5 stars"
+        responseStatus: "200"
+    19:
+        body: '{ "input": { "method": "GET", "path": "/api/mongo/error/2", "user": "Nobody" } }'
+        text: "Mongo: Request has unknown path"
+        responseStatus: "404"
+    20:
+        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/4", "user": "Nobody" } }'
+        text: "Mongo: Policy has unknown function"
+        responseStatus: "500"
+
+
+

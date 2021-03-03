@@ -13,24 +13,24 @@ import (
 )
 
 var (
-	//nolint:gochecknoglobals
+	//nolint:gochecknoglobals,gocritic
 	hostKey = "host"
-	//nolint:gochecknoglobals
+	//nolint:gochecknoglobals,gocritic
 	portKey = "port"
-	//nolint:gochecknoglobals
+	//nolint:gochecknoglobals,gocritic
 	dbKey = "database"
-	//nolint:gochecknoglobals
+	//nolint:gochecknoglobals,gocritic
 	userKey = "user"
-	//nolint:gochecknoglobals
+	//nolint:gochecknoglobals,gocritic
 	pwKey = "password"
 )
 
 func extractAndValidateDatastore(appConf *configs.AppConfig, alias string) (*configs.Datastore, error) {
 	if appConf == nil {
-		return nil, errors.New("AppConfig not configured! ")
+		return nil, errors.Errorf("AppConfig not configured!")
 	}
 	if alias == "" {
-		return nil, errors.New("Empty alias provided! ")
+		return nil, errors.Errorf("Empty alias provided!")
 	}
 	// Validate configuration
 	conf, ok := appConf.Data.Datastores[alias]
@@ -62,14 +62,14 @@ func pingUntilReachable(alias string, ping func() error) error {
 	return nil
 }
 
-func loadCallOperands(conf *configs.Datastore) (map[string]func(args ...string) string, error) {
+func loadCallOperands(conf *configs.Datastore) (map[string]func(args ...string) (string, error), error) {
 	callOpsFile := fmt.Sprintf("./call-operands/%s.yml", strings.ToLower(conf.Type))
 	handlers, err := LoadDatastoreCallOpsFile(callOpsFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to load call operands as handlers")
 	}
 
-	operands := map[string]func(args ...string) string{}
+	operands := map[string]func(args ...string) (string, error){}
 	for _, handler := range handlers {
 		operands[handler.Handles()] = handler.Map
 	}
@@ -106,7 +106,7 @@ func getConnectionStringForPlatform(platform string, conn map[string]string) str
 	case data.TypeMongo:
 		return fmt.Sprintf("mongodb://%s:%s@%s:%s/%s%s", user, password, host, port, dbname, createConnOptionsString(options, "&", "?"))
 	default:
-		logging.LogForComponent("datastore").Panic(fmt.Sprintf("Platform [%s] is not a supported Datastore!", platform))
+		logging.LogForComponent("datastore").Panic(fmt.Sprintf("Platform [%s] is not a supported DatastoreTranslator!", platform))
 		return ""
 	}
 }
@@ -126,10 +126,7 @@ func getPreparePlaceholderForPlatform(platform string, argCounter int) string {
 // Extract and sort all connection parameters by importance.
 // Output: host, port, user, password, dbname, []options
 // Each option has the format <key>=<value>
-func extractAndSortConnectionParameters(conn map[string]string) (string, string, string, string, string, []string) {
-	var host, port, user, password, dbname string
-	var options []string
-
+func extractAndSortConnectionParameters(conn map[string]string) (host, port, user, password, dbname string, options []string) {
 	for key, value := range conn {
 		switch key {
 		case hostKey:
@@ -150,7 +147,7 @@ func extractAndSortConnectionParameters(conn map[string]string) (string, string,
 	return host, port, user, password, dbname, options
 }
 
-func createConnOptionsString(options []string, delimiter string, prefix string) string {
+func createConnOptionsString(options []string, delimiter, prefix string) string {
 	optionString := strings.Join(options, delimiter)
 	if len(options) > 0 {
 		optionString = prefix + optionString

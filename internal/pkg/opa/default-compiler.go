@@ -8,11 +8,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/Foundato/kelon/configs"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
-	"github.com/Foundato/kelon/internal/pkg/util"
-	"github.com/Foundato/kelon/pkg/constants"
 	"github.com/Foundato/kelon/pkg/constants/logging"
 	internalErrors "github.com/Foundato/kelon/pkg/errors"
 	"github.com/Foundato/kelon/pkg/opa"
@@ -41,6 +40,12 @@ type apiError struct {
 		Code    string `json:"code"`
 		Message string `json:"message,omitempty"`
 	} `json:"error"`
+}
+
+type decisionContext struct {
+	Path     string
+	Method   string
+	Duration string
 }
 
 // Return a new instance of the default implementation of the opa.PolicyCompiler.
@@ -92,89 +97,97 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 }
 
 // See Process() from opa.PolicyCompiler
-func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, request *http.Request) {
-	// Extract uid from request
-	uid := util.GetRequestUID(request)
+func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// Set start time for request duration
+	startTime := time.Now()
 
 	// Validate if policy compiler was configured correctly
 	if !compiler.configured {
-		compiler.handleError(w, uid, errors.New("PolicyCompiler was not configured! Please call Configure(). "))
+		compiler.handleError(w, errors.Errorf("PolicyCompiler was not configured! Please call Configure(). "))
 		return
 	}
 
 	// Parse body of request
-	requestBody, bodyErr := compiler.parseRequestBody(uid, request)
+	requestBody, bodyErr := compiler.parseRequestBody(req)
 	if bodyErr != nil {
-		compiler.handleError(w, uid, bodyErr)
+		compiler.handleError(w, bodyErr)
 		return
 	}
 
 	// Extract input
 	for rootKey := range requestBody {
 		if rootKey != "input" {
-			logging.LogForComponent("policyCompiler").WithField("UID", uid).Warnf("Request field %q which will be ignored!", rootKey)
+			logging.LogForComponent("policyCompiler").Warnf("Request field %q which will be ignored!", rootKey)
 		}
 	}
 
 	rawInput, exists := requestBody["input"]
 	if !exists {
-		compiler.handleError(w, uid, internalErrors.InvalidInput{Msg: "PolicyCompiler: Incoming request had no field 'input'!"})
+		compiler.handleError(w, internalErrors.InvalidInput{Msg: "PolicyCompiler: Incoming request had no field 'input'!"})
 		return
 	}
 	input, ok := rawInput.(map[string]interface{})
 	if !ok {
-		compiler.handleError(w, uid, internalErrors.InvalidInput{Msg: "PolicyCompiler: Field 'input' in request body was no nested JSON object!"})
+		compiler.handleError(w, internalErrors.InvalidInput{Msg: "PolicyCompiler: Field 'input' in request body was no nested JSON object!"})
 		return
 	}
-	logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Received input: %+v", input)
+	logging.LogForComponent("policyCompiler").Debugf("Received input: %+v", input)
 
 	// Process path
 	output, err := compiler.processPath(input)
 	if err != nil {
-		compiler.handleError(w, uid, err)
+		compiler.handleError(w, err)
+		return
+	}
+
+	path, err := extractURLFromRequestBody(input)
+	if err != nil {
+		compiler.handleError(w, err)
+		return
+	}
+	method, err := extractMethodFromRequestBody(input)
+	if err != nil {
+		compiler.handleError(w, err)
 		return
 	}
 
 	// Compile mapped path
-	queries, err := compiler.opaCompile(request, &input, output)
+	queries, err := compiler.opaCompile(req, input, output)
 	if err != nil {
-		compiler.handleError(w, uid, errors.Wrap(err, "PolicyCompiler: Error during policy compilation"))
+		compiler.handleError(w, errors.Wrap(err, "PolicyCompiler: Error during policy compilation"))
 		return
 	}
 
 	// OPA decided denied
 	if queries.Queries == nil {
-		compiler.writeDeny(w, uid)
+		compiler.writeDeny(w, decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 		return
 	}
 	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
-		compiler.writeAllow(w, uid)
+		compiler.writeAllow(w, decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 		return
 	}
 
 	// Otherwise translate ast
-	result, err := (*compiler.config.Translator).Process(queries, output.Datastore, request)
+	result, err := (*compiler.config.Translator).Process(queries, output.Datastore)
 	if err != nil {
-		compiler.handleError(w, uid, errors.Wrap(err, "PolicyCompiler: Error during ast translation"))
+		compiler.handleError(w, internalErrors.InvalidRequestTranslation{Cause: err})
 		return
 	}
 
 	// If we receive something from the datastore, the query was successful
 	if result {
-		compiler.writeAllow(w, uid)
+		compiler.writeAllow(w, decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 	} else {
-		compiler.writeDeny(w, uid)
+		compiler.writeDeny(w, decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 	}
 }
 
-func (compiler policyCompiler) handleError(w http.ResponseWriter, requestID string, err error) {
-	log.WithField("UID", requestID).WithError(err).Error("PolicyCompiler encountered an error")
-	w.Header().Set(string(constants.ContextKeyRequestID), requestID)
-	// Monitor error
-	compiler.handleErrorMetrics(err)
+func (compiler policyCompiler) handleError(w http.ResponseWriter, err error) {
+	logging.LogForComponent("PolicyCompiler").Errorf("Handle error response: %s", err)
 
-	//Write response
+	// Write response
 	switch errors.Cause(err).(type) {
 	case request.PathAmbiguousError:
 		writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
@@ -182,14 +195,10 @@ func (compiler policyCompiler) handleError(w http.ResponseWriter, requestID stri
 		writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
 	case internalErrors.InvalidInput:
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
+	case internalErrors.InvalidRequestTranslation:
+		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 	default:
 		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
-	}
-}
-
-func (compiler policyCompiler) handleErrorMetrics(err error) {
-	if compiler.appConfig.TelemetryProvider != nil {
-		compiler.appConfig.TelemetryProvider.CheckError(err)
 	}
 }
 
@@ -202,26 +211,22 @@ func writeError(w http.ResponseWriter, status int, code string, err error) {
 	writeJSON(w, status, resp)
 }
 
-func (compiler policyCompiler) writeAllow(w http.ResponseWriter, requestID string) {
-	log.WithField("UID", requestID).Infoln("Decision: ALLOW")
+func (compiler policyCompiler) writeAllow(w http.ResponseWriter, loggingInfo decisionContext) {
 	if compiler.config.RespondWithStatusCode {
-		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		w.WriteHeader(http.StatusOK)
 	} else {
-		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		writeJSON(w, http.StatusOK, apiResponse{Result: true})
 	}
+	logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration, "ALLOW", "policyCompiler")
 }
 
-func (compiler policyCompiler) writeDeny(w http.ResponseWriter, requestID string) {
-	log.WithField("UID", requestID).Infoln("Decision: DENY")
+func (compiler policyCompiler) writeDeny(w http.ResponseWriter, loggingInfo decisionContext) {
 	if compiler.config.RespondWithStatusCode {
-		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		w.WriteHeader(http.StatusForbidden)
 	} else {
-		w.Header().Set(string(constants.ContextKeyRequestID), requestID)
 		writeJSON(w, http.StatusOK, apiResponse{Result: false})
 	}
+	logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration, "Deny", "policyCompiler")
 }
 
 func writeJSON(w http.ResponseWriter, status int, x interface{}) {
@@ -233,14 +238,14 @@ func writeJSON(w http.ResponseWriter, status int, x interface{}) {
 	}
 }
 
-func (compiler policyCompiler) parseRequestBody(uid string, request *http.Request) (map[string]interface{}, error) {
+func (compiler policyCompiler) parseRequestBody(req *http.Request) (map[string]interface{}, error) {
 	requestBody := make(map[string]interface{})
 	if log.GetLevel() == log.DebugLevel {
-		logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Received request: %+v", request)
+		logging.LogForComponent("policyCompiler").Debugf("Received request: %+v", req)
 
 		// Log body and decode already logged body
 		buf := new(bytes.Buffer)
-		if _, parseErr := buf.ReadFrom(request.Body); parseErr != nil {
+		if _, parseErr := buf.ReadFrom(req.Body); parseErr != nil {
 			return nil, internalErrors.InvalidInput{Cause: parseErr, Msg: "PolicyCompiler: Error while parsing request body!"}
 		}
 
@@ -248,15 +253,15 @@ func (compiler policyCompiler) parseRequestBody(uid string, request *http.Reques
 		if bodyString == "" {
 			return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Request had empty body!"}
 		}
-		logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Request had body: %s", bodyString)
+		logging.LogForComponent("policyCompiler").Debugf("Request had body: %s", bodyString)
 		if marshalErr := json.NewDecoder(strings.NewReader(bodyString)).Decode(&requestBody); marshalErr != nil {
 			return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
 		}
-	} else {
-		// Decode raw body
-		if marshalErr := json.NewDecoder(request.Body).Decode(&requestBody); marshalErr != nil {
-			return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
-		}
+	}
+
+	// Decode raw body
+	if marshalErr := json.NewDecoder(req.Body).Decode(&requestBody); marshalErr != nil {
+		return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
 	}
 	return requestBody, nil
 }
@@ -281,15 +286,9 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 	if err != nil {
 		return nil, err
 	}
-	var method string
-	if sentMethod, ok := input["method"]; ok {
-		if m, ok := sentMethod.(string); ok {
-			method = strings.ToUpper(m)
-		} else {
-			return nil, internalErrors.InvalidInput{Msg: fmt.Sprintf("PolicyCompiler: Attribute 'method' of request body was not of type string! Type was %T", sentMethod)}
-		}
-	} else {
-		return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Object 'input' of request body didn't contain a 'method'"}
+	method, err := extractMethodFromRequestBody(input)
+	if err != nil {
+		return nil, err
 	}
 
 	output, err := (*compiler.config.PathProcessor).Process(&requestInt.URLProcessorInput{
@@ -303,28 +302,34 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 	return output, nil
 }
 
-func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input *map[string]interface{}, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
-	// Extract uid from request
-	uid := util.GetRequestUID(clientRequest)
-
+func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input map[string]interface{}, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
 	// Extract parameters for partial evaluation
 	opts := compiler.extractOpaOpts(output)
 	extractedInput := extractOpaInput(output, input)
 	query := fmt.Sprintf("data.%s.allow == true", output.Package)
-	logging.LogForComponent("policyCompiler").WithField("UID", uid).Debugf("Sending query=%s", query)
+	logging.LogForComponent("policyCompiler").Debugf("Sending query=%s", query)
 
 	// Compile clientRequest and return answer
 	queries, err := compiler.engine.PartialEvaluate(clientRequest.Context(), extractedInput, query, opts...)
 	if err == nil {
-		log.WithField("UID", uid).Infof("Partial Evaluation for %q with extractedInput: %+vReturned %d queries:", query, extractedInput, len(queries.Queries))
 		if log.IsLevelEnabled(log.DebugLevel) {
 			for _, q := range queries.Queries {
-				log.WithField("UID", uid).Debugf("[%+v]", q)
+				log.Debugf("[%+v]", q)
 			}
 		}
 		return queries, nil
 	}
 	return nil, err
+}
+
+func extractMethodFromRequestBody(input map[string]interface{}) (string, error) {
+	if inputMethod, ok := input["method"]; ok {
+		if m, ok := inputMethod.(string); ok {
+			return strings.ToUpper(m), nil
+		}
+		return "", internalErrors.InvalidInput{Msg: fmt.Sprintf("PolicyCompiler: Attribute 'method' of request body was not of type string! Type was %T", inputMethod)}
+	}
+	return "", internalErrors.InvalidInput{Msg: "PolicyCompiler: Object 'input' of request body didn't contain a 'method'"}
 }
 
 func extractURLFromRequestBody(input map[string]interface{}) (*url.URL, error) {
@@ -362,12 +367,12 @@ func (compiler *policyCompiler) extractOpaOpts(output *request.PathProcessorOutp
 	}
 }
 
-func extractOpaInput(output *request.PathProcessorOutput, input *map[string]interface{}) map[string]interface{} {
+func extractOpaInput(output *request.PathProcessorOutput, input map[string]interface{}) map[string]interface{} {
 	extracted := map[string]interface{}{
 		"queries": output.Queries,
 	}
 	// Append custom fields to received body
-	for key, value := range *input {
+	for key, value := range input {
 		extracted[key] = value
 	}
 
@@ -379,7 +384,7 @@ func extractOpaInput(output *request.PathProcessorOutput, input *map[string]inte
 func initDependencies(compConf *opa.PolicyCompilerConfig, appConf *configs.AppConfig) error {
 	// Configure PathProcessor
 	if compConf.PathProcessor == nil {
-		return errors.New("PolicyCompiler: PathProcessor not configured! ")
+		return errors.Errorf("PolicyCompiler: PathProcessor not configured!")
 	}
 	parser := *compConf.PathProcessor
 	if err := parser.Configure(appConf, &compConf.PathProcessorConfig); err != nil {
@@ -387,7 +392,7 @@ func initDependencies(compConf *opa.PolicyCompilerConfig, appConf *configs.AppCo
 	}
 	// Configure AstTranslator
 	if compConf.Translator == nil {
-		return errors.New("PolicyCompiler: Translator not configured! ")
+		return errors.Errorf("PolicyCompiler: Translator not configured!")
 	}
 	translator := *compConf.Translator
 	if err := translator.Configure(appConf, &compConf.AstTranslatorConfig); err != nil {

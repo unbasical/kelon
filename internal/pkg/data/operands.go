@@ -24,10 +24,10 @@ func (h GenericCallOpMapper) Handles() string {
 	return h.operator
 }
 
-func (h GenericCallOpMapper) Map(args ...string) string {
+func (h GenericCallOpMapper) Map(args ...string) (string, error) {
 	argsLen := len(args)
 	if argsLen < h.argsCount || argsLen > (h.argsCount+1) {
-		logging.LogForComponent("GenericCallOpMapper").Fatalf("Call-handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.operator, h.argsCount, h.argsCount+1, args)
+		return "", errors.Errorf("GenericCallOpMapper: Call-handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.operator, h.argsCount, h.argsCount+1, args)
 	}
 
 	var (
@@ -45,7 +45,7 @@ func (h GenericCallOpMapper) Map(args ...string) string {
 	if err != nil {
 		logging.LogForComponent("GenericCallOpMapper").Fatalf("Call-handler [%s] failed due to error: %s", h.operator, err.Error())
 	}
-	return result
+	return result, nil
 }
 
 type callHandlers struct {
@@ -60,7 +60,7 @@ type loadedCallHandler struct {
 	indexMapping  []int
 }
 
-func (h loadedCallHandler) Handles() string {
+func (h *loadedCallHandler) Handles() string {
 	return h.Operator
 }
 
@@ -83,10 +83,10 @@ func (h *loadedCallHandler) Init() error {
 	return nil
 }
 
-func (h loadedCallHandler) Map(args ...string) string {
+func (h *loadedCallHandler) Map(args ...string) (string, error) {
 	argsLen := len(args)
 	if argsLen < h.ArgsCount || argsLen > (h.ArgsCount+1) {
-		logging.LogForComponent("GenericCallOpMapper").Fatalf("Call-Handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.Operator, h.ArgsCount, h.ArgsCount+1, args)
+		return "", errors.Errorf("GenericCallOpMapper: Call-Handler [%s] had wrong amount of arguments! Expected %d or %d arguments, but got %+v as input.", h.Operator, h.ArgsCount, h.ArgsCount+1, args)
 	}
 
 	// Rearrange args if mapping is specified
@@ -102,21 +102,21 @@ func (h loadedCallHandler) Map(args ...string) string {
 
 	// Handle call with default comparison
 	if argsLen > h.ArgsCount {
-		return fmt.Sprintf(h.targetMapping+" = %s", rearangedArgs...)
+		return fmt.Sprintf(h.targetMapping+" = %s", rearangedArgs...), nil
 	}
 	// Handle any other
-	return fmt.Sprintf(h.targetMapping, rearangedArgs...)
+	return fmt.Sprintf(h.targetMapping, rearangedArgs...), nil
 }
 
 func LoadDatastoreCallOpsBytes(input []byte) ([]data.CallOpMapper, error) {
 	if input == nil {
-		return nil, errors.New("Data must not be nil! ")
+		return nil, errors.Errorf("Data must not be nil! ")
 	}
 
 	loadedConf := callHandlers{}
 	// Load call operands
 	if err := yaml.Unmarshal(input, &loadedConf); err != nil {
-		return nil, errors.New("Unable to parse datastore call-operands config: " + err.Error())
+		return nil, errors.Errorf("GenericCallOpMapper: Unable to parse datastore call-operands config: " + err.Error())
 	}
 
 	result := make([]data.CallOpMapper, len(loadedConf.CallOperands))
@@ -132,7 +132,7 @@ func LoadDatastoreCallOpsBytes(input []byte) ([]data.CallOpMapper, error) {
 
 func LoadDatastoreCallOpsFile(filePath string) ([]data.CallOpMapper, error) {
 	if filePath == "" {
-		return nil, errors.New("FilePath must not be empty! ")
+		return nil, errors.Errorf("FilePath must not be empty! ")
 	}
 
 	// Load datastoreOpsBytes from file

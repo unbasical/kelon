@@ -10,7 +10,6 @@ import (
 	"github.com/Foundato/kelon/common"
 	"github.com/Foundato/kelon/configs"
 	apiInt "github.com/Foundato/kelon/internal/pkg/api"
-	"github.com/Foundato/kelon/internal/pkg/api/envoy"
 	"github.com/Foundato/kelon/internal/pkg/data"
 	opaInt "github.com/Foundato/kelon/internal/pkg/opa"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
@@ -29,7 +28,7 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals,gocritic
 var (
 	app = kingpin.New("kelon", "Kelon policy enforcer.")
 
@@ -43,33 +42,22 @@ var (
 	opaPath           = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
 	regoDir           = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Short('r').Envar("REGO_DIR").ExistingDir()
 
-	// Additional configs
+	// Additional config
 	pathPrefix            = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
 	port                  = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
 	preprocessRegos       = app.Flag("preprocess-policies", "Preprocess incoming policies for internal use-case (EXPERIMENTAL FEATURE! DO NOT USE!).").Default("false").Envar("PREPROCESS_POLICIES").Bool()
 	respondWithStatusCode = app.Flag("respond-with-status-code", "Communicate Decision via status code 200 (ALLOW) or 403 (DENY).").Default("false").Envar("RESPOND_WITH_STATUS_CODE").Bool()
 
 	// Logging
-	logLevel  = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
-	logFormat = app.Flag("log-format", "Log-Format for Kelon. Must be one of [TEXT, JSON]").Default("TEXT").Envar("LOG_FORMAT").Enum("TEXT", "JSON")
-
-	// Configs for envoy external auth
-	envoyPort       = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
-	envoyDryRun     = app.Flag("envoy-dry-run", "Enable/Disable the dry run feature of the envoy-proxy.").Default("false").Envar("ENVOY_DRY_RUN").Bool()
-	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
+	logLevel               = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
+	logFormat              = app.Flag("log-format", "Log-Format for Kelon. Must be one of [TEXT, JSON]").Default("TEXT").Envar("LOG_FORMAT").Enum("TEXT", "JSON")
+	accessDecisionLogLevel = app.Flag("access-decision-log-level", "Access decision Log-Level for Kelon. Must be one of [ALL, ALLOW, DENY, NONE]").Default("ALL").Envar("ACCESS_DECISION_LOG_LEVEL").Enum("ALL", "ALLOW", "DENY", "NONE", "all", "allow", "deny", "none")
 
 	// Configs for telemetry
-	telemetryService                = app.Flag("telemetry-service", "Service that is used for telemetry [Prometheus, ApplicationInsights]").Envar("TELEMETRY_SERVICE").Enum("Prometheus", "prometheus", "ApplicationInsights", "applicationinsights")
-	instrumentationKey              = app.Flag("instrumentation-key", "The ApplicationInsights-InstrumentationKey that is used to connect to the API.").Envar("INSTRUMENTATION_KEY").String()
-	appInsightsServiceName          = app.Flag("application-insights-service-name", "The name which will be displayed for kelon inside application insights.").Default("Kelon").Envar("APPLICATION_INSIGHTS_SERVICE_NAME").String()
-	appInsightsMaxBatchSize         = app.Flag("application-insights-max-batch-size", "Configure how many items can be sent in one call to the data collector.").Default("8192").Envar("APPLICATION_INSIGHTS_MAX_BATCH_SIZE").Int()
-	appInsightsMaxBatchInterval     = app.Flag("application-insights-max-batch-interval-seconds", "Configure the maximum delay before sending queued telemetry.").Default("2").Envar("APPLICATION_INSIGHTS_MAX_BATCH_INTERVAL_SECONDS").Int()
-	appInsightsLogLevels            = app.Flag("application-insights-log-levels", "Configure log levels which are sent. Allowed values are [fatal, panic, error, warn, info, debug, trace]").Default("fatal,panic,error,warn").Envar("APPLICATION_INSIGHTS_LOG_LEVELS").String()
-	appInsightsStatsIntervalSeconds = app.Flag("application-insights-stats-interval-seconds", "Interval in seconds in which system stats are measured and sent.").Default("5").Envar("APPLICATION_INSIGHTS_STATS_INTERVAL_SECONDS").Int()
+	telemetryService = app.Flag("telemetry-service", "Service that is used for telemetry [Prometheus]").Envar("TELEMETRY_SERVICE").Enum("Prometheus", "prometheus")
 
 	// Global shared variables
 	proxy             api.ClientProxy       = nil
-	envoyProxy        api.ClientProxy       = nil
 	configWatcher     watcher.ConfigWatcher = nil
 	telemetryProvider telemetry.Provider    = nil
 )
@@ -138,7 +126,7 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 			translator = translateInt.NewAstTranslator()
 		)
 
-		// Build configs
+		// Build config
 		config.API = loadedConf.API
 		config.Data = loadedConf.Data
 		config.TelemetryProvider = makeTelemetryProvider()
@@ -151,29 +139,14 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 
 		// Start rest proxy
 		startNewRestProxy(config, &serverConf)
-
-		// Start envoyProxy proxy in addition to rest proxy as soon as a port was specified!
-		if envoyPort != nil && *envoyPort != 0 {
-			startNewEnvoyProxy(config, &serverConf)
-		}
 	}
 }
 
 func makeTelemetryProvider() telemetry.Provider {
 	var provider telemetry.Provider
 	if telemetryService != nil {
-		switch strings.ToLower(*telemetryService) {
-		case constants.PrometheusTelemetry:
+		if strings.EqualFold(*telemetryService, constants.PrometheusTelemetry) {
 			provider = &telemetry.Prometheus{}
-		case constants.ApplicationInsightsTelemetry:
-			provider = &telemetry.ApplicationInsights{
-				AppInsightsInstrumentationKey: *instrumentationKey,
-				ServiceName:                   *appInsightsServiceName,
-				MaxBatchSize:                  *appInsightsMaxBatchSize,
-				MaxBatchIntervalSeconds:       *appInsightsMaxBatchInterval,
-				LogLevels:                     *appInsightsLogLevels,
-				StatsIntervalSeconds:          *appInsightsStatsIntervalSeconds,
-			}
 		}
 
 		if provider != nil {
@@ -209,26 +182,6 @@ func startNewRestProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxy
 	}
 }
 
-func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
-	if *envoyPort == *port {
-		logging.LogForComponent("main").Panic("Cannot start envoyProxy proxy and rest proxy on same port!")
-	}
-
-	// Create Rest proxy and start
-	envoyProxy = envoy.NewEnvoyProxy(envoy.EnvoyConfig{
-		Port:             *envoyPort,
-		DryRun:           *envoyDryRun,
-		EnableReflection: *envoyReflection,
-	})
-	if err := envoyProxy.Configure(appConfig, serverConf); err != nil {
-		logging.LogForComponent("main").Fatalln(err.Error())
-	}
-	// Start proxy
-	if err := envoyProxy.Start(); err != nil {
-		logging.LogForComponent("main").Fatalln(err.Error())
-	}
-}
-
 func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
 	// Build server config
 	serverConf := api.ClientProxyConfig{
@@ -247,6 +200,7 @@ func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
 				Datastores: data.MakeDatastores(loadedConf.Data),
 			},
+			AccessDecisionLogLevel: strings.ToUpper(*accessDecisionLogLevel),
 		},
 	}
 	return serverConf
@@ -264,13 +218,6 @@ func stopOnSIGTERM() {
 	// This is done blocking to ensure all telemetries are sent!
 	if telemetryProvider != nil {
 		telemetryProvider.Shutdown()
-	}
-
-	// Stop envoyProxy proxy if started
-	if envoyProxy != nil {
-		if err := envoyProxy.Stop(time.Second * 10); err != nil {
-			logging.LogForComponent("main").Warnln(err.Error())
-		}
 	}
 
 	// Stop rest proxy if started

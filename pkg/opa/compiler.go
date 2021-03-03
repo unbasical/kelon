@@ -31,6 +31,7 @@ type PolicyCompilerConfig struct {
 	ConfigWatcher         *watcher.ConfigWatcher
 	translate.AstTranslatorConfig
 	request.PathProcessorConfig
+	AccessDecisionLogLevel string
 }
 
 // PolicyCompiler is the interface that makes final decisions on incoming requests.

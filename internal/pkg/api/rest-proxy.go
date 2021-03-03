@@ -48,7 +48,7 @@ func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 
 	// Configure subcomponents
 	if serverConf.Compiler == nil {
-		return errors.New("RestProxy: Compiler not configured! ")
+		return errors.Errorf("RestProxy: Compiler not configured! ")
 	}
 	compiler := *serverConf.Compiler
 	if err := compiler.Configure(appConf, &serverConf.PolicyCompilerConfig); err != nil {
@@ -79,8 +79,7 @@ func (proxy *restProxy) Configure(appConf *configs.AppConfig, serverConf *api.Cl
 // See Start() of api.ClientProxy
 func (proxy *restProxy) Start() error {
 	if !proxy.configured {
-		err := errors.New("RestProxy was not configured! Please call Configure(). ")
-		proxy.handleErrorMetrics(err)
+		err := errors.Errorf("RestProxy was not configured! Please call Configure(). ")
 		return err
 	}
 
@@ -114,40 +113,45 @@ func (proxy *restProxy) Start() error {
 	go func() {
 		logging.LogForComponent("restProxy").Infof("Starting server at: http://0.0.0.0:%d%s", proxy.port, proxy.pathPrefix)
 		if err := proxy.server.ListenAndServe(); err != nil {
-			proxy.handleErrorMetrics(err)
-			logging.LogForComponent("restProxy").Fatal(err)
+			logging.LogForComponent("restProxy").Warn(err)
 		}
 	}()
 	return nil
 }
 
-func (proxy restProxy) applyHandlerMiddlewareIfSet(handlerFunc func(http.ResponseWriter, *http.Request)) http.Handler {
+func (proxy *restProxy) applyHandlerMiddlewareIfSet(handlerFunc func(http.ResponseWriter, *http.Request)) http.Handler {
 	if proxy.telemetryMiddleware != nil {
 		return proxy.telemetryMiddleware(http.HandlerFunc(handlerFunc))
-	} else {
-		return http.HandlerFunc(handlerFunc)
 	}
-}
-
-func (proxy restProxy) handleErrorMetrics(err error) {
-	if proxy.appConf.TelemetryProvider != nil {
-		proxy.appConf.TelemetryProvider.CheckError(err)
-	}
+	return http.HandlerFunc(handlerFunc)
 }
 
 // See Stop() of api.ClientProxy
 func (proxy *restProxy) Stop(deadline time.Duration) error {
 	if proxy.server == nil {
-		return errors.New("RestProxy has not bin started yet")
+		return errors.Errorf("RestProxy has not bin started yet")
 	}
 
 	logging.LogForComponent("restProxy").Infof("Stopping server at: http://localhost:%d%s", proxy.port, proxy.pathPrefix)
+
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
+	onShutdown := make(chan struct{})
 	defer cancel()
+
+	proxy.server.RegisterOnShutdown(func() {
+		onShutdown <- struct{}{}
+	})
 	proxy.server.SetKeepAlivesEnabled(false)
 	if err := proxy.server.Shutdown(ctx); err != nil {
-		proxy.handleErrorMetrics(err)
+		logging.LogForComponent("restProxy").WithError(err).Error("Error while shutting down server")
 		return errors.Wrap(err, "Error while shutting down server")
 	}
-	return nil
+
+	select {
+	case <-onShutdown:
+		logging.LogForComponent("restProxy").Info("Server shutdown completed")
+		return nil
+	case <-ctx.Done():
+		return errors.Errorf("Server failed to shutdown before timeout!")
+	}
 }
