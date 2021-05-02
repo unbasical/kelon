@@ -126,6 +126,7 @@ func getPreparePlaceholderForPlatform(platform string, argCounter int) string {
 // Extract and sort all connection parameters by importance.
 // Output: host, port, user, password, dbname, []options
 // Each option has the format <key>=<value>
+//nolint:gocritic
 func extractAndSortConnectionParameters(conn map[string]string) (host, port, user, password, dbname string, options []string) {
 	for key, value := range conn {
 		switch key {
