@@ -3,7 +3,7 @@
 Kelon is a policy enforcement point, that is wrapping the [Open Policy Agent](https://www.openpolicyagent.org) (OPA) and adding more functionality in terms of microservices.
 
 ### Status
-[![codecov](https://codecov.io/gh/Foundato/kelon/branch/master/graph/badge.svg)](https://codecov.io/gh//Foundato/kelon)
+[![codecov](https://codecov.io/gh/Foundato/kelon/branch/master/graph/badge.svg)](https://codecov.io/gh/Foundato/kelon)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FFoundato%2Fkelon.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FFoundato%2Fkelon?ref=badge_shield)
 
 ## Problems you face when applying authorizing to your services
