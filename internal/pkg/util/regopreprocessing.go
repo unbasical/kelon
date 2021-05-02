@@ -50,7 +50,7 @@ func preprocessPolicyFile(config *configs.AppConfig, inPath, outPath string) {
 	}
 
 	// write the whole body at once
-	err = ioutil.WriteFile(outPath, []byte(PreprocessPolicy(config, string(b))), 0644)
+	err = ioutil.WriteFile(outPath, []byte(PreprocessPolicy(config, string(b))), 0600)
 	if err != nil {
 		logging.LogForComponent("regopreprocessing").Panic(err)
 	}
