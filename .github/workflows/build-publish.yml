@@ -47,7 +47,7 @@ jobs:
         run: make test-coverage
 
       - name: CodeCov Scan
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v2.0.3
         with:
           files: ./cover.out
           flags: unittests
