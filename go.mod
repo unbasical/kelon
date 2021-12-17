@@ -9,7 +9,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/snappy v0.0.2 // indirect
-	github.com/google/go-cmp v0.5.5
+	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/klauspost/compress v1.11.7 // indirect
