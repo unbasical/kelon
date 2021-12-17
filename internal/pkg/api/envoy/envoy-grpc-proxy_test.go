@@ -82,10 +82,9 @@ func TestCheckAllow(t *testing.T) {
 		logging.LogForComponent("envoy-proxy-test").Panic(err)
 	}
 
-	proxy := NewEnvoyProxy(Config{
-		Port:             9191,
-		DryRun:           false,
-		EnableReflection: true,
+	proxy := NewEnvoyGrpcProxy(Config{
+		Port:   9191,
+		DryRun: false,
 	})
 
 	//nolint:gosimple,gocritic
@@ -96,10 +95,10 @@ func TestCheckAllow(t *testing.T) {
 		decision:        true,
 	}
 	_ = proxy.Configure(&configs.AppConfig{}, &api.ClientProxyConfig{Compiler: &compiler})
-	server, _ := proxy.(*envoyProxy)
+	server, _ := proxy.(*envoyGrpcProxy)
 
 	ctx := context.Background()
-	output, err := server.envoy.Check(ctx, &req)
+	output, err := server.grpcV2.Check(ctx, &req)
 	if err != nil {
 		t.Fatal(err)
 	}

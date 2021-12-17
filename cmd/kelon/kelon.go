@@ -55,9 +55,8 @@ var (
 	accessDecisionLogLevel = app.Flag("access-decision-log-level", "Access decision Log-Level for Kelon. Must be one of [ALL, ALLOW, DENY, NONE]").Default("ALL").Envar("ACCESS_DECISION_LOG_LEVEL").Enum("ALL", "ALLOW", "DENY", "NONE", "all", "allow", "deny", "none")
 
 	// Configs for envoy external auth
-	envoyPort       = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
-	envoyDryRun     = app.Flag("envoy-dry-run", "Enable/Disable the dry run feature of the envoy-proxy.").Default("false").Envar("ENVOY_DRY_RUN").Bool()
-	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
+	envoyPort   = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
+	envoyDryRun = app.Flag("envoy-dry-run", "Enable/Disable the dry run feature of the envoy-proxy.").Default("false").Envar("ENVOY_DRY_RUN").Bool()
 
 	// Configs for telemetry
 	telemetryService = app.Flag("telemetry-service", "Service that is used for telemetry [Prometheus]").Envar("TELEMETRY_SERVICE").Enum("Prometheus", "prometheus")
@@ -200,10 +199,9 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 	}
 
 	// Create Rest proxy and start
-	envoyProxy = envoy.NewEnvoyProxy(envoy.Config{
+	envoyProxy = envoy.NewEnvoyGrpcProxy(envoy.Config{
 		Port:                   *envoyPort,
 		DryRun:                 *envoyDryRun,
-		EnableReflection:       *envoyReflection,
 		AccessDecisionLogLevel: *accessDecisionLogLevel,
 	})
 	if err := envoyProxy.Configure(appConfig, serverConf); err != nil {
