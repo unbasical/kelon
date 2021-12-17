@@ -10,6 +10,7 @@ import (
 	"github.com/Foundato/kelon/common"
 	"github.com/Foundato/kelon/configs"
 	apiInt "github.com/Foundato/kelon/internal/pkg/api"
+	"github.com/Foundato/kelon/internal/pkg/api/envoy"
 	"github.com/Foundato/kelon/internal/pkg/data"
 	opaInt "github.com/Foundato/kelon/internal/pkg/opa"
 	requestInt "github.com/Foundato/kelon/internal/pkg/request"
@@ -53,11 +54,17 @@ var (
 	logFormat              = app.Flag("log-format", "Log-Format for Kelon. Must be one of [TEXT, JSON]").Default("TEXT").Envar("LOG_FORMAT").Enum("TEXT", "JSON")
 	accessDecisionLogLevel = app.Flag("access-decision-log-level", "Access decision Log-Level for Kelon. Must be one of [ALL, ALLOW, DENY, NONE]").Default("ALL").Envar("ACCESS_DECISION_LOG_LEVEL").Enum("ALL", "ALLOW", "DENY", "NONE", "all", "allow", "deny", "none")
 
+	// Configs for envoy external auth
+	envoyPort       = app.Flag("envoy-port", "Also start Envoy GRPC-Proxy on specified port so integrate kelon with Istio.").Envar("ENVOY_PORT").Uint32()
+	envoyDryRun     = app.Flag("envoy-dry-run", "Enable/Disable the dry run feature of the envoy-proxy.").Default("false").Envar("ENVOY_DRY_RUN").Bool()
+	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
+
 	// Configs for telemetry
 	telemetryService = app.Flag("telemetry-service", "Service that is used for telemetry [Prometheus]").Envar("TELEMETRY_SERVICE").Enum("Prometheus", "prometheus")
 
 	// Global shared variables
 	proxy             api.ClientProxy       = nil
+	envoyProxy        api.ClientProxy       = nil
 	configWatcher     watcher.ConfigWatcher = nil
 	telemetryProvider telemetry.Provider    = nil
 )
@@ -139,6 +146,11 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 
 		// Start rest proxy
 		startNewRestProxy(config, &serverConf)
+
+		// Start envoyProxy proxy in addition to rest proxy as soon as a port was specified!
+		if envoyPort != nil && *envoyPort != 0 {
+			startNewEnvoyProxy(config, &serverConf)
+		}
 	}
 }
 
@@ -182,6 +194,27 @@ func startNewRestProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxy
 	}
 }
 
+func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
+	if *envoyPort == *port {
+		logging.LogForComponent("main").Panic("Cannot start envoyProxy proxy and rest proxy on same port!")
+	}
+
+	// Create Rest proxy and start
+	envoyProxy = envoy.NewEnvoyProxy(envoy.Config{
+		Port:                   *envoyPort,
+		DryRun:                 *envoyDryRun,
+		EnableReflection:       *envoyReflection,
+		AccessDecisionLogLevel: *accessDecisionLogLevel,
+	})
+	if err := envoyProxy.Configure(appConfig, serverConf); err != nil {
+		logging.LogForComponent("main").Fatalln(err.Error())
+	}
+	// Start proxy
+	if err := envoyProxy.Start(); err != nil {
+		logging.LogForComponent("main").Fatalln(err.Error())
+	}
+}
+
 func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
 	// Build server config
 	serverConf := api.ClientProxyConfig{
@@ -218,6 +251,13 @@ func stopOnSIGTERM() {
 	// This is done blocking to ensure all telemetries are sent!
 	if telemetryProvider != nil {
 		telemetryProvider.Shutdown()
+	}
+
+	// Stop envoyProxy proxy if started
+	if envoyProxy != nil {
+		if err := envoyProxy.Stop(time.Second * 10); err != nil {
+			logging.LogForComponent("main").Warnln(err.Error())
+		}
 	}
 
 	// Stop rest proxy if started
