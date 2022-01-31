@@ -16,20 +16,15 @@ require (
 	github.com/lib/pq v1.10.1
 	github.com/open-policy-agent/opa v0.28.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.9.0
-	github.com/prometheus/procfs v0.3.0 // indirect
+	github.com/prometheus/client_golang v1.12.1
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/pretty v1.0.1 // indirect
 	go.mongodb.org/mongo-driver v1.5.1
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
-	golang.org/x/net v0.0.0-20210119194325-5f4716e94777 // indirect
-	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect
-	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
-	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
+	google.golang.org/genproto v0.0.0-20200825200019-8632dd797987
 	google.golang.org/grpc v1.36.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
