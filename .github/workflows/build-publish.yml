@@ -25,7 +25,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:
-          version: v1.29
+          version: v1.46
           args: --config=".golangci.yml" --timeout=5m
 
   test:
@@ -35,7 +35,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.16.3
+          go-version: 1.18
 
       - name: Check out code
         uses: actions/checkout@v2
@@ -46,15 +46,6 @@ jobs:
       - name: Run Unit tests.
         run: make test-coverage
 
-      - name: CodeCov Scan
-        uses: codecov/codecov-action@v1
-        with:
-          files: ./cover.out
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: true
-          verbose: false
-
   build:
     name: Build
     if: ${{ !github.base_ref }}
@@ -64,7 +55,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.16.3
+          go-version: 1.18
 
       - name: Check out code
         uses: actions/checkout@v2
