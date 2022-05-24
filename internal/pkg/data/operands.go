@@ -6,9 +6,9 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/Foundato/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 
-	"github.com/Foundato/kelon/pkg/data"
+	"github.com/unbasical/kelon/pkg/data"
 
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"

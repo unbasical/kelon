@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Foundato/kelon/pkg/constants/logging"
-	"github.com/Foundato/kelon/pkg/data"
 	"github.com/open-policy-agent/opa/ast"
+	"github.com/unbasical/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/data"
 )
 
 type astProcessor struct {

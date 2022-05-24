@@ -9,11 +9,11 @@ import (
 
 	"github.com/open-policy-agent/opa/plugins"
 
-	"github.com/Foundato/kelon/pkg/watcher"
+	"github.com/unbasical/kelon/pkg/watcher"
 
-	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/pkg/request"
-	"github.com/Foundato/kelon/pkg/translate"
+	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/request"
+	"github.com/unbasical/kelon/pkg/translate"
 )
 
 // PolicyCompilerConfig contains all configuration needed by a single opa.PolicyCompiler to run.

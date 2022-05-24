@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
 //nolint:gochecknoglobals,gocritic

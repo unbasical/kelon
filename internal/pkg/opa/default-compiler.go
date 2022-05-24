@@ -10,18 +10,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Foundato/kelon/configs"
-	requestInt "github.com/Foundato/kelon/internal/pkg/request"
-	"github.com/Foundato/kelon/pkg/constants/logging"
-	internalErrors "github.com/Foundato/kelon/pkg/errors"
-	"github.com/Foundato/kelon/pkg/opa"
-	"github.com/Foundato/kelon/pkg/request"
-	"github.com/Foundato/kelon/pkg/watcher"
 	"github.com/open-policy-agent/opa/plugins"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/server/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/unbasical/kelon/configs"
+	requestInt "github.com/unbasical/kelon/internal/pkg/request"
+	"github.com/unbasical/kelon/pkg/constants/logging"
+	internalErrors "github.com/unbasical/kelon/pkg/errors"
+	"github.com/unbasical/kelon/pkg/opa"
+	"github.com/unbasical/kelon/pkg/request"
+	"github.com/unbasical/kelon/pkg/watcher"
 )
 
 type policyCompiler struct {

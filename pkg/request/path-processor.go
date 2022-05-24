@@ -1,7 +1,7 @@
 package request
 
 import (
-	"github.com/Foundato/kelon/configs"
+	"github.com/unbasical/kelon/configs"
 )
 
 // PathProcessorConfig contains all configuration needed by a single request.PathProcessor to run.

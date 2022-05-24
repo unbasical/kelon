@@ -1,7 +1,7 @@
 // Package watcher contains components that are used for configuration reloading of kelon.
 package watcher
 
-import "github.com/Foundato/kelon/configs"
+import "github.com/unbasical/kelon/configs"
 
 // ConfigWatcher is the interface that manages configuration reloading.
 //

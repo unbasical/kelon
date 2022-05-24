@@ -13,7 +13,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
 	"github.com/open-policy-agent/opa/loader"
@@ -24,6 +23,7 @@ import (
 	"github.com/open-policy-agent/opa/storage"
 	"github.com/open-policy-agent/opa/storage/inmem"
 	"github.com/pkg/errors"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
 // OPA represents an instance of the policy engine.

@@ -1,9 +1,9 @@
 package data
 
 import (
-	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/pkg/constants/logging"
-	"github.com/Foundato/kelon/pkg/data"
+	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/data"
 )
 
 func MakeDatastores(config *configs.DatastoreConfig) map[string]*data.DatastoreTranslator {

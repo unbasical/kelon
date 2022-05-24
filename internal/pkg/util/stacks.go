@@ -2,7 +2,7 @@
 package util
 
 import (
-	"github.com/Foundato/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
 // Simple stack of strings.

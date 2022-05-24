@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/Foundato/kelon/configs"
 	"github.com/stretchr/testify/mock"
+	"github.com/unbasical/kelon/configs"
 	"gopkg.in/yaml.v3"
 )
 

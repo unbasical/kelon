@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/Foundato/kelon/pkg/telemetry"
 	"github.com/pkg/errors"
+	"github.com/unbasical/kelon/pkg/telemetry"
 	"gopkg.in/yaml.v3"
 )
 

@@ -5,7 +5,7 @@
 package data
 
 import (
-	"github.com/Foundato/kelon/configs"
+	"github.com/unbasical/kelon/configs"
 )
 
 // DatastoreTranslator constant types

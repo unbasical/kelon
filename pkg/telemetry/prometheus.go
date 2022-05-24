@@ -3,10 +3,10 @@ package telemetry
 import (
 	"net/http"
 
-	"github.com/Foundato/kelon/common"
-	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/unbasical/kelon/common"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
 type Prometheus struct {

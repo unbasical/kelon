@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	utilInt "github.com/Foundato/kelon/internal/pkg/util"
-	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
 	"github.com/open-policy-agent/opa/plugins"
@@ -18,6 +16,8 @@ import (
 	"github.com/open-policy-agent/opa/storage"
 	"github.com/open-policy-agent/opa/util"
 	"github.com/pkg/errors"
+	utilInt "github.com/unbasical/kelon/internal/pkg/util"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
 type apiError struct {

@@ -5,9 +5,9 @@
 package translate
 
 import (
-	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/pkg/data"
 	"github.com/open-policy-agent/opa/rego"
+	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/data"
 )
 
 // AstTranslatorConfig contains all configuration needed by a single translate.AstTranslator to run.

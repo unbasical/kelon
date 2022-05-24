@@ -5,7 +5,7 @@ package request
 import (
 	"fmt"
 
-	"github.com/Foundato/kelon/configs"
+	"github.com/unbasical/kelon/configs"
 )
 
 // PathMapper is the interface that maps an incoming path to a Datastore and a Package.

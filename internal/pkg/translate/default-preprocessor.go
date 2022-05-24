@@ -3,9 +3,9 @@ package translate
 import (
 	"fmt"
 
-	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/pkg/errors"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
 type astPreprocessor struct {
