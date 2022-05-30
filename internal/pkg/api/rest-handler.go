@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -201,7 +201,7 @@ func (proxy *restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request
 	opa := (*proxy.config.Compiler).GetEngine()
 
 	// Read request body
-	buf, err := ioutil.ReadAll(r.Body)
+	buf, err := io.ReadAll(r.Body)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		return

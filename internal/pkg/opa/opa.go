@@ -9,7 +9,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -40,7 +39,7 @@ type loadResult struct {
 // ConfigOPA sets the configuration file to use on the OPA instance.
 func ConfigOPA(fileName string) func(opa *OPA) error {
 	return func(opa *OPA) error {
-		bs, err := ioutil.ReadFile(fileName)
+		bs, err := os.ReadFile(fileName)
 		if err != nil {
 			return err
 		}

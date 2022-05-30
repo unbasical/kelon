@@ -26,7 +26,7 @@ func newAstPreprocessor() *astPreprocessor {
 // dereferenced later in the query, e.g., var.baz, that will be rewritten as data.foo.baz.
 func (processor *astPreprocessor) Process(queries []ast.Body, datastore string) ([]ast.Body, error) {
 	transformedQueries := make([]ast.Body, len(queries))
-	processor.expectedDatastore = fmt.Sprintf("\"%s\"", datastore)
+	processor.expectedDatastore = fmt.Sprintf("%q", datastore)
 
 	for i, q := range queries {
 		logging.LogForComponent("astPreprocessor").Debugf("================= PREPROCESS QUERY: %+v", q)

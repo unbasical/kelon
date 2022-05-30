@@ -2,7 +2,7 @@ package data
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 
@@ -136,7 +136,7 @@ func LoadDatastoreCallOpsFile(filePath string) ([]data.CallOpMapper, error) {
 	}
 
 	// Load datastoreOpsBytes from file
-	datastoreOpsBytes, ioError := ioutil.ReadFile(filePath)
+	datastoreOpsBytes, ioError := os.ReadFile(filePath)
 	if ioError == nil {
 		return LoadDatastoreCallOpsBytes(datastoreOpsBytes)
 	}

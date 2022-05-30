@@ -2,7 +2,6 @@
 package configs
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/pkg/errors"
@@ -92,8 +91,8 @@ func (l FileConfigLoader) Load() (*ExternalConfig, error) {
 		dsConfigBytes  []byte
 		apiConfigBytes []byte
 	)
-	if dsConfigBytes, ioError = ioutil.ReadFile(l.DatastoreConfigPath); ioError == nil {
-		if apiConfigBytes, ioError = ioutil.ReadFile(l.APIConfigPath); ioError == nil {
+	if dsConfigBytes, ioError = os.ReadFile(l.DatastoreConfigPath); ioError == nil {
+		if apiConfigBytes, ioError = os.ReadFile(l.APIConfigPath); ioError == nil {
 			return ByteConfigLoader{
 				DatastoreConfigBytes: dsConfigBytes,
 				APIConfigBytes:       apiConfigBytes,

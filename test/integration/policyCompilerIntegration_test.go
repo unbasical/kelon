@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -114,7 +113,7 @@ func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration)
 
 	// open and parse policycompiler test requests
 	requests := &DBTranslatorRequests{}
-	inputBytes, err := ioutil.ReadFile(config.requestPath)
+	inputBytes, err := os.ReadFile(config.requestPath)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
