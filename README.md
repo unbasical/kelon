@@ -3,8 +3,8 @@
 Kelon is a policy enforcement point, that is wrapping the [Open Policy Agent](https://www.openpolicyagent.org) (OPA) and adding more functionality in terms of microservices.
 
 ### Status
-[![codecov](https://codecov.io/gh/Foundato/kelon/branch/master/graph/badge.svg)](https://codecov.io/gh/Foundato/kelon)
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FFoundato%2Fkelon.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FFoundato%2Fkelon?ref=badge_shield)
+[![codecov](https://codecov.io/gh/unbasical/kelon/branch/master/graph/badge.svg)](https://codecov.io/gh/unbasical/kelon)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Funbasical%2Fkelon.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Funbasical%2Fkelon?ref=badge_shield)
 
 ## Problems you face when applying authorizing to your services
 
@@ -36,7 +36,7 @@ In order to run this example you need to install [Docker](https://docs.docker.co
 Afterwards you can run the example like this:
 
 ```bash
-$ git clone git@github.com:Foundato/kelon.git
+$ git clone git@github.com:unbasical/kelon.git
 $ cd kelon
 $ docker-compose up -d
 ```
@@ -49,4 +49,5 @@ After everything is up and running, you can use this [Postman-Collection](./exam
 Then visit our [official docs](https://docs.kelon.io/).
 
 ## License
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FFoundato%2Fkelon.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FFoundato%2Fkelon?ref=badge_large)
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Funbasical%2Fkelon.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Funbasical%2Fkelon?ref=badge_large)
