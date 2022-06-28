@@ -64,6 +64,7 @@ dockers:
 - image_templates:
   - 'ghcr.io/unbasical/kelon:{{ .Tag }}'
   dockerfile: Dockerfile.pipeline
+  use: buildx
   build_flag_templates:
   - "--pull"
   - "--label=org.opencontainers.image.created={{.Date}}"
