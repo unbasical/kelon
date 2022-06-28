@@ -1,8 +1,8 @@
 package watcher
 
 import (
-	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/pkg/watcher"
+	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/watcher"
 )
 
 // Implements pkg.watcher.ConfigWatcher by loading local files.

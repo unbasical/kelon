@@ -9,11 +9,9 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 
-	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
 	"github.com/open-policy-agent/opa/loader"
@@ -24,6 +22,7 @@ import (
 	"github.com/open-policy-agent/opa/storage"
 	"github.com/open-policy-agent/opa/storage/inmem"
 	"github.com/pkg/errors"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
 // OPA represents an instance of the policy engine.
@@ -40,7 +39,7 @@ type loadResult struct {
 // ConfigOPA sets the configuration file to use on the OPA instance.
 func ConfigOPA(fileName string) func(opa *OPA) error {
 	return func(opa *OPA) error {
-		bs, err := ioutil.ReadFile(fileName)
+		bs, err := os.ReadFile(fileName)
 		if err != nil {
 			return err
 		}

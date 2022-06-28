@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/Foundato/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 
-	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/pkg/watcher"
 	"github.com/fsnotify/fsnotify"
 	log "github.com/sirupsen/logrus"
+	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/watcher"
 )
 
 // Implements pkg.watcher.ConfigWatcher by loading local files.

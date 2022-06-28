@@ -3,9 +3,9 @@ package configs_test
 import (
 	"testing"
 
-	"github.com/Foundato/kelon/configs"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
+	"github.com/unbasical/kelon/configs"
 )
 
 //nolint:gochecknoglobals,gocritic

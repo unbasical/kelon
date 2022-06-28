@@ -3,9 +3,9 @@ package translate
 import (
 	"fmt"
 
-	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/pkg/errors"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
 type astPreprocessor struct {
@@ -26,7 +26,7 @@ func newAstPreprocessor() *astPreprocessor {
 // dereferenced later in the query, e.g., var.baz, that will be rewritten as data.foo.baz.
 func (processor *astPreprocessor) Process(queries []ast.Body, datastore string) ([]ast.Body, error) {
 	transformedQueries := make([]ast.Body, len(queries))
-	processor.expectedDatastore = fmt.Sprintf("\"%s\"", datastore)
+	processor.expectedDatastore = fmt.Sprintf("%q", datastore)
 
 	for i, q := range queries {
 		logging.LogForComponent("astPreprocessor").Debugf("================= PREPROCESS QUERY: %+v", q)

@@ -5,10 +5,10 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/pkg/constants/logging"
-	"github.com/Foundato/kelon/pkg/request"
 	"github.com/pkg/errors"
+	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/request"
 )
 
 type urlProcessor struct {

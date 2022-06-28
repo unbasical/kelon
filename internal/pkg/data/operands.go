@@ -2,13 +2,13 @@ package data
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 
-	"github.com/Foundato/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 
-	"github.com/Foundato/kelon/pkg/data"
+	"github.com/unbasical/kelon/pkg/data"
 
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
@@ -136,7 +136,7 @@ func LoadDatastoreCallOpsFile(filePath string) ([]data.CallOpMapper, error) {
 	}
 
 	// Load datastoreOpsBytes from file
-	datastoreOpsBytes, ioError := ioutil.ReadFile(filePath)
+	datastoreOpsBytes, ioError := os.ReadFile(filePath)
 	if ioError == nil {
 		return LoadDatastoreCallOpsBytes(datastoreOpsBytes)
 	}

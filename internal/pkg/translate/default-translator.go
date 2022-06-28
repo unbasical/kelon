@@ -1,11 +1,11 @@
 package translate
 
 import (
-	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/pkg/constants/logging"
-	"github.com/Foundato/kelon/pkg/translate"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/pkg/errors"
+	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/translate"
 )
 
 type astTranslator struct {

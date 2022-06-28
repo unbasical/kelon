@@ -5,7 +5,7 @@ WORKDIR /go/src/app
 ADD . /go/src/app
 # Build app
 RUN go mod download
-RUN go build -o /go/bin/app github.com/Foundato/kelon/cmd/kelon
+RUN go build -o /go/bin/app github.com/unbasical/kelon/cmd/kelon
 
 # final stage
 FROM gcr.io/distroless/base as build

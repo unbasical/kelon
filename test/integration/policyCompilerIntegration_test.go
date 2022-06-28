@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,20 +10,20 @@ import (
 	"strings"
 	"testing"
 
-	opa2 "github.com/Foundato/kelon/internal/pkg/opa"
+	opa2 "github.com/unbasical/kelon/internal/pkg/opa"
 
-	"github.com/Foundato/kelon/configs"
-	dataInt "github.com/Foundato/kelon/internal/pkg/data"
-	requestInt "github.com/Foundato/kelon/internal/pkg/request"
-	translateInt "github.com/Foundato/kelon/internal/pkg/translate"
-	watcherInt "github.com/Foundato/kelon/internal/pkg/watcher"
-	"github.com/Foundato/kelon/pkg/api"
-	"github.com/Foundato/kelon/pkg/constants/logging"
-	"github.com/Foundato/kelon/pkg/data"
-	"github.com/Foundato/kelon/pkg/opa"
-	"github.com/Foundato/kelon/pkg/request"
-	"github.com/Foundato/kelon/pkg/translate"
-	"github.com/Foundato/kelon/pkg/watcher"
+	"github.com/unbasical/kelon/configs"
+	dataInt "github.com/unbasical/kelon/internal/pkg/data"
+	requestInt "github.com/unbasical/kelon/internal/pkg/request"
+	translateInt "github.com/unbasical/kelon/internal/pkg/translate"
+	watcherInt "github.com/unbasical/kelon/internal/pkg/watcher"
+	"github.com/unbasical/kelon/pkg/api"
+	"github.com/unbasical/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/data"
+	"github.com/unbasical/kelon/pkg/opa"
+	"github.com/unbasical/kelon/pkg/request"
+	"github.com/unbasical/kelon/pkg/translate"
+	"github.com/unbasical/kelon/pkg/watcher"
 	"gopkg.in/yaml.v3"
 )
 
@@ -114,7 +113,7 @@ func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration)
 
 	// open and parse policycompiler test requests
 	requests := &DBTranslatorRequests{}
-	inputBytes, err := ioutil.ReadFile(config.requestPath)
+	inputBytes, err := os.ReadFile(config.requestPath)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()

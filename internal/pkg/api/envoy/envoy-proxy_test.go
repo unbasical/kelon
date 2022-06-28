@@ -5,14 +5,14 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/pkg/api"
-	"github.com/Foundato/kelon/pkg/constants/logging"
-	"github.com/Foundato/kelon/pkg/opa"
 	ext_authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/open-policy-agent/opa/plugins"
 	"github.com/open-policy-agent/opa/util"
 	"github.com/pkg/errors"
+	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/api"
+	"github.com/unbasical/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/opa"
 	"google.golang.org/genproto/googleapis/rpc/code"
 )
 

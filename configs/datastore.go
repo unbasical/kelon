@@ -3,8 +3,8 @@ package configs
 import (
 	"strings"
 
-	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/pkg/errors"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
 // Configuration for the Datastore-mappings used by kelon to map incoming requests to datastores.

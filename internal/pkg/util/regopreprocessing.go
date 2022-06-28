@@ -2,13 +2,12 @@ package util
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/Foundato/kelon/configs"
-	"github.com/Foundato/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
 //nolint:gochecknoglobals,gocritic
@@ -26,7 +25,7 @@ func PreprocessPolicy(config *configs.AppConfig, rego string) string {
 
 func preprocessPolicyFile(config *configs.AppConfig, inPath, outPath string) {
 	// read the whole file at once
-	b, err := ioutil.ReadFile(inPath)
+	b, err := os.ReadFile(inPath)
 	if err != nil {
 		logging.LogForComponent("regopreprocessing").Panic(err)
 	}
@@ -50,7 +49,7 @@ func preprocessPolicyFile(config *configs.AppConfig, inPath, outPath string) {
 	}
 
 	// write the whole body at once
-	err = ioutil.WriteFile(outPath, []byte(PreprocessPolicy(config, string(b))), 0600)
+	err = os.WriteFile(outPath, []byte(PreprocessPolicy(config, string(b))), 0600)
 	if err != nil {
 		logging.LogForComponent("regopreprocessing").Panic(err)
 	}

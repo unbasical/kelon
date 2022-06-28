@@ -4,12 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
-	utilInt "github.com/Foundato/kelon/internal/pkg/util"
-	"github.com/Foundato/kelon/pkg/constants/logging"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
 	"github.com/open-policy-agent/opa/plugins"
@@ -18,6 +16,8 @@ import (
 	"github.com/open-policy-agent/opa/storage"
 	"github.com/open-policy-agent/opa/util"
 	"github.com/pkg/errors"
+	utilInt "github.com/unbasical/kelon/internal/pkg/util"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
 type apiError struct {
@@ -201,7 +201,7 @@ func (proxy *restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request
 	opa := (*proxy.config.Compiler).GetEngine()
 
 	// Read request body
-	buf, err := ioutil.ReadAll(r.Body)
+	buf, err := io.ReadAll(r.Body)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		return

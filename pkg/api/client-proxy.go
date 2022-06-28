@@ -4,9 +4,9 @@ package api
 import (
 	"time"
 
-	"github.com/Foundato/kelon/pkg/opa"
+	"github.com/unbasical/kelon/pkg/opa"
 
-	"github.com/Foundato/kelon/configs"
+	"github.com/unbasical/kelon/configs"
 )
 
 // ClientProxyConfig contains all configuration needed by a single api.ClientProxy to run.

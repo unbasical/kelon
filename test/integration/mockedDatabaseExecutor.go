@@ -2,13 +2,13 @@ package integration
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"strconv"
 	"testing"
 
-	"github.com/Foundato/kelon/configs"
 	"github.com/stretchr/testify/mock"
+	"github.com/unbasical/kelon/configs"
 	"gopkg.in/yaml.v3"
 )
 
@@ -32,7 +32,7 @@ func NewMockedDatastoreExecuter(t *testing.T, dbQueriesPath, testName string) *M
 	response := &DBTranslatorResponses{}
 
 	// Open config file
-	inputBytes, err := ioutil.ReadFile(dbQueriesPath)
+	inputBytes, err := os.ReadFile(dbQueriesPath)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
