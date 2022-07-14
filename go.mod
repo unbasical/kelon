@@ -10,11 +10,11 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/lib/pq v1.10.6
-	github.com/open-policy-agent/opa v0.41.0
+	github.com/open-policy-agent/opa v0.42.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
 	github.com/sirupsen/logrus v1.8.1
-	github.com/stretchr/testify v1.7.5
+	github.com/stretchr/testify v1.8.0
 	go.mongodb.org/mongo-driver v1.9.1
 	google.golang.org/genproto v0.0.0-20220627200112-0a929928cb33
 	google.golang.org/grpc v1.47.0
@@ -64,7 +64,6 @@ require (
 	github.com/prometheus/common v0.35.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
-	github.com/spf13/cobra v1.5.0 // indirect
 	github.com/stretchr/objx v0.4.0 // indirect
 	github.com/tidwall/pretty v1.0.1 // indirect
 	github.com/vektah/gqlparser/v2 v2.4.5 // indirect
