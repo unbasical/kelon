@@ -13,7 +13,7 @@ require (
 	github.com/open-policy-agent/opa v0.41.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.7.5
 	go.mongodb.org/mongo-driver v1.9.1
 	google.golang.org/genproto v0.0.0-20220627200112-0a929928cb33
@@ -81,7 +81,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e // indirect
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
-	golang.org/x/sys v0.0.0-20220627191245-f75cf1eec38b // indirect
+	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
