@@ -56,7 +56,7 @@ func checkAccessDecisionLogLevel(logLevel, decision string) bool {
 	return logLevel == "ALL" || decision == logLevel
 }
 
-func LogWithCorrelationId(correlation uuid.UUID) *log.Entry {
+func LogWithCorrelationID(correlation uuid.UUID) *log.Entry {
 	return log.WithField(LabelCorrelation, correlation.String())
 }
 

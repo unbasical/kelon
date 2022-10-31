@@ -2,13 +2,13 @@ package translate
 
 import (
 	"fmt"
-	internalErrors "github.com/unbasical/kelon/pkg/errors"
 	"strconv"
 	"strings"
 
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/data"
+	internalErrors "github.com/unbasical/kelon/pkg/errors"
 )
 
 type astProcessor struct {

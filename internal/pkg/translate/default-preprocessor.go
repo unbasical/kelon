@@ -55,7 +55,6 @@ func (processor *astPreprocessor) Process(queries []ast.Body, datastore string) 
 			if terms != nil {
 				transformedExprs = append(transformedExprs, ast.NewExpr(terms))
 			}
-			//transformedExprs = append(transformedExprs, ast.NewExpr(terms))
 		}
 		transformedQueries[i] = ast.NewBody(transformedExprs...)
 	}
