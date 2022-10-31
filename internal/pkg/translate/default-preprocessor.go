@@ -11,6 +11,7 @@ import (
 type astPreprocessor struct {
 	tableNames        map[string]string
 	tableVars         map[string][]*ast.Term
+	localVars         map[string]*ast.Term
 	expectedDatastore string
 }
 
@@ -32,6 +33,7 @@ func (processor *astPreprocessor) Process(queries []ast.Body, datastore string) 
 		logging.LogForComponent("astPreprocessor").Debugf("================= PREPROCESS QUERY: %+v", q)
 		processor.tableNames = make(map[string]string)
 		processor.tableVars = make(map[string][]*ast.Term)
+		processor.localVars = make(map[string]*ast.Term)
 
 		var transformedExprs []*ast.Expr
 		for _, expr := range q {
@@ -40,11 +42,19 @@ func (processor *astPreprocessor) Process(queries []ast.Body, datastore string) 
 			for _, o := range expr.Operands() {
 				trans, err := processor.transformRefs(o)
 				if err != nil {
-					return nil, errors.Wrapf(err, "Preprocessor: Error while preprocessing Operator [%+v] of expression [%+v]", o, expr)
+					return nil, errors.Wrapf(err, "Preprocessor: Error while preprocessing Operator %T -> [%+v] of expression [%+v]", o, o, expr)
 				}
 				terms = append(terms, ast.NewTerm(trans.(ast.Value)))
 			}
-			transformedExprs = append(transformedExprs, ast.NewExpr(terms))
+
+			terms, err := processor.substituteVars(terms)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Preprocessor: Error while preprocessing Expression [%+v]", expr)
+			}
+
+			if terms != nil {
+				transformedExprs = append(transformedExprs, ast.NewExpr(terms))
+			}
 		}
 		transformedQueries[i] = ast.NewBody(transformedExprs...)
 	}
@@ -98,4 +108,61 @@ func (processor *astPreprocessor) transformRefs(value interface{}) (interface{},
 	}
 
 	return ast.TransformRefs(value, trans)
+}
+
+func (processor *astPreprocessor) substituteVars(terms []*ast.Term) ([]*ast.Term, error) {
+	// local variable declaration -> store and return
+	if isLocalVarDeclaration(terms) {
+		v, _ := terms[1].Value.(ast.Var)
+		processor.localVars[v.String()] = terms[2]
+
+		return nil, nil
+	}
+
+	var transformedTerms []*ast.Term
+	for _, term := range terms {
+		v, ok := term.Value.(ast.Var)
+		if !ok { // Not a variable -> no substitution
+			transformedTerms = append(transformedTerms, term)
+			continue
+		}
+
+		if sub, ok := processor.localVars[v.String()]; ok {
+			transformedTerms = append(transformedTerms, sub)
+		} else {
+			return nil, errors.New(fmt.Sprintf("Undefined variable %s", v.String()))
+		}
+	}
+	return transformedTerms, nil
+}
+
+func isLocalVarDeclaration(terms []*ast.Term) bool {
+	if len(terms) != 3 {
+		return false
+	}
+
+	// Check if the first Term is "eq" ast.Ref
+	if ref, ok := terms[0].Value.(ast.Ref); ok {
+		if len(ref) != 1 {
+			return false
+		}
+
+		if v, ok := ref[0].Value.(ast.Var); !ok || v.String() != "eq" {
+			return false
+		}
+	} else {
+		return false
+	}
+
+	// Check left side of eq is ast.Var
+	if _, ok := terms[1].Value.(ast.Var); !ok {
+		return false
+	}
+
+	// Check right side of eq is ast.Ref
+	if _, ok := terms[2].Value.(ast.Ref); !ok {
+		return false
+	}
+
+	return true
 }

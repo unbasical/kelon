@@ -213,6 +213,56 @@
 					"response": []
 				},
 				{
+					"name": "MySQL: Torben can access Arnolds app",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.result).to.eql(true);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Torben\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "MySQL: Anyone can access app with 5 stars",
 					"event": [
 						{
@@ -474,6 +524,56 @@
 					"response": []
 				},
 				{
+					"name": "PostgreSQL: Torben can access Arnolds app",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.result).to.eql(true);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Torben\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "PostgreSQL: Anyone can access app with 5 stars",
 					"event": [
 						{
@@ -713,6 +813,56 @@
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "MongoDB: Torben can access Arnolds app",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.result).to.eql(true);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Torben\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"

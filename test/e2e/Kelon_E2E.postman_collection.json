@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "5420eb9d-150f-4d42-a1ae-15487bd695bf",
+    "_postman_id": "0f8c5bd8-0ebd-4e42-ae88-f94cb1f46b92",
     "name": "Kelon CI/CD E2E",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -187,6 +187,56 @@
             "body": {
               "mode": "raw",
               "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MySQL: Torben can access Arnold's app",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Torben\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -464,6 +514,56 @@
           "response": []
         },
         {
+          "name": "PostgreSQL: Torben can access Arnold's app",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Torben\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "PostgreSQL: Anyone can access app with 5 stars",
           "event": [
             {
@@ -697,6 +797,56 @@
             "body": {
               "mode": "raw",
               "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MongoDB: Torben can access Arnold's app",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Torben\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"

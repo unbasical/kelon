@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/open-policy-agent/opa/plugins"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/server/types"
@@ -43,9 +44,11 @@ type apiError struct {
 }
 
 type decisionContext struct {
-	Path     string
-	Method   string
-	Duration string
+	Path          string
+	Method        string
+	Duration      string
+	Error         error
+	CorrelationID uuid.UUID
 }
 
 // Return a new instance of the default implementation of the opa.PolicyCompiler.
@@ -160,27 +163,28 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 	// OPA decided denied
 	if queries.Queries == nil {
-		compiler.writeDeny(w, decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
+		compiler.writeDeny(w, &decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 		return
 	}
 	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
-		compiler.writeAllow(w, decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
+		compiler.writeAllow(w, &decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 		return
 	}
 
 	// Otherwise translate ast
 	result, err := (*compiler.config.Translator).Process(queries, output.Datastore)
 	if err != nil {
-		compiler.handleError(w, internalErrors.InvalidRequestTranslation{Cause: err})
+		compiler.writeDenyError(w, &decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String(),
+			Error: err, CorrelationID: uuid.New()})
 		return
 	}
 
 	// If we receive something from the datastore, the query was successful
 	if result {
-		compiler.writeAllow(w, decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
+		compiler.writeAllow(w, &decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 	} else {
-		compiler.writeDeny(w, decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
+		compiler.writeDeny(w, &decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
 	}
 }
 
@@ -195,8 +199,6 @@ func (compiler policyCompiler) handleError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
 	case internalErrors.InvalidInput:
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
-	case internalErrors.InvalidRequestTranslation:
-		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 	default:
 		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
 	}
@@ -211,7 +213,19 @@ func writeError(w http.ResponseWriter, status int, code string, err error) {
 	writeJSON(w, status, resp)
 }
 
-func (compiler policyCompiler) writeAllow(w http.ResponseWriter, loggingInfo decisionContext) {
+func (compiler policyCompiler) writeDenyError(w http.ResponseWriter, loggingInfo *decisionContext) {
+	compiler.writeDeny(w, loggingInfo)
+	switch err := loggingInfo.Error.(type) {
+	case internalErrors.InvalidRequestTranslation:
+		for _, e := range err.Causes {
+			logging.LogWithCorrelationID(loggingInfo.CorrelationID).Warn(e)
+		}
+	default:
+		logging.LogWithCorrelationID(loggingInfo.CorrelationID).Warn(err.Error())
+	}
+}
+
+func (compiler policyCompiler) writeAllow(w http.ResponseWriter, loggingInfo *decisionContext) {
 	if compiler.config.RespondWithStatusCode {
 		w.WriteHeader(http.StatusOK)
 	} else {
@@ -220,13 +234,18 @@ func (compiler policyCompiler) writeAllow(w http.ResponseWriter, loggingInfo dec
 	logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration, "ALLOW", "policyCompiler")
 }
 
-func (compiler policyCompiler) writeDeny(w http.ResponseWriter, loggingInfo decisionContext) {
+func (compiler policyCompiler) writeDeny(w http.ResponseWriter, loggingInfo *decisionContext) {
 	if compiler.config.RespondWithStatusCode {
 		w.WriteHeader(http.StatusForbidden)
 	} else {
 		writeJSON(w, http.StatusOK, apiResponse{Result: false})
 	}
-	logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration, "Deny", "policyCompiler")
+
+	if loggingInfo.Error != nil {
+		logging.LogAccessDecisionError(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration, loggingInfo.Error.Error(), loggingInfo.CorrelationID.String(), "DENY", "policyCompiler")
+	} else {
+		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration, "DENY", "policyCompiler")
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, x interface{}) {
@@ -257,11 +276,11 @@ func (compiler policyCompiler) parseRequestBody(req *http.Request) (map[string]i
 		if marshalErr := json.NewDecoder(strings.NewReader(bodyString)).Decode(&requestBody); marshalErr != nil {
 			return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
 		}
-	}
-
-	// Decode raw body
-	if marshalErr := json.NewDecoder(req.Body).Decode(&requestBody); marshalErr != nil {
-		return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
+	} else {
+		// Decode raw body
+		if marshalErr := json.NewDecoder(req.Body).Decode(&requestBody); marshalErr != nil {
+			return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
+		}
 	}
 	return requestBody, nil
 }

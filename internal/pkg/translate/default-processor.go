@@ -8,6 +8,7 @@ import (
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/data"
+	internalErrors "github.com/unbasical/kelon/pkg/errors"
 )
 
 type astProcessor struct {
@@ -17,6 +18,7 @@ type astProcessor struct {
 	entities     map[string]interface{}
 	relations    []data.Node
 	operands     NodeStack
+	errors       []string
 }
 
 func newAstProcessor() *astProcessor {
@@ -30,6 +32,7 @@ func (p *astProcessor) Process(queries []ast.Body) (data.Node, error) {
 	p.entities = make(map[string]interface{})
 	p.relations = []data.Node{}
 	p.operands = [][]data.Node{}
+	p.errors = []string{}
 
 	// NEW ERA
 	clauses := make([]data.Node, len(queries))
@@ -49,6 +52,11 @@ func (p *astProcessor) Process(queries []ast.Body) (data.Node, error) {
 		p.conjunctions = p.conjunctions[:0]
 		p.fromEntity = nil
 		p.link = make(map[string]interface{})
+	}
+
+	// AST transformation did produce errors
+	if len(p.errors) > 0 {
+		return nil, internalErrors.InvalidRequestTranslation{Causes: p.errors}
 	}
 
 	var result data.Node = data.Union{Clauses: clauses}
@@ -76,7 +84,7 @@ func (p *astProcessor) Visit(v interface{}) ast.Visitor {
 		logging.LogForComponent("astProcessor").Debugf("Term: -> %+v", v)
 		return p.translateTerm(*node)
 	default:
-		logging.LogForComponent("astProcessor").Warnf("Unexpectedly visiting children of: %T -> %+v", v, v)
+		p.errors = append(p.errors, fmt.Sprintf("Unexpectedly visiting children of: %T -> %+v", v, v))
 	}
 	return p
 }
@@ -165,7 +173,7 @@ func (p *astProcessor) translateTerm(node ast.Term) ast.Visitor {
 		})
 		return nil
 	default:
-		logging.LogForComponent("astProcessor").Warnf("Unexpected term Node: %T -> %+v", v, v)
+		p.errors = append(p.errors, fmt.Sprintf("Unexpected term Node: %T -> %+v", v, v))
 	}
 	return p
 }

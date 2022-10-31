@@ -44,7 +44,7 @@ allow = true {
 
     # Query
     data.pg.users[user].name == input.user
-    user.friend == "Kevin"
+    old_or_kevin(user.age, user.friend)
 }
 
 # Path: GET /api/pg/apps/:app_id
@@ -59,4 +59,12 @@ allow = true {
 
     #If there is any one return true
     count(app) > 0
+}
+
+old_or_kevin(age, friend) {
+    age == 42
+}
+
+old_or_kevin(age, friend) {
+    friend == "Kevin"
 }

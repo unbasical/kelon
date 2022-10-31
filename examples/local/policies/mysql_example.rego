@@ -38,14 +38,14 @@ allow = true {
 }
 
 # Path: GET <any>
-# All users that are a friends of Kevin are allowed see everything
+# All users that are a friends of Kevin or 42 years old are allowed see everything
 allow = true {
     some user
     input.method == "GET"
 
     # Query
     data.mysql.users[user].name == input.user
-    user.friend == "Kevin"
+    old_or_kevin(user.age, user.friend)
 }
 
 # Path: GET /api/mysql/apps/:app_id
@@ -60,4 +60,12 @@ allow = true {
 
     #If there is any one return true
     count(app) > 0
+}
+
+old_or_kevin(age, friend) {
+    age == 42
+}
+
+old_or_kevin(age, friend) {
+    friend == "Kevin"
 }

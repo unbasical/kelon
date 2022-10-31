@@ -48,4 +48,5 @@ CREATE TABLE `users` (
 INSERT INTO `users` (`id`, `name`, `age`, `friend`) VALUES
 (1,	'Arnold',	72,	'John Connor'),
 (2,	'Kevin',	21,	'Kevin'),
-(3,	'Anyone',	NULL,	'Anyone');
+(3,	'Anyone',	NULL,	'Anyone'),
+(4, 'Torben', 42, 'Daniel');

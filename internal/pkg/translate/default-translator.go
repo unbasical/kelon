@@ -64,7 +64,7 @@ func (trans astTranslator) Process(response *rego.PartialQueries, datastore stri
 
 	processedQuery, processErr := newAstProcessor().Process(preprocessedQueries)
 	if processErr != nil {
-		return false, errors.Wrap(preprocessErr, "AstTranslator: Error during processing.")
+		return false, processErr
 	}
 
 	if targetDB, ok := trans.config.Datastores[datastore]; ok {
