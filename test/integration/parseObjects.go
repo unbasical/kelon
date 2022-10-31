@@ -18,4 +18,9 @@ type DBRequest struct {
 	Body           string `yaml:"body"`
 	Text           string `yaml:"text"`
 	ResponseStatus string `yaml:"responseStatus"`
+	ThrowError     bool   `yaml:"error,omitempty"`
+}
+
+type DecisionBody struct {
+	Allow bool `json:"result"`
 }

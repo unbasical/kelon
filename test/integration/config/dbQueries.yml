@@ -1,66 +1,82 @@
 queries:
   0:
     query:
-      sql: "SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND appstore.users.friend = ?) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND ? = appstore.users.name AND appstore.app_rights.right = ? AND appstore.app_rights.app_id = ?) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = ? AND appstore.apps.stars = ?)"
-    params: "Arnold, Kevin, Arnold, OWNER, 2, 2, 5"
+      sql: "SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND ? = appstore.users.friend) UNION SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND ? = appstore.users.age) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND ? = appstore.users.name AND appstore.app_rights.right = ? AND appstore.app_rights.app_id = ?) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = ? AND appstore.apps.stars = ?)"
+    params: "Arnold, Kevin, Arnold, 42, Arnold, OWNER, 2, 2, 5"
     text: "MySQL: Arnold can access his app"
   1:
     query:
-      sql: "SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND appstore.users.friend = ?) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND ? = appstore.users.name AND appstore.app_rights.right = ? AND appstore.app_rights.app_id = ?) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = ? AND appstore.apps.stars = ?)"
-    params: "Anyone, Kevin, Anyone, OWNER, 2, 2, 5"
+      sql: "SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND ? = appstore.users.friend) UNION SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND ? = appstore.users.age) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND ? = appstore.users.name AND appstore.app_rights.right = ? AND appstore.app_rights.app_id = ?) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = ? AND appstore.apps.stars = ?)"
+    params: "Anyone, Kevin, Anyone, 42, OWNER, 2, 2, 5"
     text: "MySQL: Anyone can't access Arnold's app"
   2:
     query:
-      sql: "SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND appstore.users.friend = ?) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND ? = appstore.users.name AND appstore.app_rights.right = ? AND appstore.app_rights.app_id = ?) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = ? AND appstore.apps.stars = ?)"
-    params: "Kevin, Kevin, Kevin, OWNER, 2, 2, 5"
+      sql: "SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND ? = appstore.users.friend) UNION SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND ? = appstore.users.age) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND ? = appstore.users.name AND appstore.app_rights.right = ? AND appstore.app_rights.app_id = ?) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = ? AND appstore.apps.stars = ?)"
+    params: "Kevin, Kevin, Kevin, 42, OWNER, 2, 2, 5"
     text: "MySQL: Kevin can access Arnold's app"
   3:
     query:
-      sql: "SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND appstore.users.friend = ?) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND ? = appstore.users.name AND appstore.app_rights.right = ? AND appstore.app_rights.app_id = ?) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = ? AND appstore.apps.stars = ?)"
-    params: "Anyone, Kevin, Anyone, OWNER, 3, 3, 5"
-    text: "MySQL: Anyone can access app with 5 stars"
+      sql: "SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND ? = appstore.users.friend) UNION SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND ? = appstore.users.age) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND ? = appstore.users.name AND appstore.app_rights.right = ? AND appstore.app_rights.app_id = ?) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = ? AND appstore.apps.stars = ?)"
+    params: "Torben, Kevin, Torben, 42, OWNER, 2, 2, 5"
+    text: "MySQL: Torben can access Arnold's app"
   4:
     query:
-      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND appstore.users.friend = $2) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $3 = appstore.users.name AND appstore.app_rights.right = $4 AND appstore.app_rights.app_id = $5) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $6 AND appstore.apps.stars = $7)"
-    params: "Arnold, Kevin, Arnold, OWNER, 2, 2, 5"
-    text: "PostgreSQL: Arnold can access his app"
+      sql: "SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND ? = appstore.users.friend) UNION SELECT count(*) FROM appstore.users WHERE (? = appstore.users.name AND ? = appstore.users.age) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND ? = appstore.users.name AND appstore.app_rights.right = ? AND appstore.app_rights.app_id = ?) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = ? AND appstore.apps.stars = ?)"
+    params: "Anyone, Kevin, Anyone, 42, OWNER, 3, 3, 5"
+    text: "MySQL: Anyone can access app with 5 stars"
   5:
     query:
-      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND appstore.users.friend = $2) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $3 = appstore.users.name AND appstore.app_rights.right = $4 AND appstore.app_rights.app_id = $5) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $6 AND appstore.apps.stars = $7)"
-    params: "Anyone, Kevin, Anyone, OWNER, 2, 2, 5"
-    text: "PostgreSQL: Anyone can't access Arnold's app"
+      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND $2 = appstore.users.friend) UNION SELECT count(*) FROM appstore.users WHERE ($3 = appstore.users.name AND $4 = appstore.users.age) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $5 = appstore.users.name AND appstore.app_rights.right = $6 AND appstore.app_rights.app_id = $7) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $8 AND appstore.apps.stars = $9)"
+    params: "Arnold, Kevin, Arnold, 42, Arnold, OWNER, 2, 2, 5"
+    text: "PostgreSQL: Arnold can access his app"
   6:
     query:
-      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND appstore.users.friend = $2) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $3 = appstore.users.name AND appstore.app_rights.right = $4 AND appstore.app_rights.app_id = $5) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $6 AND appstore.apps.stars = $7)"
-    params: "Kevin, Kevin, Kevin, OWNER, 2, 2, 5"
-    text: "PostgreSQL: Kevin can access Arnold's app"
+      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND $2 = appstore.users.friend) UNION SELECT count(*) FROM appstore.users WHERE ($3 = appstore.users.name AND $4 = appstore.users.age) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $5 = appstore.users.name AND appstore.app_rights.right = $6 AND appstore.app_rights.app_id = $7) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $8 AND appstore.apps.stars = $9)"
+    params: "Anyone, Kevin, Anyone, 42, Anyone, OWNER, 2, 2, 5"
+    text: "PostgreSQL: Anyone can't access Arnold's app"
   7:
     query:
-      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND appstore.users.friend = $2) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $3 = appstore.users.name AND appstore.app_rights.right = $4 AND appstore.app_rights.app_id = $5) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $6 AND appstore.apps.stars = $7)"
-    params: "Anyone, Kevin, Anyone, OWNER, 3, 3, 5"
-    text: "PostgreSQL: Anyone can access app with 5 stars"
+      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND $2 = appstore.users.friend) UNION SELECT count(*) FROM appstore.users WHERE ($3 = appstore.users.name AND $4 = appstore.users.age) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $5 = appstore.users.name AND appstore.app_rights.right = $6 AND appstore.app_rights.app_id = $7) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $8 AND appstore.apps.stars = $9)"
+    params: "Kevin, Kevin, Kevin, 42, Anyone, OWNER, 2, 2, 5"
+    text: "PostgreSQL: Kevin can access Arnold's app"
   8:
     query:
-      apps: '{ "$or": [ {"id": 2, "rights.right": "OWNER", "rights.user.name": "Arnold", "stars": { "$gt": 2 }}, {"stars": 5, "id": 2} ] }'
-      users: '{ "$or": [ {"name": "Arnold", "friend": "Kevin"} ] }'
-    params: ""
-    text: "Mongo: Arnold can access his app"
+      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND $2 = appstore.users.friend) UNION SELECT count(*) FROM appstore.users WHERE ($3 = appstore.users.name AND $4 = appstore.users.age) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $5 = appstore.users.name AND appstore.app_rights.right = $6 AND appstore.app_rights.app_id = $7) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $8 AND appstore.apps.stars = $9)"
+    params: "Torben, Kevin, Torben, 42, Torben, OWNER, 2, 2, 5"
+    text: "PostgreSQL: Torben can access Arnold's app"
   9:
     query:
-      apps: '{ "$or": [ {"id": 2, "rights.right": "OWNER", "rights.user.name": "Anyone", "stars": { "$gt": 2 }}, {"stars": 5, "id": 2} ] }'
-      users: '{ "$or": [ {"name": "Anyone", "friend": "Kevin"} ] }'
-    params: ""
-    text: "Mongo: Anyone can't access Arnold's app"
+      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND $2 = appstore.users.friend) UNION SELECT count(*) FROM appstore.users WHERE ($3 = appstore.users.name AND $4 = appstore.users.age) UNION SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $5 = appstore.users.name AND appstore.app_rights.right = $6 AND appstore.app_rights.app_id = $7) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $8 AND appstore.apps.stars = $9)"
+    params: "Anyone, Kevin, Anyone, 42, Anyone, OWNER, 2, 2, 5"
+    text: "PostgreSQL: Anyone can access app with 5 stars"
   10:
     query:
-      apps: '{ "$or": [ {"id": 2, "rights.right": "OWNER", "rights.user.name": "Kevin", "stars": { "$gt": 2 }}, {"stars": 5, "id": 2} ] }'
-      users: '{ "$or": [ {"name": "Kevin", "friend": "Kevin"} ] }'
+      apps: '{ "$or": [ {"id": 2, "rights.right": "OWNER", "rights.user.name": "Arnold", "stars": { "$gt": 2 }}, {"stars": 5, "id": 2} ] }'
+      users: '{ "$or": [ {"name": "Arnold", "friend": "Kevin"}, {"name": "Arnold", "age": 42} ] }'
     params: ""
-    text: "Mongo: Kevin can access Arnold's app"
+    text: "Mongo: Arnold can access his app"
   11:
     query:
+      apps: '{ "$or": [ {"id": 2, "rights.right": "OWNER", "rights.user.name": "Anyone", "stars": { "$gt": 2 }}, {"stars": 5, "id": 2} ] }'
+      users: '{ "$or": [ {"name": "Anyone", "friend": "Kevin"}, {"name": "Anyone", "age": 42} ] }'
+    params: ""
+    text: "Mongo: Anyone can't access Arnold's app"
+  12:
+    query:
+      apps: '{ "$or": [ {"id": 2, "rights.right": "OWNER", "rights.user.name": "Kevin", "stars": { "$gt": 2 }}, {"stars": 5, "id": 2} ] }'
+      users: '{ "$or": [ {"name": "Kevin", "friend": "Kevin"}, {"name": "Kevin", "age": 42} ] }'
+    params: ""
+    text: "Mongo: Kevin can access Arnold's app"
+  13:
+    query:
+      apps: '{ "$or": [ {"id": 2, "rights.right": "OWNER", "rights.user.name": "Torben", "stars": { "$gt": 2 }}, {"stars": 5, "id": 2} ] }'
+      users: '{ "$or": [ {"name": "Torben", "friend": "Kevin"}, {"name": "Torben", "age": 42} ] }'
+    params: ""
+    text: "Mongo: Torben can access Arnold's app"
+  14:
+    query:
       apps: '{ "$or": [ {"id": 3, "rights.right": "OWNER", "rights.user.name": "Anyone", "stars": { "$gt": 2 }}, {"stars": 5, "id": 3} ] }'
-      users: '{ "$or": [ {"name": "Anyone", "friend": "Kevin"} ] }'
+      users: '{ "$or": [ {"name": "Anyone", "friend": "Kevin"}, {"name": "Anyone", "age": 42} ] }'
     params: ""
     text: "Mongo: Anyone can access app with 5 stars"
 

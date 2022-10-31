@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -146,6 +147,21 @@ func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration)
 		if strconv.Itoa(resp.StatusCode) != statusCode {
 			t.Errorf("Response status %s does not match expected status: %s in %s", strconv.Itoa(resp.StatusCode), statusCode, name)
 			t.FailNow()
+		}
+
+		// assert error expectation
+		errExpectation := requests.Requests[strconv.Itoa(counter)].ThrowError
+		if errExpectation == true {
+			var decisionBody DecisionBody
+			if json.NewDecoder(resp.Body).Decode(&decisionBody) != nil {
+				t.Errorf("Response Body %+v does not match expected format {\"resutl\":bool} in %s", resp.Body, name)
+				t.FailNow()
+			}
+
+			if decisionBody.Allow {
+				t.Errorf("Access decision %t does not match expected decision: %t in %s", decisionBody.Allow, false, name)
+				t.FailNow()
+			}
 		}
 
 		// close response body and increase counter for next iteration

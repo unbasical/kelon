@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,8 +20,14 @@ const LabelDuration string = "duration"
 // Label for decision decision
 const LabelDecision string = "decision"
 
-func LogAccessDecision(accessDecissionLogLevel, path, method, duration, decision, component string) {
-	if checkAccessDecisionLogLevel(accessDecissionLogLevel, decision) {
+// Label for translation error
+const LabelError string = "error"
+
+// Label for multiline error logs
+const LabelCorrelation = "correlationId"
+
+func LogAccessDecision(accessDecisionLogLevel, path, method, duration, decision, component string) {
+	if checkAccessDecisionLogLevel(accessDecisionLogLevel, decision) {
 		log.WithFields(log.Fields{
 			LabelPath:      path,
 			LabelMethod:    method,
@@ -31,8 +38,26 @@ func LogAccessDecision(accessDecissionLogLevel, path, method, duration, decision
 	}
 }
 
+func LogAccessDecisionError(accessDecisionLogLevel, path, method, duration, err, correlation, decision, component string) {
+	if checkAccessDecisionLogLevel(accessDecisionLogLevel, decision) {
+		log.WithFields(log.Fields{
+			LabelPath:        path,
+			LabelMethod:      method,
+			LabelDuration:    duration,
+			LabelDecision:    decision,
+			LabelError:       err,
+			LabelCorrelation: correlation,
+			LabelComponent:   component,
+		}).Warn("Access decision:")
+	}
+}
+
 func checkAccessDecisionLogLevel(logLevel, decision string) bool {
 	return logLevel == "ALL" || decision == logLevel
+}
+
+func LogWithCorrelationId(correlation uuid.UUID) *log.Entry {
+	return log.WithField(LabelCorrelation, correlation.String())
 }
 
 func LogForComponent(component string) *log.Entry {
