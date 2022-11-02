@@ -48,6 +48,7 @@ var (
 	port                  = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
 	preprocessRegos       = app.Flag("preprocess-policies", "Preprocess incoming policies for internal use-case (EXPERIMENTAL FEATURE! DO NOT USE!).").Default("false").Envar("PREPROCESS_POLICIES").Bool()
 	respondWithStatusCode = app.Flag("respond-with-status-code", "Communicate Decision via status code 200 (ALLOW) or 403 (DENY).").Default("false").Envar("RESPOND_WITH_STATUS_CODE").Bool()
+	astSkipUnknown        = app.Flag("ast-skip-unknown", "Skip unknown parts in the AST and only log as warning.").Default("false").Envar("AST_SKIP_UNKNOWN").Bool()
 
 	// Logging
 	logLevel               = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
@@ -231,7 +232,8 @@ func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor,
 			},
 			Translator: &translator,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
-				Datastores: data.MakeDatastores(loadedConf.Data),
+				Datastores:  data.MakeDatastores(loadedConf.Data),
+				SkipUnknown: *astSkipUnknown,
 			},
 			AccessDecisionLogLevel: strings.ToUpper(*accessDecisionLogLevel),
 		},
