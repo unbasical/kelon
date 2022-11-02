@@ -19,10 +19,11 @@ type astProcessor struct {
 	relations    []data.Node
 	operands     NodeStack
 	errors       []string
+	skipUnknown  bool
 }
 
-func newAstProcessor() *astProcessor {
-	return &astProcessor{}
+func newAstProcessor(skipUnknown bool) *astProcessor {
+	return &astProcessor{skipUnknown: skipUnknown}
 }
 
 // See translate.AstTranslator.
@@ -84,7 +85,11 @@ func (p *astProcessor) Visit(v interface{}) ast.Visitor {
 		logging.LogForComponent("astProcessor").Debugf("Term: -> %+v", v)
 		return p.translateTerm(*node)
 	default:
-		p.errors = append(p.errors, fmt.Sprintf("Unexpectedly visiting children of: %T -> %+v", v, v))
+		if p.skipUnknown {
+			logging.LogForComponent("astProcessor").Warnf("Unexpectedly visiting children of: %T -> %+v", v, v)
+		} else {
+			p.errors = append(p.errors, fmt.Sprintf("Unexpectedly visiting children of: %T -> %+v", v, v))
+		}
 	}
 	return p
 }
@@ -173,7 +178,11 @@ func (p *astProcessor) translateTerm(node ast.Term) ast.Visitor {
 		})
 		return nil
 	default:
-		p.errors = append(p.errors, fmt.Sprintf("Unexpected term Node: %T -> %+v", v, v))
+		if p.skipUnknown {
+			logging.LogForComponent("astProcessor").Warnf("Unexpected term Node: %T -> %+v", v, v)
+		} else {
+			p.errors = append(p.errors, fmt.Sprintf("Unexpected term Node: %T -> %+v", v, v))
+		}
 	}
 	return p
 }
