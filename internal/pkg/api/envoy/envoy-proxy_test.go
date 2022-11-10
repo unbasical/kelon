@@ -95,7 +95,7 @@ func TestCheckAllow(t *testing.T) {
 		failOnProcess:   false,
 		decision:        true,
 	}
-	_ = proxy.Configure(&configs.AppConfig{}, &api.ClientProxyConfig{Compiler: &compiler})
+	_ = proxy.Configure(context.Background(), &configs.AppConfig{}, &api.ClientProxyConfig{Compiler: &compiler})
 	server, _ := proxy.(*envoyProxy)
 
 	ctx := context.Background()

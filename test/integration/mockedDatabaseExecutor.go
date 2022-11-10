@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"reflect"
@@ -47,7 +48,7 @@ func NewMockedDatastoreExecuter(t *testing.T, dbQueriesPath, testName string) *M
 	return mocked
 }
 
-func (m *MockedDatastoreExecuter) Execute(statement interface{}, params []interface{}) (bool, error) {
+func (m *MockedDatastoreExecuter) Execute(ctx context.Context, statement interface{}, params []interface{}) (bool, error) {
 	currentResponse := m.responses.Queries[strconv.Itoa(m.counter)]
 
 	// statement map check for mongo datastores, sql datastores have simple string statement

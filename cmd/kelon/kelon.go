@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"github.com/unbasical/kelon/pkg/constants"
 	"os"
 	"os/signal"
 	"strings"
@@ -19,7 +21,6 @@ import (
 	"github.com/unbasical/kelon/internal/pkg/util"
 	watcherInt "github.com/unbasical/kelon/internal/pkg/watcher"
 	"github.com/unbasical/kelon/pkg/api"
-	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/opa"
 	"github.com/unbasical/kelon/pkg/request"
@@ -61,13 +62,14 @@ var (
 	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
 
 	// Configs for telemetry
-	telemetryService = app.Flag("telemetry-service", "Service that is used for telemetry [Prometheus]").Envar("TELEMETRY_SERVICE").Enum("Prometheus", "prometheus")
+	metricService        = app.Flag("metric-service", "Service that is used for metrics [Prometheus|OTLP]").Envar("METRIC_SERVICE").Enum("Prometheus", "prometheus", "OTLP", "otlp")
+	metricExportProtocol = app.Flag("metrics-export-protocol", "If metrics are exported with OTLP, select the protocol to use [http|grpc]").Default("http").Envar("METRICS_EXPORT_PROTOCOL").Enum("http", "grpc")
 
 	// Global shared variables
-	proxy             api.ClientProxy       = nil
-	envoyProxy        api.ClientProxy       = nil
-	configWatcher     watcher.ConfigWatcher = nil
-	telemetryProvider telemetry.Provider    = nil
+	proxy           api.ClientProxy           = nil
+	envoyProxy      api.ClientProxy           = nil
+	configWatcher   watcher.ConfigWatcher     = nil
+	metricsProvider telemetry.MetricsProvider = nil
 )
 
 func main() {
@@ -124,6 +126,8 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		logging.LogForComponent("main").Fatalln("Unable to parse configuration: ", err.Error())
 	}
 
+	ctx := context.Background()
+
 	if change == watcher.ChangeAll {
 		// Configure application
 		var (
@@ -137,8 +141,8 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		// Build config
 		config.API = loadedConf.API
 		config.Data = loadedConf.Data
-		config.TelemetryProvider = makeTelemetryProvider()
-		telemetryProvider = config.TelemetryProvider // Stopped gracefully later on
+		config.MetricsProvider = makeTelemetryMetricsProvider(ctx)
+		metricsProvider = config.MetricsProvider // Stopped gracefully later on
 		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
 
 		if *preprocessRegos {
@@ -146,29 +150,30 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		}
 
 		// Start rest proxy
-		startNewRestProxy(config, &serverConf)
+		startNewRestProxy(ctx, config, &serverConf)
 
 		// Start envoyProxy proxy in addition to rest proxy as soon as a port was specified!
 		if envoyPort != nil && *envoyPort != 0 {
-			startNewEnvoyProxy(config, &serverConf)
+			startNewEnvoyProxy(ctx, config, &serverConf)
 		}
 	}
 }
 
-func makeTelemetryProvider() telemetry.Provider {
-	var provider telemetry.Provider
-	if telemetryService != nil {
-		if strings.EqualFold(*telemetryService, constants.PrometheusTelemetry) {
-			provider = &telemetry.Prometheus{}
+func makeTelemetryMetricsProvider(ctx context.Context) telemetry.MetricsProvider {
+	if metricService != nil {
+
+		provider, err := telemetry.New(ctx, constants.MetricsServiceName, *metricService, *metricExportProtocol)
+		if err != nil {
+			logging.LogForComponent("main").Fatalf("Error during creation of MetricsProvider %q: %s", *metricService, err)
 		}
 
-		if provider != nil {
-			if err := provider.Configure(); err != nil {
-				logging.LogForComponent("main").Fatalf("Error during configuration of TelemetryProvider %q: %s", *telemetryService, err.Error())
-			}
+		if err := provider.Configure(ctx); err != nil {
+			logging.LogForComponent("main").Fatalf("Error during configuration of MetricsProvider %q: %s", *metricService, err.Error())
 		}
+
+		return provider
 	}
-	return provider
+	return nil
 }
 
 func makeConfigWatcher(configLoader configs.FileConfigLoader, configWatcherPath *string) {
@@ -183,10 +188,10 @@ func makeConfigWatcher(configLoader configs.FileConfigLoader, configWatcherPath 
 	}
 }
 
-func startNewRestProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
+func startNewRestProxy(ctx context.Context, appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
 	// Create Rest proxy and start
 	proxy = apiInt.NewRestProxy(*pathPrefix, int32(*port))
-	if err := proxy.Configure(appConfig, serverConf); err != nil {
+	if err := proxy.Configure(ctx, appConfig, serverConf); err != nil {
 		logging.LogForComponent("main").Fatalln(err.Error())
 	}
 	// Start proxy
@@ -195,7 +200,7 @@ func startNewRestProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxy
 	}
 }
 
-func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
+func startNewEnvoyProxy(ctx context.Context, appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
 	if *envoyPort == *port {
 		logging.LogForComponent("main").Panic("Cannot start envoyProxy proxy and rest proxy on same port!")
 	}
@@ -207,7 +212,7 @@ func startNewEnvoyProxy(appConfig *configs.AppConfig, serverConf *api.ClientProx
 		EnableReflection:       *envoyReflection,
 		AccessDecisionLogLevel: *accessDecisionLogLevel,
 	})
-	if err := envoyProxy.Configure(appConfig, serverConf); err != nil {
+	if err := envoyProxy.Configure(ctx, appConfig, serverConf); err != nil {
 		logging.LogForComponent("main").Fatalln(err.Error())
 	}
 	// Start proxy
@@ -251,8 +256,8 @@ func stopOnSIGTERM() {
 	logging.LogForComponent("main").Infoln("Caught SIGTERM...")
 	// Stop telemetry provider if present
 	// This is done blocking to ensure all telemetries are sent!
-	if telemetryProvider != nil {
-		telemetryProvider.Shutdown()
+	if metricsProvider != nil {
+		metricsProvider.Shutdown(context.Background())
 	}
 
 	// Stop envoyProxy proxy if started

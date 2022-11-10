@@ -1,6 +1,7 @@
 package translate
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/open-policy-agent/opa/ast"
@@ -25,7 +26,7 @@ func newAstPreprocessor() *astPreprocessor {
 // Refs are rewritten to correspond directly to SQL tables aand columns.
 // Specifically, refs of the form data.foo[var].bar are rewritten as data.foo.bar. Similarly, if var is
 // dereferenced later in the query, e.g., var.baz, that will be rewritten as data.foo.baz.
-func (processor *astPreprocessor) Process(queries []ast.Body, datastore string) ([]ast.Body, error) {
+func (processor *astPreprocessor) Process(ctx context.Context, queries []ast.Body, datastore string) ([]ast.Body, error) {
 	transformedQueries := make([]ast.Body, len(queries))
 	processor.expectedDatastore = fmt.Sprintf("%q", datastore)
 

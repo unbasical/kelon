@@ -2,6 +2,7 @@
 package api
 
 import (
+	"context"
 	"time"
 
 	"github.com/unbasical/kelon/pkg/opa"
@@ -33,7 +34,7 @@ type ClientProxy interface {
 	// Please note that Configure has to be called once before the component can be used (Otherwise Start() will return an error)!
 	//
 	// If any sub-component or the ClientProxy itself fails during this process, the encountered error will be returned (otherwise nil).
-	Configure(appConf *configs.AppConfig, serverConf *ClientProxyConfig) error
+	Configure(ctx context.Context, appConf *configs.AppConfig, serverConf *ClientProxyConfig) error
 
 	// Start() will make the previous configured ClientProxy handle incoming requests.
 	//

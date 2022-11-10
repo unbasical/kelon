@@ -1,16 +1,17 @@
 package telemetry
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/pkg/errors"
 )
 
-func ApplyTelemetryIfPresent(provider Provider, handler http.Handler) (http.Handler, error) {
+func ApplyTelemetryIfPresent(ctx context.Context, provider MetricsProvider, handler http.Handler) (http.Handler, error) {
 	if provider != nil {
-		telemetryMiddleware, middErr := provider.GetHTTPMiddleware()
+		telemetryMiddleware, middErr := provider.GetHTTPMiddleware(ctx)
 		if middErr != nil {
-			return nil, errors.Wrap(middErr, "TelemetryProvider does not implement 'GetHTTPMiddleware()' correctly.")
+			return nil, errors.Wrap(middErr, "MetricsProvider does not implement 'GetHTTPMiddleware()' correctly.")
 		}
 		return telemetryMiddleware(handler), nil
 	}

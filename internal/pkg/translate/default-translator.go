@@ -1,11 +1,15 @@
 package translate
 
 import (
+	"context"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/telemetry"
 	"github.com/unbasical/kelon/pkg/translate"
+	"time"
 )
 
 type astTranslator struct {
@@ -52,23 +56,33 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *tra
 }
 
 // See translate.AstTranslator.
-func (trans astTranslator) Process(response *rego.PartialQueries, datastore string) (bool, error) {
+func (trans astTranslator) Process(ctx context.Context, response *rego.PartialQueries, datastore string) (bool, error) {
 	if !trans.configured {
 		return false, errors.Errorf("AstTranslator was not configured! Please call Configure(). ")
 	}
 
-	preprocessedQueries, preprocessErr := newAstPreprocessor().Process(response.Queries, datastore)
+	preprocessedQueries, preprocessErr := newAstPreprocessor().Process(ctx, response.Queries, datastore)
 	if preprocessErr != nil {
 		return false, errors.Wrap(preprocessErr, "AstTranslator: Error during preprocessing.")
 	}
 
-	processedQuery, processErr := newAstProcessor(trans.config.SkipUnknown).Process(preprocessedQueries)
+	processedQuery, processErr := newAstProcessor(trans.config.SkipUnknown).Process(ctx, preprocessedQueries)
 	if processErr != nil {
 		return false, processErr
 	}
 
 	if targetDB, ok := trans.config.Datastores[datastore]; ok {
-		return (*targetDB).Execute(processedQuery)
+		startTime := time.Now()
+		decision, err := (*targetDB).Execute(ctx, processedQuery)
+
+		duration := time.Since(startTime)
+
+		if trans.appConf.MetricsProvider != nil {
+			pkg := ctx.Value(constants.LabelRegoPackage).(string)
+			trans.appConf.MetricsProvider.WriteMetricQuery(ctx, telemetry.DbQuery{Duration: duration.Milliseconds(), Package: pkg, PoolName: datastore})
+		}
+
+		return decision, err
 	}
 	return false, errors.Errorf("AstTranslator: Unable to find datastore: " + datastore)
 }
