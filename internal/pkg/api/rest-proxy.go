@@ -61,11 +61,11 @@ func (proxy *restProxy) Configure(ctx context.Context, appConf *configs.AppConfi
 			proxy.metricsHandler = metricsHandler
 		}
 
-		telemetryMiddleware, middErr := appConf.MetricsProvider.GetHTTPMiddleware(ctx)
+		metricsMiddleware, middErr := appConf.MetricsProvider.GetHTTPMiddleware(ctx)
 		if middErr != nil {
 			return errors.Wrap(middErr, "RestProxy was configured with MetricsProvider that does not implement 'GetHTTPMiddleware()' correctly.")
 		}
-		proxy.metricsMiddleware = telemetryMiddleware
+		proxy.metricsMiddleware = metricsMiddleware
 	}
 
 	// Assign variables
@@ -83,16 +83,19 @@ func (proxy *restProxy) Start() error {
 		return err
 	}
 
+	endpointData := proxy.pathPrefix + "/data"
+	endpointPolicies := proxy.pathPrefix + "/policies"
+
 	// Endpoints to validate queries
-	proxy.router.PathPrefix(proxy.pathPrefix + "/data").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataGet)).Methods("GET")
-	proxy.router.PathPrefix(proxy.pathPrefix + "/data").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataPost)).Methods("POST")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataGet, endpointData)).Methods("GET")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataPost, endpointData)).Methods("POST")
 
 	// Endpoints to update policies and data
-	proxy.router.PathPrefix(proxy.pathPrefix + "/data").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataPut)).Methods("PUT")
-	proxy.router.PathPrefix(proxy.pathPrefix + "/data").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataPatch)).Methods("PATCH")
-	proxy.router.PathPrefix(proxy.pathPrefix + "/data").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataDelete)).Methods("DELETE")
-	proxy.router.PathPrefix(proxy.pathPrefix + "/policies").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1PolicyPut)).Methods("PUT")
-	proxy.router.PathPrefix(proxy.pathPrefix + "/policies").Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1PolicyDelete)).Methods("DELETE")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataPut, endpointData)).Methods("PUT")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataPatch, endpointData)).Methods("PATCH")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataDelete, endpointData)).Methods("DELETE")
+	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1PolicyPut, endpointPolicies)).Methods("PUT")
+	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1PolicyDelete, endpointPolicies)).Methods("DELETE")
 	if proxy.metricsHandler != nil {
 		logging.LogForComponent("restProxy").Infoln("Registered /metrics endpoint")
 		proxy.router.PathPrefix("/metrics").Handler(proxy.metricsHandler)
@@ -119,11 +122,19 @@ func (proxy *restProxy) Start() error {
 	return nil
 }
 
-func (proxy *restProxy) applyHandlerMiddlewareIfSet(handlerFunc func(http.ResponseWriter, *http.Request)) http.Handler {
+func (proxy *restProxy) applyHandlerMiddlewareIfSet(handlerFunc func(http.ResponseWriter, *http.Request), endpoint string) http.Handler {
+	var wrappedHandler http.Handler = http.HandlerFunc(handlerFunc)
+	// wrap for metrics
 	if proxy.metricsMiddleware != nil {
-		return proxy.metricsMiddleware(http.HandlerFunc(handlerFunc))
+		wrappedHandler = proxy.metricsMiddleware(http.HandlerFunc(handlerFunc))
 	}
-	return http.HandlerFunc(handlerFunc)
+
+	// wrap for traces
+	if proxy.appConf.TraceProvider != nil {
+		wrappedHandler = proxy.appConf.TraceProvider.WrapHTTPHandler(wrappedHandler, endpoint)
+	}
+
+	return wrappedHandler
 }
 
 // See Stop() of api.ClientProxy

@@ -63,13 +63,18 @@ var (
 
 	// Configs for telemetry
 	metricService        = app.Flag("metric-service", "Service that is used for metrics [Prometheus|OTLP]").Envar("METRIC_SERVICE").Enum("Prometheus", "prometheus", "OTLP", "otlp")
-	metricExportProtocol = app.Flag("metrics-export-protocol", "If metrics are exported with OTLP, select the protocol to use [http|grpc]").Default("http").Envar("METRICS_EXPORT_PROTOCOL").Enum("http", "grpc")
+	metricExportProtocol = app.Flag("metric-export-protocol", "If metrics are exported with OTLP, select the protocol to use [http|grpc]").Default("http").Envar("METRIC_EXPORT_PROTOCOL").Enum("http", "grpc")
+	metricExportEndpoint = app.Flag("metric-export-endpoint", "If metrics are exported with OTLP, this is the endpoint they will be exported to").Envar("METRIC_EXPORT_ENDPOINT").String()
+	traceService         = app.Flag("trace-service", "Service that is used for tracing [OTLP]").Envar("TRACE_SERVICE").Enum("OTLP", "otlp")
+	traceExportProtocol  = app.Flag("trace-export-protocol", "If traces are exported with OTLP, select the protocol to use [http|grpc]").Default("http").Envar("TRACE_EXPORT_PROTOCOL").Enum("http", "grpc")
+	traceExportEndpoint  = app.Flag("trace-export-endpoint", "If traces are exported with OTLP, this is the endpoint they will be exported to").Envar("TRACE_EXPORT_ENDPOINT").String()
 
 	// Global shared variables
 	proxy           api.ClientProxy           = nil
 	envoyProxy      api.ClientProxy           = nil
 	configWatcher   watcher.ConfigWatcher     = nil
 	metricsProvider telemetry.MetricsProvider = nil
+	traceProvider   telemetry.TraceProvider   = nil
 )
 
 func main() {
@@ -143,6 +148,8 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		config.Data = loadedConf.Data
 		config.MetricsProvider = makeTelemetryMetricsProvider(ctx)
 		metricsProvider = config.MetricsProvider // Stopped gracefully later on
+		config.TraceProvider = makeTelemetryTraceProvider(ctx)
+		traceProvider = config.TraceProvider // Stopped gracefully later on
 		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
 
 		if *preprocessRegos {
@@ -160,15 +167,31 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 }
 
 func makeTelemetryMetricsProvider(ctx context.Context) telemetry.MetricsProvider {
-	if metricService != nil {
+	if metricService != nil && *metricService != "" {
 
-		provider, err := telemetry.New(ctx, constants.MetricsServiceName, *metricService, *metricExportProtocol)
+		provider, err := telemetry.NewMetricsProvider(ctx, constants.TelemetryServiceName, *metricService, *metricExportProtocol, *metricExportEndpoint)
 		if err != nil {
 			logging.LogForComponent("main").Fatalf("Error during creation of MetricsProvider %q: %s", *metricService, err)
 		}
 
 		if err := provider.Configure(ctx); err != nil {
 			logging.LogForComponent("main").Fatalf("Error during configuration of MetricsProvider %q: %s", *metricService, err.Error())
+		}
+
+		return provider
+	}
+	return nil
+}
+
+func makeTelemetryTraceProvider(ctx context.Context) telemetry.TraceProvider {
+	if traceService != nil && *traceService != "" {
+
+		provider, err := telemetry.NewTraceProvider(ctx, constants.TelemetryServiceName, *traceExportProtocol, *traceExportEndpoint)
+		if err != nil {
+			logging.LogForComponent("main").Fatalf("Error during creation of TraceProvider %q: %s", *traceService, err)
+		}
+		if err := provider.Configure(ctx); err != nil {
+			logging.LogForComponent("main").Fatalf("Error during configuration of TraceProvider %q: %s", *traceService, err.Error())
 		}
 
 		return provider
@@ -254,10 +277,16 @@ func stopOnSIGTERM() {
 	<-interruptChan
 
 	logging.LogForComponent("main").Infoln("Caught SIGTERM...")
-	// Stop telemetry provider if present
-	// This is done blocking to ensure all telemetries are sent!
+	// Stop metrics provider if present
+	// This is done blocking to ensure all metrics are sent!
 	if metricsProvider != nil {
 		metricsProvider.Shutdown(context.Background())
+	}
+
+	// Stop trace provider if present
+	// This is done blocking to ensure all traces are sent!
+	if traceProvider != nil {
+		traceProvider.Shutdown(context.Background())
 	}
 
 	// Stop envoyProxy proxy if started

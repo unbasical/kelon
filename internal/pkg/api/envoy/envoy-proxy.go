@@ -107,9 +107,8 @@ func (proxy *envoyProxy) Start() error {
 	}
 
 	// Init grpc server
-	metricsInterceptor := proxy.appConf.MetricsProvider.GetGrpcServerMetricInterceptor()
-
-	proxy.envoy.server = grpc.NewServer(grpc.UnaryInterceptor(metricsInterceptor))
+	interceptor := proxy.makeServerInterceptor()
+	proxy.envoy.server = grpc.NewServer(interceptor)
 	// Register Authorization Server
 	extauthz.RegisterAuthorizationServer(proxy.envoy.server, proxy.envoy)
 
@@ -199,7 +198,7 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *extauthz.Check
 		}
 	}`, r.GetMethod(), path, token, body)
 
-	httpRequest, err := http.NewRequest("POST", "http://envoy.ext.auth.proxy/v1/data", strings.NewReader(inputBody))
+	httpRequest, err := http.NewRequestWithContext(ctx, "POST", "http://envoy.ext.auth.proxy/v1/data", strings.NewReader(inputBody))
 	if err != nil {
 		return nil, errors.Wrap(err, "EnvoyProxy: Unable to reconstruct HTTP-Request")
 	}
@@ -248,4 +247,18 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *extauthz.Check
 	}
 
 	return resp, nil
+}
+
+func (proxy *envoyProxy) makeServerInterceptor() grpc.ServerOption {
+	var interceptors []grpc.UnaryServerInterceptor
+
+	if proxy.appConf.MetricsProvider != nil {
+		interceptors = append(interceptors, proxy.appConf.MetricsProvider.GetGrpcServerInterceptor())
+	}
+
+	if proxy.appConf.TraceProvider != nil {
+		interceptors = append(interceptors, proxy.appConf.TraceProvider.GetGrpcServerInterceptor())
+	}
+
+	return grpc.ChainUnaryInterceptor(interceptors...)
 }

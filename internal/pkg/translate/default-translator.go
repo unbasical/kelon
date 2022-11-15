@@ -9,6 +9,8 @@ import (
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/telemetry"
 	"github.com/unbasical/kelon/pkg/translate"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"time"
 )
 
@@ -72,16 +74,36 @@ func (trans astTranslator) Process(ctx context.Context, response *rego.PartialQu
 	}
 
 	if targetDB, ok := trans.config.Datastores[datastore]; ok {
-		startTime := time.Now()
-		decision, err := (*targetDB).Execute(ctx, processedQuery)
+		pkg := ctx.Value(constants.LabelRegoPackage).(string)
 
-		duration := time.Since(startTime)
+		// Create Span
+		if trans.appConf.TraceProvider != nil {
+			var s interface{}
+			ctx, s = trans.appConf.TraceProvider.StartChildSpan(ctx, "datastore.query")
 
-		if trans.appConf.MetricsProvider != nil {
-			pkg := ctx.Value(constants.LabelRegoPackage).(string)
-			trans.appConf.MetricsProvider.WriteMetricQuery(ctx, telemetry.DbQuery{Duration: duration.Milliseconds(), Package: pkg, PoolName: datastore})
+			span := s.(trace.Span)
+			defer span.End()
+
+			attr := []attribute.KeyValue{
+				attribute.Key(constants.LabelRegoPackage).String(pkg),
+				attribute.Key(constants.LabelDBPoolName).String(datastore),
+			}
+			span.SetAttributes(attr...)
 		}
 
+		startTime := time.Now()
+		decision, err := (*targetDB).Execute(ctx, processedQuery)
+		duration := time.Since(startTime)
+
+		// Record Error
+		if err != nil && trans.appConf.TraceProvider != nil {
+			trans.appConf.TraceProvider.RecordError(ctx, err)
+		}
+
+		// Update Metrics
+		if trans.appConf.MetricsProvider != nil {
+			trans.appConf.MetricsProvider.WriteMetricQuery(ctx, telemetry.DbQuery{Duration: duration.Milliseconds(), Package: pkg, PoolName: datastore})
+		}
 		return decision, err
 	}
 	return false, errors.Errorf("AstTranslator: Unable to find datastore: " + datastore)

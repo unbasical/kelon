@@ -107,7 +107,7 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	// Set start time for request duration
 	startTime := time.Now()
 
-	ctx := context.Background()
+	ctx := req.Context()
 
 	// Validate if policy compiler was configured correctly
 	if !compiler.configured {

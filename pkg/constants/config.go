@@ -4,10 +4,8 @@ const TelemetryPrometheus string = "prometheus"
 
 const TelemetryOtlp string = "otlp"
 
-const ProtocolHttp string = "http"
+const ProtocolHTTP string = "http"
 
-const ProtocolGrpc string = "grpc"
+const ProtocolGRPC string = "grpc"
 
-const MetricsServiceName string = "github.com/unbasical/kelon"
-
-const EnvOtlpEndpoint string = "OTEL_EXPORTER_OTLP_ENDPOINT"
+const TelemetryServiceName string = "github.com/unbasical/kelon"

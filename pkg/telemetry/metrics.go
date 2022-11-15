@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -39,9 +38,9 @@ type Metrics struct {
 
 const ErrorInstrumentNotFound string = "instrument with name %s not found"
 
-// New creates a new Metrics struct exporting metrics using the specified format and the protocol to use
+// NewMetricsProvider creates a new Metrics struct exporting metrics using the specified format and the protocol to use
 // If the Prometheus format is chosen, the protocol attribute will be ignored
-func New(ctx context.Context, name string, format string, protocol string) (*Metrics, error) {
+func NewMetricsProvider(ctx context.Context, name string, format string, protocol string, endpoint string) (*Metrics, error) {
 	m := &Metrics{
 		name:             name,
 		instrumentsSync:  make(map[constants.MetricInstrument]instrument.Synchronous),
@@ -57,7 +56,7 @@ func New(ctx context.Context, name string, format string, protocol string) (*Met
 		m.provider = sdkmetric.NewMeterProvider(sdkmetric.WithReader(exporter))
 		m.exportType = constants.TelemetryPrometheus
 	case constants.TelemetryOtlp:
-		exporter, err := newOtlpExporter(ctx, protocol)
+		exporter, err := newOtlpMetricExporter(ctx, protocol, endpoint)
 		if err != nil {
 			return nil, err
 		}
@@ -147,14 +146,14 @@ func (m *Metrics) WriteMetricDecision(ctx context.Context, decision Decision) {
 }
 
 func (m *Metrics) WriteMetricQuery(ctx context.Context, dbQuery DbQuery) {
-	queryDuration, ok := m.instrumentsSync[constants.InstrumentDbQueryDuration].(syncint64.Histogram)
+	queryDuration, ok := m.instrumentsSync[constants.InstrumentDBQueryDuration].(syncint64.Histogram)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentDbQueryDuration.String())
+		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentDBQueryDuration.String())
 		return
 	}
 
 	attr := []attribute.KeyValue{
-		attribute.Key(constants.LabelDbPoolName).String(dbQuery.PoolName),
+		attribute.Key(constants.LabelDBPoolName).String(dbQuery.PoolName),
 		attribute.Key(constants.LabelRegoPackage).String(dbQuery.Package),
 	}
 
@@ -174,27 +173,27 @@ func (m *Metrics) ExportType() string {
 }
 
 // GetGrpcServerMetricInterceptor Interceptor to gather rpc metrics
-func (m *Metrics) GetGrpcServerMetricInterceptor() grpc.UnaryServerInterceptor {
+func (m *Metrics) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
 	fallback := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		return handler(ctx, req)
 	}
 
-	requestDuration, ok := m.instrumentsSync[constants.InstrumentRpcRequestDuration].(syncint64.Histogram)
+	requestDuration, ok := m.instrumentsSync[constants.InstrumentRPCRequestDuration].(syncint64.Histogram)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentRpcRequestDuration.String())
+		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentRPCRequestDuration.String())
 		return fallback
 	}
 
-	requestSize, ok := m.instrumentsSync[constants.InstrumentRpcRequestSize].(syncint64.Histogram)
+	requestSize, ok := m.instrumentsSync[constants.InstrumentRPCRequestSize].(syncint64.Histogram)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentRpcRequestSize.String())
+		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentRPCRequestSize.String())
 		return fallback
 	}
 
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		reqSize, err := approximateGrpcRequestSize(req)
 		if err != nil {
-			logging.LogForComponent("GetGrpcServerMetricInterceptor").Error("Error determining the request size", err)
+			logging.LogForComponent("GetGrpcServerInterceptor").Error("Error determining the request size", err)
 		}
 
 		attrs := []attribute.KeyValue{
@@ -218,53 +217,53 @@ func (m *Metrics) initSpecMetrics() error {
 	meter := m.provider.Meter(m.name)
 
 	httpActiveRequests, err := meter.SyncInt64().UpDownCounter(
-		constants.InstrumentHttpActiveRequests.String(),
+		constants.InstrumentHTTPActiveRequests.String(),
 		instrument.WithUnit("{requests}"),
 		instrument.WithDescription("A gauge of requests currently being served by the wrapped handler."))
 	if err != nil {
 		return err
 	}
-	m.instrumentsSync[constants.InstrumentHttpActiveRequests] = httpActiveRequests
+	m.instrumentsSync[constants.InstrumentHTTPActiveRequests] = httpActiveRequests
 
 	httpRequestDuration, err := meter.SyncInt64().Histogram(
-		constants.InstrumentHttpRequestDuration.String(),
+		constants.InstrumentHTTPRequestDuration.String(),
 		instrument.WithUnit(unit.Milliseconds),
 		instrument.WithDescription("A histogram of latencies for requests."),
 	)
 	if err != nil {
 		return err
 	}
-	m.instrumentsSync[constants.InstrumentHttpRequestDuration] = httpRequestDuration
+	m.instrumentsSync[constants.InstrumentHTTPRequestDuration] = httpRequestDuration
 
 	httpRequestSize, err := meter.SyncInt64().Histogram(
-		constants.InstrumentHttpRequestSize.String(),
+		constants.InstrumentHTTPRequestSize.String(),
 		instrument.WithUnit(unit.Bytes),
 		instrument.WithDescription("A histogram of request sizes."),
 	)
 	if err != nil {
 		return err
 	}
-	m.instrumentsSync[constants.InstrumentHttpRequestSize] = httpRequestSize
+	m.instrumentsSync[constants.InstrumentHTTPRequestSize] = httpRequestSize
 
 	rpcRequestSize, err := meter.SyncInt64().Histogram(
-		constants.InstrumentRpcRequestSize.String(),
+		constants.InstrumentRPCRequestSize.String(),
 		instrument.WithUnit(unit.Bytes),
 		instrument.WithDescription("A histogram of request sizes."),
 	)
 	if err != nil {
 		return err
 	}
-	m.instrumentsSync[constants.InstrumentRpcRequestSize] = rpcRequestSize
+	m.instrumentsSync[constants.InstrumentRPCRequestSize] = rpcRequestSize
 
 	rpcRequestDuration, err := meter.SyncInt64().Histogram(
-		constants.InstrumentRpcRequestDuration.String(),
+		constants.InstrumentRPCRequestDuration.String(),
 		instrument.WithUnit(unit.Milliseconds),
 		instrument.WithDescription("A histogram of latencies for requests."),
 	)
 	if err != nil {
 		return err
 	}
-	m.instrumentsSync[constants.InstrumentRpcRequestDuration] = rpcRequestDuration
+	m.instrumentsSync[constants.InstrumentRPCRequestDuration] = rpcRequestDuration
 
 	version, err := meter.SyncInt64().UpDownCounter(
 		constants.InstrumentVersion.String(),
@@ -294,23 +293,23 @@ func (m *Metrics) initCustomMetrics() error {
 	m.instrumentsSync[constants.InstrumentDecisionDuration] = decisionDuration
 
 	dbQueryDuration, err := meter.SyncInt64().Histogram(
-		constants.InstrumentDbQueryDuration.String(),
+		constants.InstrumentDBQueryDuration.String(),
 		instrument.WithUnit(unit.Milliseconds),
 		instrument.WithDescription("A histogram of latencies for db queries"),
 	)
 	if err != nil {
 		return err
 	}
-	m.instrumentsSync[constants.InstrumentDbQueryDuration] = dbQueryDuration
+	m.instrumentsSync[constants.InstrumentDBQueryDuration] = dbQueryDuration
 
 	return nil
 }
 
 // Active Request Metric
 func (m *Metrics) instrumentHandlerActiveRequest(ctx context.Context, next http.Handler) http.Handler {
-	httpActiveRequests, ok := m.instrumentsSync[constants.InstrumentHttpActiveRequests].(syncint64.UpDownCounter)
+	httpActiveRequests, ok := m.instrumentsSync[constants.InstrumentHTTPActiveRequests].(syncint64.UpDownCounter)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHttpActiveRequests.String())
+		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHTTPActiveRequests.String())
 		return next
 	}
 
@@ -323,9 +322,9 @@ func (m *Metrics) instrumentHandlerActiveRequest(ctx context.Context, next http.
 
 // Request Duration Metric
 func (m *Metrics) instrumentHandlerDuration(ctx context.Context, next http.Handler) http.Handler {
-	httpRequestDuration, ok := m.instrumentsSync[constants.InstrumentHttpRequestDuration].(syncint64.Histogram)
+	httpRequestDuration, ok := m.instrumentsSync[constants.InstrumentHTTPRequestDuration].(syncint64.Histogram)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHttpRequestDuration.String())
+		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHTTPRequestDuration.String())
 		return next
 	}
 
@@ -338,8 +337,8 @@ func (m *Metrics) instrumentHandlerDuration(ctx context.Context, next http.Handl
 
 		duration := time.Since(now).Milliseconds()
 		attrs := []attribute.KeyValue{
-			attribute.Key(constants.LabelHttpMethod).String(r.Method),
-			attribute.Key(constants.LabelHttpStatusCode).Int(passthrough.statusCode),
+			attribute.Key(constants.LabelHTTPMethod).String(r.Method),
+			attribute.Key(constants.LabelHTTPStatusCode).Int(passthrough.statusCode),
 		}
 
 		httpRequestDuration.Record(ctx, duration, attrs...)
@@ -348,9 +347,9 @@ func (m *Metrics) instrumentHandlerDuration(ctx context.Context, next http.Handl
 
 // Request Size Metric
 func (m *Metrics) instrumentHandlerRequestSize(ctx context.Context, next http.Handler) http.Handler {
-	httpRequestSize, ok := m.instrumentsSync[constants.InstrumentHttpRequestSize].(syncint64.Histogram)
+	httpRequestSize, ok := m.instrumentsSync[constants.InstrumentHTTPRequestSize].(syncint64.Histogram)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHttpRequestSize.String())
+		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHTTPRequestSize.String())
 		return next
 	}
 
@@ -363,9 +362,9 @@ func (m *Metrics) instrumentHandlerRequestSize(ctx context.Context, next http.Ha
 
 // Version Metric (won't change on runtime)
 func (m *Metrics) instrumentVersion(ctx context.Context) {
-	version, ok := m.instrumentsSync[constants.InstrumentHttpRequestSize].(syncint64.UpDownCounter)
+	version, ok := m.instrumentsSync[constants.InstrumentHTTPRequestSize].(syncint64.UpDownCounter)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHttpRequestSize)
+		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHTTPRequestSize)
 		return
 	}
 
@@ -373,21 +372,20 @@ func (m *Metrics) instrumentVersion(ctx context.Context) {
 }
 
 // create new OTLP metric Exporter
-func newOtlpExporter(ctx context.Context, protocol string) (sdkmetric.Exporter, error) {
-	otelEndpoint, ok := os.LookupEnv(constants.EnvOtlpEndpoint)
-	if !ok {
-		return nil, errors.New(fmt.Sprintf("Environment Variable %s not found", constants.EnvOtlpEndpoint))
+func newOtlpMetricExporter(ctx context.Context, protocol string, endpoint string) (sdkmetric.Exporter, error) {
+	if endpoint == "" {
+		return nil, errors.New("Metric export endpoint must not be empty")
 	}
 
 	switch strings.ToLower(protocol) {
-	case constants.ProtocolHttp:
-		return otlphttp.New(ctx, otlphttp.WithEndpoint(otelEndpoint), otlphttp.WithInsecure())
+	case constants.ProtocolHTTP:
+		return otlphttp.New(ctx, otlphttp.WithEndpoint(endpoint), otlphttp.WithInsecure())
 
-	case constants.ProtocolGrpc:
-		return otlpgrpc.New(ctx, otlpgrpc.WithEndpoint(otelEndpoint), otlpgrpc.WithInsecure())
+	case constants.ProtocolGRPC:
+		return otlpgrpc.New(ctx, otlpgrpc.WithEndpoint(endpoint), otlpgrpc.WithInsecure())
 
 	default:
-		return nil, errors.New(fmt.Sprintf("Unknown protocol '%s', expected %+v", protocol, []string{constants.ProtocolHttp, constants.ProtocolGrpc}))
+		return nil, errors.New(fmt.Sprintf("Unknown protocol '%s', expected %+v", protocol, []string{constants.ProtocolHTTP, constants.ProtocolGRPC}))
 	}
 }
 

@@ -4,45 +4,45 @@ type MetricInstrument int
 
 const (
 	InstrumentVersion MetricInstrument = iota
-	InstrumentHttpRequestDuration
-	InstrumentHttpActiveRequests
-	InstrumentHttpRequestSize
-	InstrumentRpcRequestDuration
-	InstrumentRpcRequestSize
+	InstrumentHTTPRequestDuration
+	InstrumentHTTPActiveRequests
+	InstrumentHTTPRequestSize
+	InstrumentRPCRequestDuration
+	InstrumentRPCRequestSize
 	InstrumentDecisionDuration
-	InstrumentDbQueryDuration
+	InstrumentDBQueryDuration
 )
 
 func (i MetricInstrument) String() string {
 	switch i {
 	case InstrumentVersion:
 		return "version"
-	case InstrumentHttpRequestDuration:
+	case InstrumentHTTPRequestDuration:
 		return "http.server.duration"
-	case InstrumentHttpActiveRequests:
+	case InstrumentHTTPActiveRequests:
 		return "http.server.active_requests"
-	case InstrumentHttpRequestSize:
+	case InstrumentHTTPRequestSize:
 		return "http.server.request.size"
-	case InstrumentRpcRequestDuration:
+	case InstrumentRPCRequestDuration:
 		return "rpc.server.duration"
-	case InstrumentRpcRequestSize:
+	case InstrumentRPCRequestSize:
 		return "rpc.server.request.size"
 	case InstrumentDecisionDuration:
 		return "decision.duration"
-	case InstrumentDbQueryDuration:
+	case InstrumentDBQueryDuration:
 		return "db.query.duration"
 	default:
 		return "unknown"
 	}
 }
 
-const LabelHttpMethod string = "http.method"
+const LabelHTTPMethod string = "http.method"
 
-const LabelHttpStatusCode string = "http.status_code"
+const LabelHTTPStatusCode string = "http.status_code"
 
 const LabelGrpcService string = "rpc.service"
 
-const LabelDbPoolName string = "pool.name"
+const LabelDBPoolName string = "pool.name"
 
 const LabelPolicyDecision string = "decision"
 
