@@ -44,6 +44,13 @@ allow = true {
 
     # Query
     data.pg.users[user].name == input.user
-    user.friend == "Kevin"
+    old_or_kevin(user.age, user.friend)
 }
 
+old_or_kevin(age, friend) {
+    age == 42
+}
+
+old_or_kevin(age, friend) {
+    friend == "Kevin"
+}
