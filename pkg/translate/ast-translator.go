@@ -5,6 +5,8 @@
 package translate
 
 import (
+	"context"
+
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/pkg/data"
@@ -37,5 +39,5 @@ type AstTranslator interface {
 	// This AST is then handed over to a DatastoreTranslator to be translated into a datastore-native query which will be executed and interpreted as a final decision (Allow/Deny).
 	//
 	// If any error occurred during the translation or the datastore access, the error will be returned.
-	Process(response *rego.PartialQueries, datastore string) (bool, error)
+	Process(ctx context.Context, response *rego.PartialQueries, datastore string) (bool, error)
 }

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -89,7 +90,7 @@ func (ds *sqlDatastoreTranslator) Configure(appConf *configs.AppConfig, alias st
 	return nil
 }
 
-func (ds *sqlDatastoreTranslator) Execute(query data.Node) (bool, error) {
+func (ds *sqlDatastoreTranslator) Execute(ctx context.Context, query data.Node) (bool, error) {
 	if !ds.configured {
 		return false, errors.Errorf("SqlDatastoreTranslator: DatastoreTranslator was not configured! Please call Configure(). ")
 	}
@@ -103,7 +104,7 @@ func (ds *sqlDatastoreTranslator) Execute(query data.Node) (bool, error) {
 
 	logging.LogForComponent("sqlDatastoreTranslator").Debugf("EXECUTING STATEMENT: ==================%s==================\nPARAMS: %+v", statement, params)
 
-	return ds.executor.Execute(statement, params)
+	return ds.executor.Execute(ctx, statement, params)
 }
 
 // nolint:gocyclo,gocritic

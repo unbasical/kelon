@@ -5,6 +5,8 @@
 package data
 
 import (
+	"context"
+
 	"github.com/unbasical/kelon/configs"
 )
 
@@ -23,7 +25,7 @@ type DatastoreTranslator interface {
 	Configure(appConf *configs.AppConfig, alias string) error
 
 	// Execute() translates the given Query-AST into a datastore's native query and executes the query afterwards via the passed data.DatastoreExecutor.
-	Execute(query Node) (bool, error)
+	Execute(ctx context.Context, query Node) (bool, error)
 }
 
 // DatastoreExecutor is the interface that executes a native datastore query and returns the final decision (Allow/Deny) based on the query response.
@@ -39,7 +41,7 @@ type DatastoreExecutor interface {
 	Configure(appConf *configs.AppConfig, alias string) error
 
 	// Execute() executes the native query and returns true if the query is not empty and false otherwise.
-	Execute(statement interface{}, params []interface{}) (bool, error)
+	Execute(ctx context.Context, statement interface{}, params []interface{}) (bool, error)
 }
 
 // CallOpMapper is an abstraction for mapping OPA-native functions to DatastoreTranslator-native functions.

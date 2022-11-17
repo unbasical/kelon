@@ -12,7 +12,8 @@ import (
 // Configuration for the entire app.
 type AppConfig struct {
 	ExternalConfig
-	TelemetryProvider telemetry.Provider
+	MetricsProvider telemetry.MetricsProvider
+	TraceProvider   telemetry.TraceProvider
 }
 
 // External config.

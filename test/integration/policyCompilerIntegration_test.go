@@ -23,6 +23,7 @@ import (
 	"github.com/unbasical/kelon/pkg/data"
 	"github.com/unbasical/kelon/pkg/opa"
 	"github.com/unbasical/kelon/pkg/request"
+	"github.com/unbasical/kelon/pkg/telemetry"
 	"github.com/unbasical/kelon/pkg/translate"
 	"github.com/unbasical/kelon/pkg/watcher"
 	"gopkg.in/yaml.v3"
@@ -179,7 +180,10 @@ func (p *PolicyCompilerTestEnvironment) onConfigLoaded(change watcher.ChangeType
 	if change == watcher.ChangeAll {
 		// Configure application
 		var (
-			config     = new(configs.AppConfig)
+			config = &configs.AppConfig{
+				MetricsProvider: &telemetry.NoopMetricsProvider{},
+				TraceProvider:   &telemetry.NoopTraceProvider{},
+			}
 			parser     = requestInt.NewURLProcessor()
 			mapper     = requestInt.NewPathMapper()
 			translator = translateInt.NewAstTranslator()

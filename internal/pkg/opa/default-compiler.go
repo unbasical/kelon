@@ -18,6 +18,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/unbasical/kelon/configs"
 	requestInt "github.com/unbasical/kelon/internal/pkg/request"
+	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	internalErrors "github.com/unbasical/kelon/pkg/errors"
 	"github.com/unbasical/kelon/pkg/opa"
@@ -45,8 +46,9 @@ type apiError struct {
 
 type decisionContext struct {
 	Path          string
+	Package       string
 	Method        string
-	Duration      string
+	Duration      time.Duration
 	Error         error
 	CorrelationID uuid.UUID
 }
@@ -103,6 +105,8 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Set start time for request duration
 	startTime := time.Now()
+
+	ctx := req.Context()
 
 	// Validate if policy compiler was configured correctly
 	if !compiler.configured {
@@ -163,28 +167,28 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 	// OPA decided denied
 	if queries.Queries == nil {
-		compiler.writeDeny(w, &decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
+		compiler.writeDeny(ctx, w, &decisionContext{Path: path.String(), Method: method, Package: output.Package, Duration: time.Since(startTime)})
 		return
 	}
 	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
-		compiler.writeAllow(w, &decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
+		compiler.writeAllow(ctx, w, &decisionContext{Path: path.String(), Method: method, Package: output.Package, Duration: time.Since(startTime)})
 		return
 	}
 
 	// Otherwise translate ast
-	result, err := (*compiler.config.Translator).Process(queries, output.Datastore)
+	result, err := (*compiler.config.Translator).Process(context.WithValue(ctx, constants.ContextKeyRegoPackage, output.Package), queries, output.Datastore)
 	if err != nil {
-		compiler.writeDenyError(w, &decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String(),
+		compiler.writeDenyError(ctx, w, &decisionContext{Path: path.String(), Method: method, Package: output.Package, Duration: time.Since(startTime),
 			Error: err, CorrelationID: uuid.New()})
 		return
 	}
 
 	// If we receive something from the datastore, the query was successful
 	if result {
-		compiler.writeAllow(w, &decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
+		compiler.writeAllow(ctx, w, &decisionContext{Path: path.String(), Method: method, Package: output.Package, Duration: time.Since(startTime)})
 	} else {
-		compiler.writeDeny(w, &decisionContext{Path: path.String(), Method: method, Duration: time.Since(startTime).String()})
+		compiler.writeDeny(ctx, w, &decisionContext{Path: path.String(), Method: method, Package: output.Package, Duration: time.Since(startTime)})
 	}
 }
 
@@ -213,8 +217,8 @@ func writeError(w http.ResponseWriter, status int, code string, err error) {
 	writeJSON(w, status, resp)
 }
 
-func (compiler policyCompiler) writeDenyError(w http.ResponseWriter, loggingInfo *decisionContext) {
-	compiler.writeDeny(w, loggingInfo)
+func (compiler policyCompiler) writeDenyError(ctx context.Context, w http.ResponseWriter, loggingInfo *decisionContext) {
+	compiler.writeDeny(ctx, w, loggingInfo)
 	switch err := loggingInfo.Error.(type) {
 	case internalErrors.InvalidRequestTranslation:
 		for _, e := range err.Causes {
@@ -225,26 +229,41 @@ func (compiler policyCompiler) writeDenyError(w http.ResponseWriter, loggingInfo
 	}
 }
 
-func (compiler policyCompiler) writeAllow(w http.ResponseWriter, loggingInfo *decisionContext) {
+func (compiler policyCompiler) writeAllow(ctx context.Context, w http.ResponseWriter, loggingInfo *decisionContext) {
 	if compiler.config.RespondWithStatusCode {
 		w.WriteHeader(http.StatusOK)
 	} else {
 		writeJSON(w, http.StatusOK, apiResponse{Result: true})
 	}
-	logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration, "ALLOW", "policyCompiler")
+
+	labels := map[string]string{
+		constants.LabelPolicyDecision: "allow",
+		constants.LabelRegoPackage:    loggingInfo.Package,
+	}
+
+	compiler.appConfig.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, loggingInfo.Duration.Milliseconds(), labels)
+
+	logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration.String(), "ALLOW", "policyCompiler")
 }
 
-func (compiler policyCompiler) writeDeny(w http.ResponseWriter, loggingInfo *decisionContext) {
+func (compiler policyCompiler) writeDeny(ctx context.Context, w http.ResponseWriter, loggingInfo *decisionContext) {
 	if compiler.config.RespondWithStatusCode {
 		w.WriteHeader(http.StatusForbidden)
 	} else {
 		writeJSON(w, http.StatusOK, apiResponse{Result: false})
 	}
 
+	labels := map[string]string{
+		constants.LabelPolicyDecision: "deny",
+		constants.LabelRegoPackage:    loggingInfo.Package,
+	}
+
+	compiler.appConfig.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, loggingInfo.Duration.Milliseconds(), labels)
+
 	if loggingInfo.Error != nil {
-		logging.LogAccessDecisionError(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration, loggingInfo.Error.Error(), loggingInfo.CorrelationID.String(), "DENY", "policyCompiler")
+		logging.LogAccessDecisionError(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration.String(), loggingInfo.Error.Error(), loggingInfo.CorrelationID.String(), "DENY", "policyCompiler")
 	} else {
-		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration, "DENY", "policyCompiler")
+		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration.String(), "DENY", "policyCompiler")
 	}
 }
 

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	ext_authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	extauthz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/open-policy-agent/opa/plugins"
 	"github.com/open-policy-agent/opa/util"
 	"github.com/pkg/errors"
@@ -13,6 +13,7 @@ import (
 	"github.com/unbasical/kelon/pkg/api"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/opa"
+	"github.com/unbasical/kelon/pkg/telemetry"
 	"google.golang.org/genproto/googleapis/rpc/code"
 )
 
@@ -77,7 +78,7 @@ func TestCheckAllow(t *testing.T) {
 	// Example Envoy Check Request for input:
 	// curl --user  bob:password  -o /dev/null -s -w "%{http_code}\n" http://${GATEWAY_URL}/api/v1/products
 
-	var req ext_authz.CheckRequest
+	var req extauthz.CheckRequest
 	if err := util.Unmarshal([]byte(exampleAllowedRequest), &req); err != nil {
 		logging.LogForComponent("envoy-proxy-test").Panic(err)
 	}
@@ -95,7 +96,7 @@ func TestCheckAllow(t *testing.T) {
 		failOnProcess:   false,
 		decision:        true,
 	}
-	_ = proxy.Configure(&configs.AppConfig{}, &api.ClientProxyConfig{Compiler: &compiler})
+	_ = proxy.Configure(context.Background(), &configs.AppConfig{MetricsProvider: &telemetry.NoopMetricsProvider{}}, &api.ClientProxyConfig{Compiler: &compiler})
 	server, _ := proxy.(*envoyProxy)
 
 	ctx := context.Background()

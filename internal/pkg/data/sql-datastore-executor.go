@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"strconv"
 	"time"
@@ -88,7 +89,7 @@ func (ds *sqlDatastoreExecutor) applyMetadataConfigs(conf *configs.Datastore, db
 	return nil
 }
 
-func (ds *sqlDatastoreExecutor) Execute(statement interface{}, params []interface{}) (bool, error) {
+func (ds *sqlDatastoreExecutor) Execute(ctx context.Context, statement interface{}, params []interface{}) (bool, error) {
 	sqlStatement, ok := statement.(string)
 	if !ok {
 		return false, errors.Errorf("Passed statement was not of type string but of type: %T", statement)

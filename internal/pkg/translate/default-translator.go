@@ -1,12 +1,18 @@
 package translate
 
 import (
+	"context"
+	"time"
+
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/translate"
 )
+
+const spanNameDatastoreQuery string = "datastore.query"
 
 type astTranslator struct {
 	appConf    *configs.AppConfig
@@ -52,23 +58,42 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *tra
 }
 
 // See translate.AstTranslator.
-func (trans astTranslator) Process(response *rego.PartialQueries, datastore string) (bool, error) {
+func (trans astTranslator) Process(ctx context.Context, response *rego.PartialQueries, datastore string) (bool, error) {
 	if !trans.configured {
 		return false, errors.Errorf("AstTranslator was not configured! Please call Configure(). ")
 	}
 
-	preprocessedQueries, preprocessErr := newAstPreprocessor().Process(response.Queries, datastore)
+	preprocessedQueries, preprocessErr := newAstPreprocessor().Process(ctx, response.Queries, datastore)
 	if preprocessErr != nil {
 		return false, errors.Wrap(preprocessErr, "AstTranslator: Error during preprocessing.")
 	}
 
-	processedQuery, processErr := newAstProcessor(trans.config.SkipUnknown).Process(preprocessedQueries)
+	processedQuery, processErr := newAstProcessor(trans.config.SkipUnknown).Process(ctx, preprocessedQueries)
 	if processErr != nil {
 		return false, processErr
 	}
 
 	if targetDB, ok := trans.config.Datastores[datastore]; ok {
-		return (*targetDB).Execute(processedQuery)
+		pkg := ctx.Value(constants.ContextKeyRegoPackage).(string)
+
+		labels := map[string]string{
+			constants.LabelRegoPackage: pkg,
+			constants.LabelDBPoolName:  datastore,
+		}
+
+		function := func(ctx context.Context, args ...interface{}) (interface{}, error) {
+			startTime := time.Now()
+			decision, err := (*targetDB).Execute(ctx, processedQuery)
+			duration := time.Since(startTime)
+
+			// Update Metrics
+			trans.appConf.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, duration.Milliseconds(), labels)
+			return decision, err
+		}
+
+		val, err := trans.appConf.TraceProvider.ExecuteWithChildSpan(ctx, function, spanNameDatastoreQuery, labels)
+
+		return val.(bool), err
 	}
 	return false, errors.Errorf("AstTranslator: Unable to find datastore: " + datastore)
 }

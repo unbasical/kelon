@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	ext_authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	extauthz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/unbasical/kelon/configs"
@@ -17,7 +17,7 @@ import (
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/telemetry"
 	"google.golang.org/genproto/googleapis/rpc/code"
-	rpc_status "google.golang.org/genproto/googleapis/rpc/status"
+	rpcstatus "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -69,7 +69,7 @@ func NewEnvoyProxy(config Config) api.ClientProxy {
 }
 
 // See Configure() of api.ClientProxy
-func (proxy *envoyProxy) Configure(appConf *configs.AppConfig, serverConf *api.ClientProxyConfig) error {
+func (proxy *envoyProxy) Configure(ctx context.Context, appConf *configs.AppConfig, serverConf *api.ClientProxyConfig) error {
 	// Exit if already configured
 	if proxy.configured {
 		return nil
@@ -85,10 +85,7 @@ func (proxy *envoyProxy) Configure(appConf *configs.AppConfig, serverConf *api.C
 	}
 
 	// Configure telemetry (if set)
-	handler, err := telemetry.ApplyTelemetryIfPresent(appConf.TelemetryProvider, compiler)
-	if err != nil {
-		return errors.Wrap(err, "EnvoyProxy encountered error during telemetry provider configuration")
-	}
+	handler := appConf.MetricsProvider.WrapHTTPHandler(ctx, compiler)
 
 	// Assign variables
 	proxy.envoy.compiler = &handler
@@ -107,9 +104,10 @@ func (proxy *envoyProxy) Start() error {
 	}
 
 	// Init grpc server
-	proxy.envoy.server = grpc.NewServer()
+	interceptor := proxy.makeServerInterceptor()
+	proxy.envoy.server = grpc.NewServer(interceptor)
 	// Register Authorization Server
-	ext_authz.RegisterAuthorizationServer(proxy.envoy.server, proxy.envoy)
+	extauthz.RegisterAuthorizationServer(proxy.envoy.server, proxy.envoy)
 
 	// Register reflection service on gRPC server
 	if proxy.envoy.cfg.EnableReflection {
@@ -145,7 +143,7 @@ func (p *envoyExtAuthzGrpcServer) Stop(ctx context.Context) {
 	p.server.Stop()
 }
 
-// Reconfigure the underlying grpc-server (Unused! Just to be conform with the interface)
+// Reconfigure the underlying grpc-server (Unused! Just to conform with the interface)
 func (p *envoyExtAuthzGrpcServer) Reconfigure(ctx context.Context, config interface{}) {
 }
 
@@ -171,7 +169,7 @@ func (p *envoyExtAuthzGrpcServer) listen() {
 }
 
 // Check a new incoming request
-func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.CheckRequest) (*ext_authz.CheckResponse, error) {
+func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *extauthz.CheckRequest) (*extauthz.CheckResponse, error) {
 	// Rebuild http request
 	r := req.GetAttributes().GetRequest().GetHttp()
 	path := r.GetPath()
@@ -197,7 +195,7 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 		}
 	}`, r.GetMethod(), path, token, body)
 
-	httpRequest, err := http.NewRequest("POST", "http://envoy.ext.auth.proxy/v1/data", strings.NewReader(inputBody))
+	httpRequest, err := http.NewRequestWithContext(ctx, "POST", "http://envoy.ext.auth.proxy/v1/data", strings.NewReader(inputBody))
 	if err != nil {
 		return nil, errors.Wrap(err, "EnvoyProxy: Unable to reconstruct HTTP-Request")
 	}
@@ -212,12 +210,12 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 	w := telemetry.NewInMemResponseWriter()
 	(*p.compiler).ServeHTTP(w, httpRequest)
 
-	resp := &ext_authz.CheckResponse{}
+	resp := &extauthz.CheckResponse{}
 	switch w.StatusCode() {
 	case http.StatusOK:
-		resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
+		resp.Status = &rpcstatus.Status{Code: int32(code.Code_OK)}
 	case http.StatusForbidden:
-		resp.Status = &rpc_status.Status{Code: int32(code.Code_PERMISSION_DENIED)}
+		resp.Status = &rpcstatus.Status{Code: int32(code.Code_PERMISSION_DENIED)}
 	default:
 		proxyErr := errors.Wrap(errors.New(w.Body()), "EnvoyProxy: Error during request compilation")
 		return nil, proxyErr
@@ -238,12 +236,26 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *ext_authz.Chec
 	// DecisionLogging should reflect what "would" have happened
 	if p.cfg.DryRun {
 		if resp.Status.Code != int32(code.Code_OK) {
-			resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
-			resp.HttpResponse = &ext_authz.CheckResponse_OkResponse{
-				OkResponse: &ext_authz.OkHttpResponse{},
+			resp.Status = &rpcstatus.Status{Code: int32(code.Code_OK)}
+			resp.HttpResponse = &extauthz.CheckResponse_OkResponse{
+				OkResponse: &extauthz.OkHttpResponse{},
 			}
 		}
 	}
 
 	return resp, nil
+}
+
+func (proxy *envoyProxy) makeServerInterceptor() grpc.ServerOption {
+	var interceptors []grpc.UnaryServerInterceptor
+
+	if proxy.appConf.MetricsProvider != nil {
+		interceptors = append(interceptors, proxy.appConf.MetricsProvider.GetGrpcServerInterceptor())
+	}
+
+	if proxy.appConf.TraceProvider != nil {
+		interceptors = append(interceptors, proxy.appConf.TraceProvider.GetGrpcServerInterceptor())
+	}
+
+	return grpc.ChainUnaryInterceptor(interceptors...)
 }

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -89,7 +90,7 @@ func (ds *mongoDatastoreTranslator) Configure(appConf *configs.AppConfig, alias 
 	return nil
 }
 
-func (ds *mongoDatastoreTranslator) Execute(query data.Node) (bool, error) {
+func (ds *mongoDatastoreTranslator) Execute(ctx context.Context, query data.Node) (bool, error) {
 	if !ds.configured {
 		return false, errors.Errorf("MongoDatastoreTranslator: Datastore was not configured! Please call Configure().")
 	}
@@ -103,7 +104,7 @@ func (ds *mongoDatastoreTranslator) Execute(query data.Node) (bool, error) {
 
 	logging.LogForComponent("mongoDatastoreTranslator").Debugf("EXECUTING STATEMENT: ==================%s==================\n", statements)
 
-	return ds.executor.Execute(statements, nil)
+	return ds.executor.Execute(ctx, statements, nil)
 }
 
 // nolint:gocyclo,gocritic
