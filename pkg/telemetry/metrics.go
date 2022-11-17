@@ -37,6 +37,7 @@ type Metrics struct {
 }
 
 const ErrorInstrumentNotFound string = "instrument with name %s not found"
+const ErrorValueNotCastable string = "unable to cast to %T: %+v"
 
 // NewMetricsProvider creates a new Metrics struct exporting metrics using the specified format and the protocol to use
 // If the Prometheus format is chosen, the protocol attribute will be ignored
@@ -109,17 +110,14 @@ func (m *Metrics) Configure(ctx context.Context) error {
 		return err
 	}
 
-	logging.LogForComponent("Metrics").Infof("Configured Metrics with %s Exporter.", m.exportType)
-
+	logging.LogForComponent("MetricProvider").Infof("Metrics configured with exporter of type [%s]", m.exportType)
 	return nil
 }
 
-func (m *Metrics) GetHTTPMiddleware(ctx context.Context) (func(handler http.Handler) http.Handler, error) {
-	return func(handler http.Handler) http.Handler {
-		return m.instrumentHandlerActiveRequest(ctx,
-			m.instrumentHandlerDuration(ctx,
-				m.instrumentHandlerRequestSize(ctx, handler)))
-	}, nil
+func (m *Metrics) WrapHTTPHandler(ctx context.Context, handler http.Handler) http.Handler {
+	return m.instrumentHandlerActiveRequest(ctx,
+		m.instrumentHandlerDuration(ctx,
+			m.instrumentHandlerRequestSize(ctx, handler)))
 }
 
 func (m *Metrics) GetHTTPMetricsHandler() (http.Handler, error) {
@@ -130,49 +128,62 @@ func (m *Metrics) GetHTTPMetricsHandler() (http.Handler, error) {
 	}
 }
 
-func (m *Metrics) WriteMetricDecision(ctx context.Context, decision Decision) {
-	decisionDuration, ok := m.instrumentsSync[constants.InstrumentDecisionDuration].(syncint64.Histogram)
+func (m *Metrics) UpdateHistogramMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
+	histogram, ok := m.instrumentsSync[metric].(syncint64.Histogram)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentDecisionDuration.String())
+		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, metric.String())
 		return
 	}
 
-	attr := []attribute.KeyValue{
-		attribute.Key(constants.LabelPolicyDecision).String(decision.PolicyDecision),
-		attribute.Key(constants.LabelRegoPackage).String(decision.Package),
+	val, ok := value.(int64)
+	if !ok {
+		logging.LogForComponent("Metrics").Errorf(ErrorValueNotCastable, int64(0), value)
 	}
 
-	decisionDuration.Record(ctx, decision.Duration, attr...)
+	attr := labelsToAttributes(labels)
+
+	histogram.Record(ctx, val, attr...)
 }
 
-func (m *Metrics) WriteMetricQuery(ctx context.Context, dbQuery DbQuery) {
-	queryDuration, ok := m.instrumentsSync[constants.InstrumentDBQueryDuration].(syncint64.Histogram)
+func (m *Metrics) UpdateGaugeMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
+	gauge, ok := m.instrumentsSync[metric].(syncint64.UpDownCounter)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentDBQueryDuration.String())
+		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, metric.String())
 		return
 	}
 
-	attr := []attribute.KeyValue{
-		attribute.Key(constants.LabelDBPoolName).String(dbQuery.PoolName),
-		attribute.Key(constants.LabelRegoPackage).String(dbQuery.Package),
+	val, ok := value.(int64)
+	if !ok {
+		logging.LogForComponent("Metrics").Errorf(ErrorValueNotCastable, int64(0), value)
 	}
 
-	queryDuration.Record(ctx, dbQuery.Duration, attr...)
+	attr := labelsToAttributes(labels)
+
+	gauge.Add(ctx, val, attr...)
 }
 
-func (m *Metrics) CheckError(err error) {
-	// not needed in prometheus
+func (m *Metrics) UpdateCounterMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
+	counter, ok := m.instrumentsSync[metric].(syncint64.Counter)
+	if !ok {
+		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, metric.String())
+		return
+	}
+
+	val, ok := value.(int64)
+	if !ok {
+		logging.LogForComponent("Metrics").Errorf(ErrorValueNotCastable, int64(0), value)
+	}
+
+	attr := labelsToAttributes(labels)
+
+	counter.Add(ctx, val, attr...)
 }
 
 func (m *Metrics) Shutdown(ctx context.Context) {
 	_ = m.provider.Shutdown(ctx)
 }
 
-func (m *Metrics) ExportType() string {
-	return m.exportType
-}
-
-// GetGrpcServerMetricInterceptor Interceptor to gather rpc metrics
+// GetGrpcServerInterceptor Interceptor to gather rpc metrics
 func (m *Metrics) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
 	fallback := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		return handler(ctx, req)

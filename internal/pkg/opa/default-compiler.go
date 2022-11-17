@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/unbasical/kelon/pkg/constants"
-	"github.com/unbasical/kelon/pkg/telemetry"
 	"net/http"
 	"net/url"
 	"strings"
@@ -237,9 +236,12 @@ func (compiler policyCompiler) writeAllow(ctx context.Context, w http.ResponseWr
 		writeJSON(w, http.StatusOK, apiResponse{Result: true})
 	}
 
-	if compiler.appConfig.MetricsProvider != nil {
-		compiler.appConfig.MetricsProvider.WriteMetricDecision(ctx, telemetry.Decision{PolicyDecision: "allow", Duration: loggingInfo.Duration.Milliseconds(), Package: loggingInfo.Package})
+	labels := map[string]string{
+		constants.LabelPolicyDecision: "allow",
+		constants.LabelRegoPackage:    loggingInfo.Package,
 	}
+
+	compiler.appConfig.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, loggingInfo.Duration.Milliseconds(), labels)
 
 	logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration.String(), "ALLOW", "policyCompiler")
 }
@@ -251,9 +253,12 @@ func (compiler policyCompiler) writeDeny(ctx context.Context, w http.ResponseWri
 		writeJSON(w, http.StatusOK, apiResponse{Result: false})
 	}
 
-	if compiler.appConfig.MetricsProvider != nil {
-		compiler.appConfig.MetricsProvider.WriteMetricDecision(ctx, telemetry.Decision{PolicyDecision: "deny", Duration: loggingInfo.Duration.Milliseconds(), Package: loggingInfo.Package})
+	labels := map[string]string{
+		constants.LabelPolicyDecision: "deny",
+		constants.LabelRegoPackage:    loggingInfo.Package,
 	}
+
+	compiler.appConfig.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, loggingInfo.Duration.Milliseconds(), labels)
 
 	if loggingInfo.Error != nil {
 		logging.LogAccessDecisionError(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration.String(), loggingInfo.Error.Error(), loggingInfo.CorrelationID.String(), "DENY", "policyCompiler")

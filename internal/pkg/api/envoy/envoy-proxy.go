@@ -85,10 +85,7 @@ func (proxy *envoyProxy) Configure(ctx context.Context, appConf *configs.AppConf
 	}
 
 	// Configure telemetry (if set)
-	handler, err := telemetry.ApplyTelemetryIfPresent(ctx, appConf.MetricsProvider, compiler)
-	if err != nil {
-		return errors.Wrap(err, "EnvoyProxy encountered error during telemetry provider configuration")
-	}
+	handler := appConf.MetricsProvider.WrapHTTPHandler(ctx, compiler)
 
 	// Assign variables
 	proxy.envoy.compiler = &handler
@@ -146,7 +143,7 @@ func (p *envoyExtAuthzGrpcServer) Stop(ctx context.Context) {
 	p.server.Stop()
 }
 
-// Reconfigure the underlying grpc-server (Unused! Just to be conform with the interface)
+// Reconfigure the underlying grpc-server (Unused! Just to conform with the interface)
 func (p *envoyExtAuthzGrpcServer) Reconfigure(ctx context.Context, config interface{}) {
 }
 

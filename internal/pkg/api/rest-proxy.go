@@ -23,8 +23,7 @@ type restProxy struct {
 	router     *mux.Router
 	server     *http.Server
 
-	metricsHandler    http.Handler
-	metricsMiddleware func(handler http.Handler) http.Handler
+	metricsHandler http.Handler
 }
 
 // Implements api.ClientProxy by providing OPA's Data-REST-API.
@@ -60,12 +59,6 @@ func (proxy *restProxy) Configure(ctx context.Context, appConf *configs.AppConfi
 		if metricsHandler, handlerErr := appConf.MetricsProvider.GetHTTPMetricsHandler(); handlerErr == nil {
 			proxy.metricsHandler = metricsHandler
 		}
-
-		metricsMiddleware, middErr := appConf.MetricsProvider.GetHTTPMiddleware(ctx)
-		if middErr != nil {
-			return errors.Wrap(middErr, "RestProxy was configured with MetricsProvider that does not implement 'GetHTTPMiddleware()' correctly.")
-		}
-		proxy.metricsMiddleware = metricsMiddleware
 	}
 
 	// Assign variables
@@ -83,19 +76,21 @@ func (proxy *restProxy) Start() error {
 		return err
 	}
 
+	ctx := context.Background()
+
 	endpointData := proxy.pathPrefix + "/data"
 	endpointPolicies := proxy.pathPrefix + "/policies"
 
 	// Endpoints to validate queries
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataGet, endpointData)).Methods("GET")
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataPost, endpointData)).Methods("POST")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataGet, endpointData)).Methods("GET")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataPost, endpointData)).Methods("POST")
 
 	// Endpoints to update policies and data
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataPut, endpointData)).Methods("PUT")
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataPatch, endpointData)).Methods("PATCH")
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1DataDelete, endpointData)).Methods("DELETE")
-	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1PolicyPut, endpointPolicies)).Methods("PUT")
-	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddlewareIfSet(proxy.handleV1PolicyDelete, endpointPolicies)).Methods("DELETE")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataPut, endpointData)).Methods("PUT")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataPatch, endpointData)).Methods("PATCH")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataDelete, endpointData)).Methods("DELETE")
+	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1PolicyPut, endpointPolicies)).Methods("PUT")
+	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1PolicyDelete, endpointPolicies)).Methods("DELETE")
 	if proxy.metricsHandler != nil {
 		logging.LogForComponent("restProxy").Infoln("Registered /metrics endpoint")
 		proxy.router.PathPrefix("/metrics").Handler(proxy.metricsHandler)
@@ -122,17 +117,12 @@ func (proxy *restProxy) Start() error {
 	return nil
 }
 
-func (proxy *restProxy) applyHandlerMiddlewareIfSet(handlerFunc func(http.ResponseWriter, *http.Request), endpoint string) http.Handler {
+func (proxy *restProxy) applyHandlerMiddlewareIfSet(ctx context.Context, handlerFunc func(http.ResponseWriter, *http.Request), endpoint string) http.Handler {
 	var wrappedHandler http.Handler = http.HandlerFunc(handlerFunc)
-	// wrap for metrics
-	if proxy.metricsMiddleware != nil {
-		wrappedHandler = proxy.metricsMiddleware(http.HandlerFunc(handlerFunc))
-	}
 
-	// wrap for traces
-	if proxy.appConf.TraceProvider != nil {
-		wrappedHandler = proxy.appConf.TraceProvider.WrapHTTPHandler(wrappedHandler, endpoint)
-	}
+	wrappedHandler = proxy.appConf.MetricsProvider.WrapHTTPHandler(ctx, wrappedHandler)
+
+	wrappedHandler = proxy.appConf.TraceProvider.WrapHTTPHandler(ctx, wrappedHandler, endpoint)
 
 	return wrappedHandler
 }

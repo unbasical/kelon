@@ -26,7 +26,7 @@ type Traces struct {
 	name     string
 }
 
-func NewTraceProvider(ctx context.Context, name string, protocol string, endpoint string) (*Traces, error) {
+func NewTraceProvider(ctx context.Context, name string, protocol string, endpoint string) (TraceProvider, error) {
 	exporter, err := newOtlpTraceExporter(ctx, protocol, endpoint)
 	if err != nil {
 		return nil, err
@@ -52,11 +52,11 @@ func NewTraceProvider(ctx context.Context, name string, protocol string, endpoin
 }
 
 func (t *Traces) Configure(ctx context.Context) error {
-	logging.LogForComponent("Traces").Infof("Configured Traces")
+	logging.LogForComponent("TraceProvider").Info("Tracing configured with exporter of type [otlp]")
 	return nil
 }
 
-func (t *Traces) WrapHTTPHandler(handler http.Handler, spanName string) http.Handler {
+func (t *Traces) WrapHTTPHandler(ctx context.Context, handler http.Handler, spanName string) http.Handler {
 	return otelhttp.NewHandler(handler, spanName)
 }
 
@@ -64,26 +64,42 @@ func (t *Traces) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
 	return otelgrpc.UnaryServerInterceptor()
 }
 
-func (t *Traces) StartRootSpan(ctx context.Context, spanName string) (context.Context, interface{}) {
+func (t *Traces) ExecuteWithRootSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
 	tracer := t.provider.Tracer(t.name)
 
-	return tracer.Start(ctx, spanName, trace.WithNewRoot())
-}
+	attr := labelsToAttributes(labels)
 
-func (t *Traces) StartChildSpan(ctx context.Context, spanName string) (context.Context, interface{}) {
-	tracer := t.provider.Tracer(t.name)
+	ctx, span := tracer.Start(ctx, spanName, trace.WithNewRoot())
+	defer span.End()
 
-	return tracer.Start(ctx, spanName)
-}
+	span.SetAttributes(attr...)
 
-func (t *Traces) RecordError(ctx context.Context, err error) {
-	span := trace.SpanFromContext(ctx)
-	if span == nil || err == nil {
-		return
+	ret, err := function(ctx, args...)
+	if err != nil {
+		span.SetStatus(codes.Error, err.Error())
+		span.RecordError(err)
 	}
 
-	span.SetStatus(codes.Error, err.Error())
-	span.RecordError(err)
+	return ret, err
+}
+
+func (t *Traces) ExecuteWithChildSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
+	tracer := t.provider.Tracer(t.name)
+
+	attr := labelsToAttributes(labels)
+
+	ctx, span := tracer.Start(ctx, spanName)
+	defer span.End()
+
+	span.SetAttributes(attr...)
+
+	ret, err := function(ctx, args...)
+	if err != nil {
+		span.SetStatus(codes.Error, err.Error())
+		span.RecordError(err)
+	}
+
+	return ret, err
 }
 
 func (t *Traces) Shutdown(ctx context.Context) {

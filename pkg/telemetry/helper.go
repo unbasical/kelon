@@ -1,19 +1,15 @@
 package telemetry
 
 import (
-	"context"
-	"net/http"
-
-	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
 )
 
-func ApplyTelemetryIfPresent(ctx context.Context, provider MetricsProvider, handler http.Handler) (http.Handler, error) {
-	if provider != nil {
-		telemetryMiddleware, middErr := provider.GetHTTPMiddleware(ctx)
-		if middErr != nil {
-			return nil, errors.Wrap(middErr, "MetricsProvider does not implement 'GetHTTPMiddleware()' correctly.")
-		}
-		return telemetryMiddleware(handler), nil
+func labelsToAttributes(labels map[string]string) []attribute.KeyValue {
+	var attr []attribute.KeyValue
+
+	for key, val := range labels {
+		attr = append(attr, attribute.Key(key).String(val))
 	}
-	return handler, nil
+
+	return attr
 }

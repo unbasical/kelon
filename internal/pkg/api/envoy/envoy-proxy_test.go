@@ -2,6 +2,7 @@ package envoy
 
 import (
 	"context"
+	"github.com/unbasical/kelon/pkg/telemetry"
 	"net/http"
 	"testing"
 
@@ -95,7 +96,7 @@ func TestCheckAllow(t *testing.T) {
 		failOnProcess:   false,
 		decision:        true,
 	}
-	_ = proxy.Configure(context.Background(), &configs.AppConfig{}, &api.ClientProxyConfig{Compiler: &compiler})
+	_ = proxy.Configure(context.Background(), &configs.AppConfig{MetricsProvider: &telemetry.NoopMetricsProvider{}}, &api.ClientProxyConfig{Compiler: &compiler})
 	server, _ := proxy.(*envoyProxy)
 
 	ctx := context.Background()

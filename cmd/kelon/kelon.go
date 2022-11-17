@@ -180,7 +180,7 @@ func makeTelemetryMetricsProvider(ctx context.Context) telemetry.MetricsProvider
 
 		return provider
 	}
-	return nil
+	return telemetry.NewNoopMetricProvider()
 }
 
 func makeTelemetryTraceProvider(ctx context.Context) telemetry.TraceProvider {
@@ -190,13 +190,14 @@ func makeTelemetryTraceProvider(ctx context.Context) telemetry.TraceProvider {
 		if err != nil {
 			logging.LogForComponent("main").Fatalf("Error during creation of TraceProvider %q: %s", *traceService, err)
 		}
+
 		if err := provider.Configure(ctx); err != nil {
 			logging.LogForComponent("main").Fatalf("Error during configuration of TraceProvider %q: %s", *traceService, err.Error())
 		}
 
 		return provider
 	}
-	return nil
+	return telemetry.NewNoopTraceProvider()
 }
 
 func makeConfigWatcher(configLoader configs.FileConfigLoader, configWatcherPath *string) {

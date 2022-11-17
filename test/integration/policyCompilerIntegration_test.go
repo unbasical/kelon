@@ -2,6 +2,7 @@ package integration
 
 import (
 	"encoding/json"
+	"github.com/unbasical/kelon/pkg/telemetry"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -179,7 +180,10 @@ func (p *PolicyCompilerTestEnvironment) onConfigLoaded(change watcher.ChangeType
 	if change == watcher.ChangeAll {
 		// Configure application
 		var (
-			config     = new(configs.AppConfig)
+			config = &configs.AppConfig{
+				MetricsProvider: &telemetry.NoopMetricsProvider{},
+				TraceProvider:   &telemetry.NoopTraceProvider{},
+			}
 			parser     = requestInt.NewURLProcessor()
 			mapper     = requestInt.NewPathMapper()
 			translator = translateInt.NewAstTranslator()
