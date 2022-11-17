@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/unbasical/kelon/pkg/constants"
 	"os"
 	"os/signal"
 	"strings"
@@ -21,6 +20,7 @@ import (
 	"github.com/unbasical/kelon/internal/pkg/util"
 	watcherInt "github.com/unbasical/kelon/internal/pkg/watcher"
 	"github.com/unbasical/kelon/pkg/api"
+	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/opa"
 	"github.com/unbasical/kelon/pkg/request"
@@ -168,7 +168,6 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 
 func makeTelemetryMetricsProvider(ctx context.Context) telemetry.MetricsProvider {
 	if metricService != nil && *metricService != "" {
-
 		provider, err := telemetry.NewMetricsProvider(ctx, constants.TelemetryServiceName, *metricService, *metricExportProtocol, *metricExportEndpoint)
 		if err != nil {
 			logging.LogForComponent("main").Fatalf("Error during creation of MetricsProvider %q: %s", *metricService, err)
@@ -185,7 +184,6 @@ func makeTelemetryMetricsProvider(ctx context.Context) telemetry.MetricsProvider
 
 func makeTelemetryTraceProvider(ctx context.Context) telemetry.TraceProvider {
 	if traceService != nil && *traceService != "" {
-
 		provider, err := telemetry.NewTraceProvider(ctx, constants.TelemetryServiceName, *traceExportProtocol, *traceExportEndpoint)
 		if err != nil {
 			logging.LogForComponent("main").Fatalf("Error during creation of TraceProvider %q: %s", *traceService, err)

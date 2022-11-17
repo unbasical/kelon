@@ -2,13 +2,14 @@ package translate
 
 import (
 	"context"
+	"time"
+
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/translate"
-	"time"
 )
 
 const spanNameDatastoreQuery string = "datastore.query"
@@ -73,7 +74,7 @@ func (trans astTranslator) Process(ctx context.Context, response *rego.PartialQu
 	}
 
 	if targetDB, ok := trans.config.Datastores[datastore]; ok {
-		pkg := ctx.Value(constants.LabelRegoPackage).(string)
+		pkg := ctx.Value(constants.ContextKeyRegoPackage).(string)
 
 		labels := map[string]string{
 			constants.LabelRegoPackage: pkg,

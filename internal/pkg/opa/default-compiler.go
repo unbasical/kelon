@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/unbasical/kelon/pkg/constants"
 	"net/http"
 	"net/url"
 	"strings"
@@ -19,6 +18,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/unbasical/kelon/configs"
 	requestInt "github.com/unbasical/kelon/internal/pkg/request"
+	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	internalErrors "github.com/unbasical/kelon/pkg/errors"
 	"github.com/unbasical/kelon/pkg/opa"
@@ -177,7 +177,7 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	}
 
 	// Otherwise translate ast
-	result, err := (*compiler.config.Translator).Process(context.WithValue(ctx, constants.LabelRegoPackage, output.Package), queries, output.Datastore)
+	result, err := (*compiler.config.Translator).Process(context.WithValue(ctx, constants.ContextKeyRegoPackage, output.Package), queries, output.Datastore)
 	if err != nil {
 		compiler.writeDenyError(ctx, w, &decisionContext{Path: path.String(), Method: method, Package: output.Package, Duration: time.Since(startTime),
 			Error: err, CorrelationID: uuid.New()})

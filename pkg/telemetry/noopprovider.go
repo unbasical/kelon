@@ -2,10 +2,10 @@ package telemetry
 
 import (
 	"context"
-	"github.com/unbasical/kelon/pkg/constants/logging"
 	"net/http"
 
 	"github.com/unbasical/kelon/pkg/constants"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 	"google.golang.org/grpc"
 )
 

@@ -2,7 +2,6 @@ package integration
 
 import (
 	"encoding/json"
-	"github.com/unbasical/kelon/pkg/telemetry"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -24,6 +23,7 @@ import (
 	"github.com/unbasical/kelon/pkg/data"
 	"github.com/unbasical/kelon/pkg/opa"
 	"github.com/unbasical/kelon/pkg/request"
+	"github.com/unbasical/kelon/pkg/telemetry"
 	"github.com/unbasical/kelon/pkg/translate"
 	"github.com/unbasical/kelon/pkg/watcher"
 	"gopkg.in/yaml.v3"

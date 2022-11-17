@@ -2,8 +2,11 @@ package telemetry
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/pkg/errors"
+	"net/http"
+	"strings"
+
 	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -17,8 +20,6 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
-	"net/http"
-	"strings"
 )
 
 type Traces struct {
@@ -26,7 +27,7 @@ type Traces struct {
 	name     string
 }
 
-func NewTraceProvider(ctx context.Context, name string, protocol string, endpoint string) (TraceProvider, error) {
+func NewTraceProvider(ctx context.Context, name, protocol, endpoint string) (TraceProvider, error) {
 	exporter, err := newOtlpTraceExporter(ctx, protocol, endpoint)
 	if err != nil {
 		return nil, err
@@ -106,9 +107,9 @@ func (t *Traces) Shutdown(ctx context.Context) {
 	_ = t.provider.Shutdown(ctx)
 }
 
-func newOtlpTraceExporter(ctx context.Context, protocol string, endpoint string) (sdktrace.SpanExporter, error) {
+func newOtlpTraceExporter(ctx context.Context, protocol, endpoint string) (sdktrace.SpanExporter, error) {
 	if endpoint == "" {
-		return nil, errors.New("Metric export endpoint must not be empty")
+		return nil, errors.New("metric export endpoint must not be empty")
 	}
 
 	switch strings.ToLower(protocol) {
@@ -119,6 +120,6 @@ func newOtlpTraceExporter(ctx context.Context, protocol string, endpoint string)
 		return otlpgrpc.New(ctx, otlpgrpc.WithEndpoint(endpoint), otlpgrpc.WithInsecure())
 
 	default:
-		return nil, errors.New(fmt.Sprintf("Unknown protocol '%s', expected %+v", protocol, []string{constants.ProtocolHTTP, constants.ProtocolGRPC}))
+		return nil, fmt.Errorf("unknown protocol '%s', expected %+v", protocol, []string{constants.ProtocolHTTP, constants.ProtocolGRPC})
 	}
 }

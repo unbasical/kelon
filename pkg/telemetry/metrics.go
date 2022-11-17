@@ -7,7 +7,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 	"net/http"
 	"strings"
 	"time"
@@ -23,6 +22,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
+	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 	"go.opentelemetry.io/otel/metric/unit"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"google.golang.org/grpc"
@@ -41,7 +41,7 @@ const ErrorValueNotCastable string = "unable to cast to %T: %+v"
 
 // NewMetricsProvider creates a new Metrics struct exporting metrics using the specified format and the protocol to use
 // If the Prometheus format is chosen, the protocol attribute will be ignored
-func NewMetricsProvider(ctx context.Context, name string, format string, protocol string, endpoint string) (*Metrics, error) {
+func NewMetricsProvider(ctx context.Context, name, format, protocol, endpoint string) (*Metrics, error) {
 	m := &Metrics{
 		name:             name,
 		instrumentsSync:  make(map[constants.MetricInstrument]instrument.Synchronous),
@@ -64,7 +64,7 @@ func NewMetricsProvider(ctx context.Context, name string, format string, protoco
 		m.provider = sdkmetric.NewMeterProvider(sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter)))
 		m.exportType = constants.TelemetryOtlp
 	default:
-		return nil, errors.New(fmt.Sprintf("Unknown format '%s', expected one of %+v", format, []string{constants.TelemetryPrometheus, constants.TelemetryOtlp}))
+		return nil, fmt.Errorf("unknown format '%s', expected one of %+v", format, []string{constants.TelemetryPrometheus, constants.TelemetryOtlp})
 	}
 
 	global.SetMeterProvider(m.provider)
@@ -88,7 +88,7 @@ func NewMetricsProvider(ctx context.Context, name string, format string, protoco
 func (m *Metrics) Configure(ctx context.Context) error {
 	if m.provider == nil {
 		exporter, err := prometheus.New()
-		if err == nil {
+		if err != nil {
 			return err
 		}
 		m.provider = sdkmetric.NewMeterProvider(sdkmetric.WithReader(exporter))
@@ -123,9 +123,8 @@ func (m *Metrics) WrapHTTPHandler(ctx context.Context, handler http.Handler) htt
 func (m *Metrics) GetHTTPMetricsHandler() (http.Handler, error) {
 	if m.exportType == constants.TelemetryPrometheus {
 		return promhttp.Handler(), nil
-	} else {
-		return nil, nil
 	}
+	return nil, nil
 }
 
 func (m *Metrics) UpdateHistogramMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
@@ -365,7 +364,7 @@ func (m *Metrics) instrumentHandlerRequestSize(ctx context.Context, next http.Ha
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		size := int64(approximateHttpRequestSize(r))
+		size := int64(approximateHTTPRequestSize(r))
 		httpRequestSize.Record(ctx, size)
 		next.ServeHTTP(w, r)
 	})
@@ -383,9 +382,9 @@ func (m *Metrics) instrumentVersion(ctx context.Context) {
 }
 
 // create new OTLP metric Exporter
-func newOtlpMetricExporter(ctx context.Context, protocol string, endpoint string) (sdkmetric.Exporter, error) {
+func newOtlpMetricExporter(ctx context.Context, protocol, endpoint string) (sdkmetric.Exporter, error) {
 	if endpoint == "" {
-		return nil, errors.New("Metric export endpoint must not be empty")
+		return nil, errors.New("metric export endpoint must not be empty")
 	}
 
 	switch strings.ToLower(protocol) {
@@ -396,11 +395,11 @@ func newOtlpMetricExporter(ctx context.Context, protocol string, endpoint string
 		return otlpgrpc.New(ctx, otlpgrpc.WithEndpoint(endpoint), otlpgrpc.WithInsecure())
 
 	default:
-		return nil, errors.New(fmt.Sprintf("Unknown protocol '%s', expected %+v", protocol, []string{constants.ProtocolHTTP, constants.ProtocolGRPC}))
+		return nil, fmt.Errorf("unknown protocol '%s', expected %+v", protocol, []string{constants.ProtocolHTTP, constants.ProtocolGRPC})
 	}
 }
 
-func approximateHttpRequestSize(r *http.Request) int {
+func approximateHTTPRequestSize(r *http.Request) int {
 	s := 0
 	if r.URL != nil {
 		s += len(r.URL.String())

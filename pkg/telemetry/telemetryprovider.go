@@ -2,9 +2,10 @@ package telemetry
 
 import (
 	"context"
+	"net/http"
+
 	"github.com/unbasical/kelon/pkg/constants"
 	"google.golang.org/grpc"
-	"net/http"
 )
 
 type SpanFunction func(ctx context.Context, args ...interface{}) (interface{}, error)
