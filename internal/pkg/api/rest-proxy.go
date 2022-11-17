@@ -101,10 +101,11 @@ func (proxy *restProxy) Start() error {
 	})
 
 	proxy.server = &http.Server{
-		Handler:      proxy.router,
-		Addr:         fmt.Sprintf(":%d", proxy.port),
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		Handler:           proxy.router,
+		Addr:              fmt.Sprintf(":%d", proxy.port),
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		ReadHeaderTimeout: 0,
 	}
 
 	// Start Server
