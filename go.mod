@@ -30,7 +30,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v0.33.0
 	go.opentelemetry.io/otel/trace v1.11.1
 	google.golang.org/genproto v0.0.0-20220627200112-0a929928cb33
-	google.golang.org/grpc v1.50.1
+	google.golang.org/grpc v1.51.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -95,13 +95,11 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.11.1 // indirect
 	go.opentelemetry.io/proto/otlp v0.19.0 // indirect
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
-	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/net v0.2.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.2.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect
-	golang.org/x/tools v0.3.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	oras.land/oras-go v1.2.1 // indirect
