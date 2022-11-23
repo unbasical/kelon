@@ -9,74 +9,74 @@ import (
 	"google.golang.org/grpc"
 )
 
-type NoopMetricsProvider struct{}
+type noopMetricsProvider struct{}
 
 func NewNoopMetricProvider() MetricsProvider {
 	logging.LogForComponent("MetricProvider").Info("Metrics not configured")
-	return &NoopMetricsProvider{}
+	return &noopMetricsProvider{}
 }
 
-func (n *NoopMetricsProvider) Configure(ctx context.Context) error {
+func (n *noopMetricsProvider) Configure(ctx context.Context) error {
 	return nil
 }
 
-func (n *NoopMetricsProvider) WrapHTTPHandler(ctx context.Context, handler http.Handler) http.Handler {
+func (n *noopMetricsProvider) WrapHTTPHandler(ctx context.Context, handler http.Handler) http.Handler {
 	return handler
 }
 
-func (n *NoopMetricsProvider) GetHTTPMetricsHandler() (http.Handler, error) {
+func (n *noopMetricsProvider) GetHTTPMetricsHandler() (http.Handler, error) {
 	return nil, nil
 }
 
-func (n *NoopMetricsProvider) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
+func (n *noopMetricsProvider) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		return handler(ctx, req)
 	}
 }
 
-func (n *NoopMetricsProvider) UpdateHistogramMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
+func (n *noopMetricsProvider) UpdateHistogramMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
 }
 
-func (n *NoopMetricsProvider) UpdateGaugeMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
+func (n *noopMetricsProvider) UpdateGaugeMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
 }
 
-func (n *NoopMetricsProvider) UpdateCounterMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
+func (n *noopMetricsProvider) UpdateCounterMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
 }
 
-func (n *NoopMetricsProvider) Shutdown(ctx context.Context) {
+func (n *noopMetricsProvider) Shutdown(ctx context.Context) {
 }
 
-type NoopTraceProvider struct{}
+type noopTraceProvider struct{}
 
 func NewNoopTraceProvider() TraceProvider {
 	logging.LogForComponent("TraceProvider").Info("Tracing not configured")
-	return &NoopTraceProvider{}
+	return &noopTraceProvider{}
 }
 
-func (n *NoopTraceProvider) Configure(ctx context.Context) error {
+func (n *noopTraceProvider) Configure(ctx context.Context) error {
 	return nil
 }
 
-func (n *NoopTraceProvider) WrapHTTPHandler(ctx context.Context, handler http.Handler, spanName string) http.Handler {
+func (n *noopTraceProvider) WrapHTTPHandler(ctx context.Context, handler http.Handler, spanName string) http.Handler {
 	return handler
 }
 
-func (n *NoopTraceProvider) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
+func (n *noopTraceProvider) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		return handler(ctx, req)
 	}
 }
 
-func (n *NoopTraceProvider) ExecuteWithRootSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
+func (n *noopTraceProvider) ExecuteWithRootSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
 	return function(ctx, args...)
 }
 
-func (n *NoopTraceProvider) ExecuteWithChildSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
+func (n *noopTraceProvider) ExecuteWithChildSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
 	return function(ctx, args...)
 }
 
-func (n *NoopTraceProvider) RecordError(ctx context.Context, err error) {
+func (n *noopTraceProvider) RecordError(ctx context.Context, err error) {
 }
 
-func (n *NoopTraceProvider) Shutdown(ctx context.Context) {
+func (n *noopTraceProvider) Shutdown(ctx context.Context) {
 }

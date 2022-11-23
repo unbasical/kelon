@@ -96,7 +96,8 @@ func TestCheckAllow(t *testing.T) {
 		failOnProcess:   false,
 		decision:        true,
 	}
-	_ = proxy.Configure(context.Background(), &configs.AppConfig{MetricsProvider: &telemetry.NoopMetricsProvider{}}, &api.ClientProxyConfig{Compiler: &compiler})
+
+	_ = proxy.Configure(context.Background(), &configs.AppConfig{MetricsProvider: telemetry.NewNoopMetricProvider()}, &api.ClientProxyConfig{Compiler: &compiler})
 	server, _ := proxy.(*envoyProxy)
 
 	ctx := context.Background()

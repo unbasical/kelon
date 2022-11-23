@@ -2,11 +2,10 @@ package telemetry
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -22,7 +21,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type Traces struct {
+type traces struct {
 	provider *sdktrace.TracerProvider
 	name     string
 }
@@ -49,23 +48,23 @@ func NewTraceProvider(ctx context.Context, name, protocol, endpoint string) (Tra
 
 	otel.SetTracerProvider(provider)
 
-	return &Traces{provider: provider, name: name}, nil
+	return &traces{provider: provider, name: name}, nil
 }
 
-func (t *Traces) Configure(ctx context.Context) error {
+func (t *traces) Configure(ctx context.Context) error {
 	logging.LogForComponent("TraceProvider").Info("Tracing configured with exporter of type [otlp]")
 	return nil
 }
 
-func (t *Traces) WrapHTTPHandler(ctx context.Context, handler http.Handler, spanName string) http.Handler {
+func (t *traces) WrapHTTPHandler(ctx context.Context, handler http.Handler, spanName string) http.Handler {
 	return otelhttp.NewHandler(handler, spanName)
 }
 
-func (t *Traces) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
+func (t *traces) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
 	return otelgrpc.UnaryServerInterceptor()
 }
 
-func (t *Traces) ExecuteWithRootSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
+func (t *traces) ExecuteWithRootSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
 	tracer := t.provider.Tracer(t.name)
 
 	attr := labelsToAttributes(labels)
@@ -84,7 +83,7 @@ func (t *Traces) ExecuteWithRootSpan(ctx context.Context, function SpanFunction,
 	return ret, err
 }
 
-func (t *Traces) ExecuteWithChildSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
+func (t *traces) ExecuteWithChildSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
 	tracer := t.provider.Tracer(t.name)
 
 	attr := labelsToAttributes(labels)
@@ -103,7 +102,7 @@ func (t *Traces) ExecuteWithChildSpan(ctx context.Context, function SpanFunction
 	return ret, err
 }
 
-func (t *Traces) Shutdown(ctx context.Context) {
+func (t *traces) Shutdown(ctx context.Context) {
 	_ = t.provider.Shutdown(ctx)
 }
 
@@ -120,6 +119,6 @@ func newOtlpTraceExporter(ctx context.Context, protocol, endpoint string) (sdktr
 		return otlpgrpc.New(ctx, otlpgrpc.WithEndpoint(endpoint), otlpgrpc.WithInsecure())
 
 	default:
-		return nil, fmt.Errorf("unknown protocol '%s', expected %+v", protocol, []string{constants.ProtocolHTTP, constants.ProtocolGRPC})
+		return nil, errors.Errorf("unknown protocol '%s', expected %+v", protocol, []string{constants.ProtocolHTTP, constants.ProtocolGRPC})
 	}
 }

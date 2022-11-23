@@ -181,8 +181,8 @@ func (p *PolicyCompilerTestEnvironment) onConfigLoaded(change watcher.ChangeType
 		// Configure application
 		var (
 			config = &configs.AppConfig{
-				MetricsProvider: &telemetry.NoopMetricsProvider{},
-				TraceProvider:   &telemetry.NoopTraceProvider{},
+				MetricsProvider: telemetry.NewNoopMetricProvider(),
+				TraceProvider:   telemetry.NewNoopTraceProvider(),
 			}
 			parser     = requestInt.NewURLProcessor()
 			mapper     = requestInt.NewPathMapper()
@@ -228,18 +228,18 @@ func (p *PolicyCompilerTestEnvironment) makeServerConfig(parser request.PathProc
 	return serverConf
 }
 
-func (p *PolicyCompilerTestEnvironment) mockMakeDatastores(config *configs.DatastoreConfig) map[string]*data.DatastoreTranslator {
-	result := make(map[string]*data.DatastoreTranslator)
+func (p *PolicyCompilerTestEnvironment) mockMakeDatastores(config *configs.DatastoreConfig) map[string]*data.Datastore {
+	result := make(map[string]*data.Datastore)
 	// create and insert mocked db executor into all datastores
 	mocked := NewMockedDatastoreExecuter(p.t, p.evaluatedQueriesPath, p.name)
 	for dsName, ds := range config.Datastores {
 		if ds.Type == data.TypeMysql || ds.Type == data.TypePostgres {
-			newDs := dataInt.NewSQLDatastore(mocked)
+			newDs := dataInt.NewDatastore(dataInt.NewSQLDatastoreTranslator(), mocked)
 			logging.LogForComponent("factory").Infof("Init Datastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
 		}
 		if ds.Type == data.TypeMongo {
-			newDs := dataInt.NewMongoDatastore(mocked)
+			newDs := dataInt.NewDatastore(dataInt.NewMongoDatastoreTranslator(), mocked)
 			logging.LogForComponent("factory").Infof("Init MongoDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
 			continue

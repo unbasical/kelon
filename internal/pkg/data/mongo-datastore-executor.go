@@ -64,8 +64,8 @@ func (ds *mongoDatastoreExecuter) Configure(appConf *configs.AppConfig, alias st
 	return nil
 }
 
-func (ds *mongoDatastoreExecuter) Execute(ctx context.Context, statements interface{}, params []interface{}) (bool, error) {
-	mongoStatements, ok := statements.(map[string]string)
+func (ds *mongoDatastoreExecuter) Execute(ctx context.Context, query data.DatastoreQuery) (bool, error) {
+	mongoStatements, ok := query.Statement.(map[string]string)
 	if !ok {
 		return false, errors.Errorf("Passed statement was not of type map[string]string but of type: #{statement}")
 	}

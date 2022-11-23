@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -35,7 +36,8 @@ var (
 	app = kingpin.New("kelon", "Kelon policy enforcer.")
 
 	// Commands
-	run = app.Command("run", "Run kelon in production mode.")
+	run  = app.Command("run", "Run kelon in production mode.")
+	test = app.Command("test", "Run kelon in test mode: test policies in dry-run")
 
 	// Config paths
 	datastorePath     = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
@@ -69,7 +71,11 @@ var (
 	traceExportProtocol  = app.Flag("trace-export-protocol", "If traces are exported with OTLP, select the protocol to use [http|grpc]").Default("http").Envar("TRACE_EXPORT_PROTOCOL").Enum("http", "grpc")
 	traceExportEndpoint  = app.Flag("trace-export-endpoint", "If traces are exported with OTLP, this is the endpoint they will be exported to").Envar("TRACE_EXPORT_ENDPOINT").String()
 
+	// Body for dry run mode
+	inputBody = app.Flag("input-body", "Input Body to use in dry run mode").Envar("DRY_INPUT_BODY").String()
+
 	// Global shared variables
+	dryrun          bool                      = false
 	proxy           api.ClientProxy           = nil
 	envoyProxy      api.ClientProxy           = nil
 	configWatcher   watcher.ConfigWatcher     = nil
@@ -87,29 +93,28 @@ func main() {
 	})
 
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
+	case test.FullCommand():
+		log.SetOutput(os.Stdout)
+		dryrun = true
+
+		// Set log format
+		setLogFormat()
+
+		// Set log level
+		setLogLevel()
+
+		// Start app in dry run mode
+		makeConfigWatcher(configs.FileConfigLoader{}, configWatcherPath)
+		dryRunRequest()
+
 	case run.FullCommand():
 		log.SetOutput(os.Stdout)
 
 		// Set log format
-		switch *logFormat {
-		case "JSON":
-			log.SetFormatter(util.UTCFormatter{Formatter: &log.JSONFormatter{}})
-		default:
-			log.SetFormatter(util.UTCFormatter{Formatter: &log.TextFormatter{FullTimestamp: true}})
-		}
+		setLogFormat()
 
 		// Set log level
-		switch strings.ToUpper(*logLevel) {
-		case "INFO":
-			log.SetLevel(log.InfoLevel)
-		case "DEBUG":
-			log.SetLevel(log.DebugLevel)
-		case "WARN":
-			log.SetLevel(log.WarnLevel)
-		case "ERROR":
-			log.SetLevel(log.ErrorLevel)
-		}
-		logging.LogForComponent("main").Infof("Kelon starting with log level %q...", *logLevel)
+		setLogLevel()
 
 		// Init config loader
 		configLoader := configs.FileConfigLoader{
@@ -121,9 +126,33 @@ func main() {
 		makeConfigWatcher(configLoader, configWatcherPath)
 		configWatcher.Watch(onConfigLoaded)
 		stopOnSIGTERM()
+
 	default:
 		logging.LogForComponent("main").Fatal("Started Kelon with a unknown command!")
 	}
+}
+
+func setLogFormat() {
+	switch *logFormat {
+	case "JSON":
+		log.SetFormatter(util.UTCFormatter{Formatter: &log.JSONFormatter{}})
+	default:
+		log.SetFormatter(util.UTCFormatter{Formatter: &log.TextFormatter{FullTimestamp: true}})
+	}
+}
+
+func setLogLevel() {
+	switch strings.ToUpper(*logLevel) {
+	case "INFO":
+		log.SetLevel(log.InfoLevel)
+	case "DEBUG":
+		log.SetLevel(log.DebugLevel)
+	case "WARN":
+		log.SetLevel(log.WarnLevel)
+	case "ERROR":
+		log.SetLevel(log.ErrorLevel)
+	}
+	logging.LogForComponent("main").Infof("Kelon starting with log level %q...", *logLevel)
 }
 
 func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfig, err error) {
@@ -166,6 +195,54 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 	}
 }
 
+func dryRunRequest() {
+	confLoader := configs.FileConfigLoader{DatastoreConfigPath: *datastorePath, APIConfigPath: *apiPath}
+	loadedConf, err := confLoader.Load()
+
+	if err != nil {
+		logging.LogForComponent("main").Fatalln("Unable to parse configuration: ", err.Error())
+	}
+
+	ctx := context.Background()
+	// Configure application
+	var (
+		config     = new(configs.AppConfig)
+		compiler   = opaInt.NewPolicyCompiler()
+		parser     = requestInt.NewURLProcessor()
+		mapper     = requestInt.NewPathMapper()
+		translator = translateInt.NewAstTranslator()
+	)
+
+	// Build config
+	config.API = loadedConf.API
+	config.Data = loadedConf.Data
+	config.MetricsProvider = telemetry.NewNoopMetricProvider()
+	metricsProvider = config.MetricsProvider // Stopped gracefully later on
+	config.TraceProvider = telemetry.NewNoopTraceProvider()
+	traceProvider = config.TraceProvider // Stopped gracefully later on
+	serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
+
+	if *preprocessRegos {
+		*regoDir = util.PrepocessPoliciesInDir(config, *regoDir)
+	}
+
+	startNewRestProxy(ctx, config, &serverConf)
+
+	httpRequest, err := http.NewRequestWithContext(ctx, "POST", "http://kelon.dryrun/v1/data", strings.NewReader(*inputBody))
+	if err != nil {
+		logging.LogForComponent("main").Fatalf("DryRun: Unable to reconstruct HTTP-Request: %s", err.Error())
+	}
+
+	// Execute Request
+	compiler.ServeHTTP(telemetry.NewInMemResponseWriter(), httpRequest)
+
+	// Shutdown
+	err = proxy.Stop(time.Second)
+	if err != nil {
+		logging.LogForComponent("main").Warnln(err.Error())
+	}
+}
+
 func makeTelemetryMetricsProvider(ctx context.Context) telemetry.MetricsProvider {
 	if metricService != nil && *metricService != "" {
 		provider, err := telemetry.NewMetricsProvider(ctx, constants.TelemetryServiceName, *metricService, *metricExportProtocol, *metricExportEndpoint)
@@ -199,7 +276,9 @@ func makeTelemetryTraceProvider(ctx context.Context) telemetry.TraceProvider {
 }
 
 func makeConfigWatcher(configLoader configs.FileConfigLoader, configWatcherPath *string) {
-	if regoDir == nil || *regoDir == "" {
+	if dryrun {
+		configWatcher = watcherInt.NewMock()
+	} else if regoDir == nil || *regoDir == "" {
 		configWatcher = watcherInt.NewSimple(configLoader)
 	} else {
 		// Set configWatcherPath to rego path by default
@@ -259,7 +338,7 @@ func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor,
 			},
 			Translator: &translator,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
-				Datastores:  data.MakeDatastores(loadedConf.Data),
+				Datastores:  data.MakeDatastores(loadedConf.Data, dryrun),
 				SkipUnknown: *astSkipUnknown,
 			},
 			AccessDecisionLogLevel: strings.ToUpper(*accessDecisionLogLevel),
@@ -276,17 +355,14 @@ func stopOnSIGTERM() {
 	<-interruptChan
 
 	logging.LogForComponent("main").Infoln("Caught SIGTERM...")
-	// Stop metrics provider if present
-	// This is done blocking to ensure all metrics are sent!
-	if metricsProvider != nil {
-		metricsProvider.Shutdown(context.Background())
-	}
 
-	// Stop trace provider if present
+	// Stop metrics provider
+	// This is done blocking to ensure all metrics are sent!
+	metricsProvider.Shutdown(context.Background())
+
+	// Stop trace provider
 	// This is done blocking to ensure all traces are sent!
-	if traceProvider != nil {
-		traceProvider.Shutdown(context.Background())
-	}
+	traceProvider.Shutdown(context.Background())
 
 	// Stop envoyProxy proxy if started
 	if envoyProxy != nil {

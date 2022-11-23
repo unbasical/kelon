@@ -18,7 +18,7 @@ import (
 // instance of a AstTranslator can be seen as a standalone thread with all its subcomponents attached to it.
 // As a result, two AstTranslators should be able to run in parallel.
 type AstTranslatorConfig struct {
-	Datastores  map[string]*data.DatastoreTranslator
+	Datastores  map[string]*data.Datastore
 	SkipUnknown bool
 }
 
