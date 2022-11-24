@@ -21,10 +21,11 @@ type astProcessor struct {
 	operands     NodeStack
 	errors       []string
 	skipUnknown  bool
+	validateMode bool
 }
 
-func newAstProcessor(skipUnknown bool) *astProcessor {
-	return &astProcessor{skipUnknown: skipUnknown}
+func newAstProcessor(skipUnknown, validateMode bool) *astProcessor {
+	return &astProcessor{skipUnknown: skipUnknown, validateMode: validateMode}
 }
 
 // See translate.AstTranslator.
@@ -86,9 +87,11 @@ func (p *astProcessor) Visit(v interface{}) ast.Visitor {
 		logging.LogForComponent("astProcessor").Debugf("Term: -> %+v", v)
 		return p.translateTerm(*node)
 	default:
-		if p.skipUnknown {
+		if p.skipUnknown || p.validateMode {
 			logging.LogForComponent("astProcessor").Warnf("Unexpectedly visiting children of: %T -> %+v", v, v)
-		} else {
+		}
+		// If not skipping unknown ast nodes -> error
+		if !p.skipUnknown {
 			p.errors = append(p.errors, fmt.Sprintf("Unexpectedly visiting children of: %T -> %+v", v, v))
 		}
 	}
@@ -179,9 +182,11 @@ func (p *astProcessor) translateTerm(node ast.Term) ast.Visitor {
 		})
 		return nil
 	default:
-		if p.skipUnknown {
+		if p.skipUnknown || p.validateMode {
 			logging.LogForComponent("astProcessor").Warnf("Unexpected term Node: %T -> %+v", v, v)
-		} else {
+		}
+		// If not skipping unknown ast nodes -> error
+		if !p.skipUnknown {
 			p.errors = append(p.errors, fmt.Sprintf("Unexpected term Node: %T -> %+v", v, v))
 		}
 	}
