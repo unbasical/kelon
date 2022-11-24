@@ -252,9 +252,18 @@ func dryRunRequest() {
 	}
 
 	// Execute Request
-	if _, err := compiler.Execute(ctx, body); err != nil {
+	d, err := compiler.Execute(ctx, body)
+	if err != nil {
 		logging.LogForComponent("main").Fatalf(err.Error())
 	}
+
+	var allowString string
+	if d.Allow {
+		allowString = "ALLOW"
+	} else {
+		allowString = "DENY"
+	}
+	logging.LogAccessDecision(serverConf.AccessDecisionLogLevel, d.Path, d.Method, "", allowString, "main")
 }
 
 func makeTelemetryMetricsProvider(ctx context.Context) telemetry.MetricsProvider {
