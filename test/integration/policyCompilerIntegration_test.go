@@ -179,6 +179,7 @@ func (p *PolicyCompilerTestEnvironment) onConfigLoaded(change watcher.ChangeType
 		// Build config
 		config.API = loadedConf.API
 		config.Data = loadedConf.Data
+		config.Data.CallOperandsDir = "./call-operands"
 		serverConf := p.makeServerConfig(parser, mapper, translator, loadedConf)
 		if configErr := p.policyCompiler.Configure(config, &serverConf.PolicyCompilerConfig); configErr != nil {
 			p.t.Error(err)
