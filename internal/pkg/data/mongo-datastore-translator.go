@@ -19,7 +19,6 @@ type mongoDatastoreTranslator struct {
 	entityPaths map[string]map[string][]string
 	callOps     map[string]func(args ...string) (string, error)
 	configured  bool
-	executor    data.DatastoreExecutor
 }
 
 type mongoQueryResult struct {
@@ -28,13 +27,12 @@ type mongoQueryResult struct {
 }
 
 // Return a new data.DatastoreTranslator which is able to connect to PostgreSQL and MySQL databases.
-func NewMongoDatastore(executor data.DatastoreExecutor) data.DatastoreTranslator {
+func NewMongoDatastoreTranslator() data.DatastoreTranslator {
 	return &mongoDatastoreTranslator{
 		appConf:    nil,
 		alias:      "",
 		callOps:    nil,
 		configured: false,
-		executor:   executor,
 	}
 }
 
@@ -42,14 +40,6 @@ func (ds *mongoDatastoreTranslator) Configure(appConf *configs.AppConfig, alias 
 	// Exit if already configured
 	if ds.configured {
 		return nil
-	}
-
-	// Configure executer
-	if ds.executor == nil {
-		return errors.Errorf("MongoDatastoreTranslator: DatastoreExecutor not configured!")
-	}
-	if err := ds.executor.Configure(appConf, alias); err != nil {
-		return errors.Wrap(err, "Error while configuring datastore executor")
 	}
 
 	// Validate config
@@ -90,21 +80,21 @@ func (ds *mongoDatastoreTranslator) Configure(appConf *configs.AppConfig, alias 
 	return nil
 }
 
-func (ds *mongoDatastoreTranslator) Execute(ctx context.Context, query data.Node) (bool, error) {
+func (ds *mongoDatastoreTranslator) Execute(ctx context.Context, query data.Node) (data.DatastoreQuery, error) {
 	if !ds.configured {
-		return false, errors.Errorf("MongoDatastoreTranslator: Datastore was not configured! Please call Configure().")
+		return data.DatastoreQuery{}, errors.Errorf("MongoDatastoreTranslator: Datastore was not configured! Please call Configure().")
 	}
 	logging.LogForComponent("mongoDatastoreTranslator").Debugf("TRANSLATING QUERY: ==================%+v==================", query.String())
 
 	// Translate to map: collection -> filter
 	statements, err := ds.translate(query)
 	if err != nil {
-		return false, err
+		return data.DatastoreQuery{}, err
 	}
 
 	logging.LogForComponent("mongoDatastoreTranslator").Debugf("EXECUTING STATEMENT: ==================%s==================\n", statements)
 
-	return ds.executor.Execute(ctx, statements, nil)
+	return data.DatastoreQuery{Statement: statements}, nil
 }
 
 // nolint:gocyclo,gocritic

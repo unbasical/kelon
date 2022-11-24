@@ -5,12 +5,11 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/gob"
-	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/unbasical/kelon/common"
 	"github.com/unbasical/kelon/pkg/constants"
@@ -28,7 +27,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type Metrics struct {
+type metrics struct {
 	provider         *sdkmetric.MeterProvider
 	name             string
 	exportType       string
@@ -39,10 +38,10 @@ type Metrics struct {
 const ErrorInstrumentNotFound string = "instrument with name %s not found"
 const ErrorValueNotCastable string = "unable to cast to %T: %+v"
 
-// NewMetricsProvider creates a new Metrics struct exporting metrics using the specified format and the protocol to use
+// NewMetricsProvider creates a new metrics struct exporting metrics using the specified format and the protocol to use
 // If the Prometheus format is chosen, the protocol attribute will be ignored
-func NewMetricsProvider(ctx context.Context, name, format, protocol, endpoint string) (*Metrics, error) {
-	m := &Metrics{
+func NewMetricsProvider(ctx context.Context, name, format, protocol, endpoint string) (MetricsProvider, error) {
+	m := &metrics{
 		name:             name,
 		instrumentsSync:  make(map[constants.MetricInstrument]instrument.Synchronous),
 		instrumentsAsync: make(map[constants.MetricInstrument]instrument.Asynchronous),
@@ -64,7 +63,7 @@ func NewMetricsProvider(ctx context.Context, name, format, protocol, endpoint st
 		m.provider = sdkmetric.NewMeterProvider(sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter)))
 		m.exportType = constants.TelemetryOtlp
 	default:
-		return nil, fmt.Errorf("unknown format '%s', expected one of %+v", format, []string{constants.TelemetryPrometheus, constants.TelemetryOtlp})
+		return nil, errors.Errorf("unknown format '%s', expected one of %+v", format, []string{constants.TelemetryPrometheus, constants.TelemetryOtlp})
 	}
 
 	global.SetMeterProvider(m.provider)
@@ -72,7 +71,7 @@ func NewMetricsProvider(ctx context.Context, name, format, protocol, endpoint st
 	return m, nil
 }
 
-// Configure the Metrics instance and default metrics:
+// Configure the metrics instance and default metrics:
 // - HTTP
 //   - Active Requests - Gauge
 //   - Request Duration - Histogram
@@ -85,7 +84,7 @@ func NewMetricsProvider(ctx context.Context, name, format, protocol, endpoint st
 // - Version - Gauge (won't change on runtime)
 // If no provider is set, the default provider (Prometheus) will be used
 // Please note that Configure has to be called once before the component can be used (Otherwise Metric calls will return an error)
-func (m *Metrics) Configure(ctx context.Context) error {
+func (m *metrics) Configure(ctx context.Context) error {
 	if m.provider == nil {
 		exporter, err := prometheus.New()
 		if err != nil {
@@ -110,33 +109,33 @@ func (m *Metrics) Configure(ctx context.Context) error {
 		return err
 	}
 
-	logging.LogForComponent("MetricProvider").Infof("Metrics configured with exporter of type [%s]", m.exportType)
+	logging.LogForComponent("MetricProvider").Infof("metrics configured with exporter of type [%s]", m.exportType)
 	return nil
 }
 
-func (m *Metrics) WrapHTTPHandler(ctx context.Context, handler http.Handler) http.Handler {
+func (m *metrics) WrapHTTPHandler(ctx context.Context, handler http.Handler) http.Handler {
 	return m.instrumentHandlerActiveRequest(ctx,
 		m.instrumentHandlerDuration(ctx,
 			m.instrumentHandlerRequestSize(ctx, handler)))
 }
 
-func (m *Metrics) GetHTTPMetricsHandler() (http.Handler, error) {
+func (m *metrics) GetHTTPMetricsHandler() (http.Handler, error) {
 	if m.exportType == constants.TelemetryPrometheus {
 		return promhttp.Handler(), nil
 	}
 	return nil, nil
 }
 
-func (m *Metrics) UpdateHistogramMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
+func (m *metrics) UpdateHistogramMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
 	histogram, ok := m.instrumentsSync[metric].(syncint64.Histogram)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, metric.String())
+		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, metric.String())
 		return
 	}
 
 	val, ok := value.(int64)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorValueNotCastable, int64(0), value)
+		logging.LogForComponent("metrics").Errorf(ErrorValueNotCastable, int64(0), value)
 	}
 
 	attr := labelsToAttributes(labels)
@@ -144,16 +143,16 @@ func (m *Metrics) UpdateHistogramMetric(ctx context.Context, metric constants.Me
 	histogram.Record(ctx, val, attr...)
 }
 
-func (m *Metrics) UpdateGaugeMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
+func (m *metrics) UpdateGaugeMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
 	gauge, ok := m.instrumentsSync[metric].(syncint64.UpDownCounter)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, metric.String())
+		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, metric.String())
 		return
 	}
 
 	val, ok := value.(int64)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorValueNotCastable, int64(0), value)
+		logging.LogForComponent("metrics").Errorf(ErrorValueNotCastable, int64(0), value)
 	}
 
 	attr := labelsToAttributes(labels)
@@ -161,16 +160,16 @@ func (m *Metrics) UpdateGaugeMetric(ctx context.Context, metric constants.Metric
 	gauge.Add(ctx, val, attr...)
 }
 
-func (m *Metrics) UpdateCounterMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
+func (m *metrics) UpdateCounterMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
 	counter, ok := m.instrumentsSync[metric].(syncint64.Counter)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, metric.String())
+		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, metric.String())
 		return
 	}
 
 	val, ok := value.(int64)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorValueNotCastable, int64(0), value)
+		logging.LogForComponent("metrics").Errorf(ErrorValueNotCastable, int64(0), value)
 	}
 
 	attr := labelsToAttributes(labels)
@@ -178,25 +177,25 @@ func (m *Metrics) UpdateCounterMetric(ctx context.Context, metric constants.Metr
 	counter.Add(ctx, val, attr...)
 }
 
-func (m *Metrics) Shutdown(ctx context.Context) {
+func (m *metrics) Shutdown(ctx context.Context) {
 	_ = m.provider.Shutdown(ctx)
 }
 
 // GetGrpcServerInterceptor Interceptor to gather rpc metrics
-func (m *Metrics) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
+func (m *metrics) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
 	fallback := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		return handler(ctx, req)
 	}
 
 	requestDuration, ok := m.instrumentsSync[constants.InstrumentRPCRequestDuration].(syncint64.Histogram)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentRPCRequestDuration.String())
+		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentRPCRequestDuration.String())
 		return fallback
 	}
 
 	requestSize, ok := m.instrumentsSync[constants.InstrumentRPCRequestSize].(syncint64.Histogram)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentRPCRequestSize.String())
+		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentRPCRequestSize.String())
 		return fallback
 	}
 
@@ -223,7 +222,7 @@ func (m *Metrics) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
 }
 
 // Initialize Instruments according to with OpenTelemetry Spec
-func (m *Metrics) initSpecMetrics() error {
+func (m *metrics) initSpecMetrics() error {
 	meter := m.provider.Meter(m.name)
 
 	httpActiveRequests, err := meter.SyncInt64().UpDownCounter(
@@ -289,7 +288,7 @@ func (m *Metrics) initSpecMetrics() error {
 }
 
 // Initialize Instruments for custom use cases
-func (m *Metrics) initCustomMetrics() error {
+func (m *metrics) initCustomMetrics() error {
 	meter := m.provider.Meter(m.name)
 
 	decisionDuration, err := meter.SyncInt64().Histogram(
@@ -316,10 +315,10 @@ func (m *Metrics) initCustomMetrics() error {
 }
 
 // Active Request Metric
-func (m *Metrics) instrumentHandlerActiveRequest(ctx context.Context, next http.Handler) http.Handler {
+func (m *metrics) instrumentHandlerActiveRequest(ctx context.Context, next http.Handler) http.Handler {
 	httpActiveRequests, ok := m.instrumentsSync[constants.InstrumentHTTPActiveRequests].(syncint64.UpDownCounter)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHTTPActiveRequests.String())
+		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHTTPActiveRequests.String())
 		return next
 	}
 
@@ -331,10 +330,10 @@ func (m *Metrics) instrumentHandlerActiveRequest(ctx context.Context, next http.
 }
 
 // Request Duration Metric
-func (m *Metrics) instrumentHandlerDuration(ctx context.Context, next http.Handler) http.Handler {
+func (m *metrics) instrumentHandlerDuration(ctx context.Context, next http.Handler) http.Handler {
 	httpRequestDuration, ok := m.instrumentsSync[constants.InstrumentHTTPRequestDuration].(syncint64.Histogram)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHTTPRequestDuration.String())
+		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHTTPRequestDuration.String())
 		return next
 	}
 
@@ -356,10 +355,10 @@ func (m *Metrics) instrumentHandlerDuration(ctx context.Context, next http.Handl
 }
 
 // Request Size Metric
-func (m *Metrics) instrumentHandlerRequestSize(ctx context.Context, next http.Handler) http.Handler {
+func (m *metrics) instrumentHandlerRequestSize(ctx context.Context, next http.Handler) http.Handler {
 	httpRequestSize, ok := m.instrumentsSync[constants.InstrumentHTTPRequestSize].(syncint64.Histogram)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHTTPRequestSize.String())
+		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHTTPRequestSize.String())
 		return next
 	}
 
@@ -371,10 +370,10 @@ func (m *Metrics) instrumentHandlerRequestSize(ctx context.Context, next http.Ha
 }
 
 // Version Metric (won't change on runtime)
-func (m *Metrics) instrumentVersion(ctx context.Context) {
+func (m *metrics) instrumentVersion(ctx context.Context) {
 	version, ok := m.instrumentsSync[constants.InstrumentHTTPRequestSize].(syncint64.UpDownCounter)
 	if !ok {
-		logging.LogForComponent("Metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHTTPRequestSize)
+		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentHTTPRequestSize)
 		return
 	}
 
@@ -395,7 +394,7 @@ func newOtlpMetricExporter(ctx context.Context, protocol, endpoint string) (sdkm
 		return otlpgrpc.New(ctx, otlpgrpc.WithEndpoint(endpoint), otlpgrpc.WithInsecure())
 
 	default:
-		return nil, fmt.Errorf("unknown protocol '%s', expected %+v", protocol, []string{constants.ProtocolHTTP, constants.ProtocolGRPC})
+		return nil, errors.Errorf("unknown protocol '%s', expected %+v", protocol, []string{constants.ProtocolHTTP, constants.ProtocolGRPC})
 	}
 }
 
@@ -426,7 +425,7 @@ func approximateGrpcRequestSize(req interface{}) (int, error) {
 	enc := gob.NewEncoder(&buff)
 	err := enc.Encode(req)
 	if err != nil {
-		logging.LogForComponent("Metrics").Errorf("encode error: %+v", err)
+		logging.LogForComponent("metrics").Errorf("encode error: %+v", err)
 		return 0, err
 	}
 	return binary.Size(buff.Bytes()), nil

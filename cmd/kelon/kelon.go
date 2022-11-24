@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/signal"
 	"strings"
@@ -35,7 +36,8 @@ var (
 	app = kingpin.New("kelon", "Kelon policy enforcer.")
 
 	// Commands
-	run = app.Command("run", "Run kelon in production mode.")
+	run      = app.Command("run", "Run kelon in production mode.")
+	validate = app.Command("validate", "Run kelon in validate mode: validate policies by printing resulting datastore queries")
 
 	// Config paths
 	datastorePath     = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
@@ -43,6 +45,7 @@ var (
 	configWatcherPath = app.Flag("config-watcher-path", "Path where the config watcher should listen for changes.").Envar("CONFIG_WATCHER_PATH").ExistingDir()
 	opaPath           = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
 	regoDir           = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Short('r').Envar("REGO_DIR").ExistingDir()
+	operandDir        = app.Flag("call-operand-dir", "Dir containing .yaml files which contain the call operand configuration for the datastores").Short('c').Envar("CALL_OPERANDS_DIR").Default("./call-operands").ExistingDir()
 
 	// Additional config
 	pathPrefix            = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
@@ -69,7 +72,12 @@ var (
 	traceExportProtocol  = app.Flag("trace-export-protocol", "If traces are exported with OTLP, select the protocol to use [http|grpc]").Default("http").Envar("TRACE_EXPORT_PROTOCOL").Enum("http", "grpc")
 	traceExportEndpoint  = app.Flag("trace-export-endpoint", "If traces are exported with OTLP, this is the endpoint they will be exported to").Envar("TRACE_EXPORT_ENDPOINT").String()
 
+	// Configs for validate mode
+	inputBody           = app.Flag("input-body", "Input Body to use in dry run mode").Envar("DRY_INPUT_BODY").String()
+	queryOutputFilename = app.Flag("query-output", "File to write the Query to (JSON). If not set, write to stdout using logging format").Envar("QUERY_OUTPUT_FILE").String()
+
 	// Global shared variables
+	validateMode                              = false
 	proxy           api.ClientProxy           = nil
 	envoyProxy      api.ClientProxy           = nil
 	configWatcher   watcher.ConfigWatcher     = nil
@@ -87,29 +95,29 @@ func main() {
 	})
 
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
+	case validate.FullCommand():
+		log.SetOutput(os.Stdout)
+
+		validateMode = true
+
+		// Set log format
+		setLogFormat()
+
+		// Set log level
+		setLogLevel()
+
+		// Start app in dry run mode
+		makeConfigWatcher(configs.FileConfigLoader{}, configWatcherPath)
+		dryRunRequest()
+
 	case run.FullCommand():
 		log.SetOutput(os.Stdout)
 
 		// Set log format
-		switch *logFormat {
-		case "JSON":
-			log.SetFormatter(util.UTCFormatter{Formatter: &log.JSONFormatter{}})
-		default:
-			log.SetFormatter(util.UTCFormatter{Formatter: &log.TextFormatter{FullTimestamp: true}})
-		}
+		setLogFormat()
 
 		// Set log level
-		switch strings.ToUpper(*logLevel) {
-		case "INFO":
-			log.SetLevel(log.InfoLevel)
-		case "DEBUG":
-			log.SetLevel(log.DebugLevel)
-		case "WARN":
-			log.SetLevel(log.WarnLevel)
-		case "ERROR":
-			log.SetLevel(log.ErrorLevel)
-		}
-		logging.LogForComponent("main").Infof("Kelon starting with log level %q...", *logLevel)
+		setLogLevel()
 
 		// Init config loader
 		configLoader := configs.FileConfigLoader{
@@ -121,9 +129,33 @@ func main() {
 		makeConfigWatcher(configLoader, configWatcherPath)
 		configWatcher.Watch(onConfigLoaded)
 		stopOnSIGTERM()
+
 	default:
 		logging.LogForComponent("main").Fatal("Started Kelon with a unknown command!")
 	}
+}
+
+func setLogFormat() {
+	switch *logFormat {
+	case "JSON":
+		log.SetFormatter(util.UTCFormatter{Formatter: &log.JSONFormatter{}})
+	default:
+		log.SetFormatter(util.UTCFormatter{Formatter: &log.TextFormatter{FullTimestamp: true}})
+	}
+}
+
+func setLogLevel() {
+	switch strings.ToUpper(*logLevel) {
+	case "INFO":
+		log.SetLevel(log.InfoLevel)
+	case "DEBUG":
+		log.SetLevel(log.DebugLevel)
+	case "WARN":
+		log.SetLevel(log.WarnLevel)
+	case "ERROR":
+		log.SetLevel(log.ErrorLevel)
+	}
+	logging.LogForComponent("main").Infof("Kelon starting with log level %q...", *logLevel)
 }
 
 func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfig, err error) {
@@ -146,6 +178,7 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		// Build config
 		config.API = loadedConf.API
 		config.Data = loadedConf.Data
+		config.Data.CallOperandsDir = *operandDir
 		config.MetricsProvider = makeTelemetryMetricsProvider(ctx)
 		metricsProvider = config.MetricsProvider // Stopped gracefully later on
 		config.TraceProvider = makeTelemetryTraceProvider(ctx)
@@ -164,6 +197,73 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 			startNewEnvoyProxy(ctx, config, &serverConf)
 		}
 	}
+}
+
+func dryRunRequest() {
+	confLoader := configs.FileConfigLoader{DatastoreConfigPath: *datastorePath, APIConfigPath: *apiPath}
+	loadedConf, err := confLoader.Load()
+	if err != nil {
+		logging.LogForComponent("main").Fatalln("Unable to parse configuration: ", err.Error())
+	}
+
+	// Create logging file
+	if queryOutputFilename != nil && *queryOutputFilename != "" {
+		f, fileErr := os.Create(*queryOutputFilename)
+		if fileErr != nil {
+			logging.LogForComponent("main").Fatalln("Unable to parse crate file: ", fileErr.Error())
+		}
+
+		defer f.Close()
+		loadedConf.Data.OutputFile = f
+	}
+
+	ctx := context.Background()
+	// Configure application
+	var (
+		config     = new(configs.AppConfig)
+		compiler   = opaInt.NewPolicyCompiler()
+		parser     = requestInt.NewURLProcessor()
+		mapper     = requestInt.NewPathMapper()
+		translator = translateInt.NewAstTranslator()
+	)
+
+	// Build config
+	config.API = loadedConf.API
+	config.Data = loadedConf.Data
+	config.Data.CallOperandsDir = *operandDir
+	config.MetricsProvider = telemetry.NewNoopMetricProvider()
+	metricsProvider = config.MetricsProvider // Stopped gracefully later on
+	config.TraceProvider = telemetry.NewNoopTraceProvider()
+	traceProvider = config.TraceProvider // Stopped gracefully later on
+	serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
+
+	if *preprocessRegos {
+		*regoDir = util.PrepocessPoliciesInDir(config, *regoDir)
+	}
+
+	err = (*serverConf.Compiler).Configure(config, &serverConf.PolicyCompilerConfig)
+	if err != nil {
+		logging.LogForComponent("main").Fatalf(err.Error())
+	}
+
+	body, err := parseBodyFromString(*inputBody)
+	if err != nil {
+		logging.LogForComponent("main").Fatalf(err.Error())
+	}
+
+	// Execute Request
+	d, err := compiler.Execute(ctx, body)
+	if err != nil {
+		logging.LogForComponent("main").Fatalf(err.Error())
+	}
+
+	var allowString string
+	if d.Allow {
+		allowString = "ALLOW"
+	} else {
+		allowString = "DENY"
+	}
+	logging.LogAccessDecision(serverConf.AccessDecisionLogLevel, d.Path, d.Method, "", allowString, "main")
 }
 
 func makeTelemetryMetricsProvider(ctx context.Context) telemetry.MetricsProvider {
@@ -259,13 +359,22 @@ func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor,
 			},
 			Translator: &translator,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
-				Datastores:  data.MakeDatastores(loadedConf.Data),
-				SkipUnknown: *astSkipUnknown,
+				Datastores:   data.MakeDatastores(loadedConf.Data, validateMode),
+				SkipUnknown:  *astSkipUnknown,
+				ValidateMode: validateMode,
 			},
 			AccessDecisionLogLevel: strings.ToUpper(*accessDecisionLogLevel),
 		},
 	}
 	return serverConf
+}
+
+func parseBodyFromString(input string) (map[string]interface{}, error) {
+	in := []byte(input)
+	var raw map[string]interface{}
+
+	err := json.Unmarshal(in, &raw)
+	return raw, err
 }
 
 func stopOnSIGTERM() {
@@ -276,17 +385,14 @@ func stopOnSIGTERM() {
 	<-interruptChan
 
 	logging.LogForComponent("main").Infoln("Caught SIGTERM...")
-	// Stop metrics provider if present
-	// This is done blocking to ensure all metrics are sent!
-	if metricsProvider != nil {
-		metricsProvider.Shutdown(context.Background())
-	}
 
-	// Stop trace provider if present
+	// Stop metrics provider
+	// This is done blocking to ensure all metrics are sent!
+	metricsProvider.Shutdown(context.Background())
+
+	// Stop trace provider
 	// This is done blocking to ensure all traces are sent!
-	if traceProvider != nil {
-		traceProvider.Shutdown(context.Background())
-	}
+	traceProvider.Shutdown(context.Background())
 
 	// Stop envoyProxy proxy if started
 	if envoyProxy != nil {

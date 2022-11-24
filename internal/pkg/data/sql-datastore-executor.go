@@ -89,13 +89,13 @@ func (ds *sqlDatastoreExecutor) applyMetadataConfigs(conf *configs.Datastore, db
 	return nil
 }
 
-func (ds *sqlDatastoreExecutor) Execute(ctx context.Context, statement interface{}, params []interface{}) (bool, error) {
-	sqlStatement, ok := statement.(string)
+func (ds *sqlDatastoreExecutor) Execute(ctx context.Context, query data.DatastoreQuery) (bool, error) {
+	sqlStatement, ok := query.Statement.(string)
 	if !ok {
-		return false, errors.Errorf("Passed statement was not of type string but of type: %T", statement)
+		return false, errors.Errorf("Passed statement was not of type string but of type: %T", query.Statement)
 	}
 
-	rows, err := ds.dbPool.Query(sqlStatement, params...)
+	rows, err := ds.dbPool.Query(sqlStatement, query.Parameters...)
 	if err != nil {
 		return false, errors.Wrap(err, "sqlDatastoreExecutor: Error while executing statement")
 	}

@@ -43,6 +43,8 @@ func extractAndValidateDatastore(appConf *configs.AppConfig, alias string) (*con
 	if err := validateConnection(alias, conf.Connection); err != nil {
 		return nil, err
 	}
+
+	conf.CallOperandsDir = appConf.Data.CallOperandsDir
 	return conf, nil
 }
 
@@ -63,7 +65,7 @@ func pingUntilReachable(alias string, ping func() error) error {
 }
 
 func loadCallOperands(conf *configs.Datastore) (map[string]func(args ...string) (string, error), error) {
-	callOpsFile := fmt.Sprintf("./call-operands/%s.yml", strings.ToLower(conf.Type))
+	callOpsFile := fmt.Sprintf("%s/%s.yml", conf.CallOperandsDir, strings.ToLower(conf.Type))
 	handlers, err := LoadDatastoreCallOpsFile(callOpsFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to load call operands as handlers")

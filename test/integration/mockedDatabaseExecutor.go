@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/data"
 	"gopkg.in/yaml.v3"
 )
 
@@ -48,12 +49,12 @@ func NewMockedDatastoreExecuter(t *testing.T, dbQueriesPath, testName string) *M
 	return mocked
 }
 
-func (m *MockedDatastoreExecuter) Execute(ctx context.Context, statement interface{}, params []interface{}) (bool, error) {
+func (m *MockedDatastoreExecuter) Execute(ctx context.Context, query data.DatastoreQuery) (bool, error) {
 	currentResponse := m.responses.Queries[strconv.Itoa(m.counter)]
 
 	// statement map check for mongo datastores, sql datastores have simple string statement
-	if reflect.ValueOf(statement).Kind() == reflect.Map {
-		convertedStatement := statement.(map[string]string)
+	if reflect.ValueOf(query.Statement).Kind() == reflect.Map {
+		convertedStatement := query.Statement.(map[string]string)
 		for key, value := range convertedStatement {
 			if currentResponse.Query[key] != value {
 				m.t.Errorf("Testname: %s / Count %d / Key %s : Query %s does not match expected result %s", m.testName, m.counter, key, value, currentResponse.Query[key])
@@ -63,7 +64,7 @@ func (m *MockedDatastoreExecuter) Execute(ctx context.Context, statement interfa
 	} else {
 		// convert params slice to single string
 		paramsString := ""
-		for _, value := range params {
+		for _, value := range query.Parameters {
 			if paramsString == "" {
 				paramsString = value.(string)
 			} else {
@@ -72,8 +73,8 @@ func (m *MockedDatastoreExecuter) Execute(ctx context.Context, statement interfa
 		}
 
 		// assert statement and params
-		if statement != currentResponse.Query["sql"] && paramsString != currentResponse.Params {
-			m.t.Errorf("Testname: %s / Count %d : Query %s / %s does not match expected result %s / %s", m.testName, m.counter, statement, paramsString, currentResponse.Query, currentResponse.Params)
+		if query.Statement != currentResponse.Query["sql"] && paramsString != currentResponse.Params {
+			m.t.Errorf("Testname: %s / Count %d : Query %s / %s does not match expected result %s / %s", m.testName, m.counter, query.Statement, paramsString, currentResponse.Query, currentResponse.Params)
 			m.t.FailNow()
 		}
 	}

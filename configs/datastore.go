@@ -1,6 +1,7 @@
 package configs
 
 import (
+	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -13,6 +14,8 @@ import (
 // unknowns for OPA's partial evaluation api.
 // The DatastoreSchema maps the datastore alias to a datastore schema to a slice of Entities which are contained in this schema.
 type DatastoreConfig struct {
+	OutputFile       *os.File
+	CallOperandsDir  string
 	Datastores       map[string]*Datastore
 	DatastoreSchemas map[string]map[string]*EntitySchema `yaml:"entity_schemas"`
 }
@@ -20,9 +23,10 @@ type DatastoreConfig struct {
 // Each datastore has a fixed Type (enum type) and variable connection-/metadata-properties
 // Which should be validated and parsed by each data.Datastore separately.
 type Datastore struct {
-	Type       string
-	Connection map[string]string
-	Metadata   map[string]string
+	Type            string
+	CallOperandsDir string
+	Connection      map[string]string
+	Metadata        map[string]string
 }
 
 // List of entities of a schema

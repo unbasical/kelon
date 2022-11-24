@@ -20,21 +20,15 @@ type sqlDatastoreTranslator struct {
 	schemas    map[string]*configs.EntitySchema
 	callOps    map[string]func(args ...string) (string, error)
 	configured bool
-	executor   data.DatastoreExecutor
 }
 
 // Return a new data.DatastoreTranslator which is able to connect to PostgreSQL and MySQL databases.
-func NewSQLDatastore(executor data.DatastoreExecutor) data.DatastoreTranslator {
-	if executor == nil {
-		logging.LogForComponent("sqlDatastoreTranslator").Panic("Nil is not a valid argument for executor")
-	}
-
+func NewSQLDatastoreTranslator() data.DatastoreTranslator {
 	return &sqlDatastoreTranslator{
 		appConf:    nil,
 		alias:      "",
 		callOps:    nil,
 		configured: false,
-		executor:   executor,
 	}
 }
 
@@ -42,14 +36,6 @@ func (ds *sqlDatastoreTranslator) Configure(appConf *configs.AppConfig, alias st
 	// Exit if already configured
 	if ds.configured {
 		return nil
-	}
-
-	// Configure executor
-	if ds.executor == nil {
-		return errors.Errorf("SqlDatastoreTranslator: DatastoreExecutor not configured!")
-	}
-	if err := ds.executor.Configure(appConf, alias); err != nil {
-		return errors.Wrap(err, "SqlDatastoreTranslator: Error while configuring datastore executor")
 	}
 
 	// Validate config
@@ -90,21 +76,21 @@ func (ds *sqlDatastoreTranslator) Configure(appConf *configs.AppConfig, alias st
 	return nil
 }
 
-func (ds *sqlDatastoreTranslator) Execute(ctx context.Context, query data.Node) (bool, error) {
+func (ds *sqlDatastoreTranslator) Execute(ctx context.Context, query data.Node) (data.DatastoreQuery, error) {
 	if !ds.configured {
-		return false, errors.Errorf("SqlDatastoreTranslator: DatastoreTranslator was not configured! Please call Configure(). ")
+		return data.DatastoreQuery{}, errors.Errorf("SqlDatastoreTranslator: DatastoreTranslator was not configured! Please call Configure(). ")
 	}
 	logging.LogForComponent("sqlDatastoreTranslator").Debugf("TRANSLATING QUERY: ==================%+v==================", query.String())
 
 	// Translate query to into sql statement
 	statement, params, err := ds.translatePrepared(query)
 	if err != nil {
-		return false, err
+		return data.DatastoreQuery{}, err
 	}
 
 	logging.LogForComponent("sqlDatastoreTranslator").Debugf("EXECUTING STATEMENT: ==================%s==================\nPARAMS: %+v", statement, params)
 
-	return ds.executor.Execute(ctx, statement, params)
+	return data.DatastoreQuery{Statement: statement, Parameters: params}, nil
 }
 
 // nolint:gocyclo,gocritic

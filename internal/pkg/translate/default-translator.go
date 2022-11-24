@@ -68,7 +68,7 @@ func (trans astTranslator) Process(ctx context.Context, response *rego.PartialQu
 		return false, errors.Wrap(preprocessErr, "AstTranslator: Error during preprocessing.")
 	}
 
-	processedQuery, processErr := newAstProcessor(trans.config.SkipUnknown).Process(ctx, preprocessedQueries)
+	processedQuery, processErr := newAstProcessor(trans.config.SkipUnknown, trans.config.ValidateMode).Process(ctx, preprocessedQueries)
 	if processErr != nil {
 		return false, processErr
 	}

@@ -2,7 +2,6 @@ package envoy
 
 import (
 	"context"
-	"net/http"
 	"testing"
 
 	extauthz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
@@ -66,12 +65,11 @@ func (c mockCompiler) Configure(appConfig *configs.AppConfig, compConfig *opa.Po
 	return nil
 }
 
-func (c mockCompiler) ServeHTTP(w http.ResponseWriter, request *http.Request) {
+func (c mockCompiler) Execute(ctx context.Context, request map[string]interface{}) (*opa.Decision, error) {
 	if c.failOnProcess {
-		w.WriteHeader(http.StatusInternalServerError)
-	} else {
-		w.WriteHeader(http.StatusOK)
+		return &opa.Decision{Allow: false}, errors.Errorf("dummy error")
 	}
+	return &opa.Decision{Allow: true}, nil
 }
 
 func TestCheckAllow(t *testing.T) {
@@ -96,7 +94,8 @@ func TestCheckAllow(t *testing.T) {
 		failOnProcess:   false,
 		decision:        true,
 	}
-	_ = proxy.Configure(context.Background(), &configs.AppConfig{MetricsProvider: &telemetry.NoopMetricsProvider{}}, &api.ClientProxyConfig{Compiler: &compiler})
+
+	_ = proxy.Configure(context.Background(), &configs.AppConfig{MetricsProvider: telemetry.NewNoopMetricProvider()}, &api.ClientProxyConfig{Compiler: &compiler})
 	server, _ := proxy.(*envoyProxy)
 
 	ctx := context.Background()

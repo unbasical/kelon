@@ -17,15 +17,30 @@ const (
 	TypeMongo    = "mongo"
 )
 
-// DatastoreTranslator is the interface that maps a generic designed AST returned by translate.AstTranslator to a native query-statement which is understood by the passed data.DatastoreExecutor.
-// This should be generally done by translating the Query-AST into the datasore's native query language. If the query returns any result, the datastore should return true, otherwise false.
-type DatastoreTranslator interface {
+type DatastoreQuery struct {
+	Statement  interface{}
+	Parameters []interface{}
+}
 
+// Datastore is the interface that maps a generic designed AST returned by translate.AstTranslator to a native query-statement using the passed data.DatastoreTranslator and execute by the passed data.DatastoreExecutor.
+// This should be generally done by translating the Query-AST into the datastore's native query language. If the query returns any result, the datastore should return true, otherwise false.
+type Datastore interface {
 	// Please note that Configure has to be called once before the component can be used (Otherwise Execute() will return an error)!
 	Configure(appConf *configs.AppConfig, alias string) error
 
 	// Execute() translates the given Query-AST into a datastore's native query and executes the query afterwards via the passed data.DatastoreExecutor.
 	Execute(ctx context.Context, query Node) (bool, error)
+}
+
+// DatastoreTranslator is the interface that maps a generic designed AST returned by translate.AstTranslator to a native query-statement which is understood by a matching data.DatastoreExecutor.
+// This should be generally done by translating the Query-AST into the datastore's native query language.
+type DatastoreTranslator interface {
+
+	// Please note that Configure has to be called once before the component can be used (Otherwise Execute() will return an error)!
+	Configure(appConf *configs.AppConfig, alias string) error
+
+	// Execute() translates the given Query-AST into a datastore's native query
+	Execute(ctx context.Context, query Node) (DatastoreQuery, error)
 }
 
 // DatastoreExecutor is the interface that executes a native datastore query and returns the final decision (Allow/Deny) based on the query response.
@@ -41,11 +56,11 @@ type DatastoreExecutor interface {
 	Configure(appConf *configs.AppConfig, alias string) error
 
 	// Execute() executes the native query and returns true if the query is not empty and false otherwise.
-	Execute(ctx context.Context, statement interface{}, params []interface{}) (bool, error)
+	Execute(ctx context.Context, query DatastoreQuery) (bool, error)
 }
 
 // CallOpMapper is an abstraction for mapping OPA-native functions to DatastoreTranslator-native functions.
-// Therefore each CallOpMapper should provide the OPA-native call operand it handles (i.e. abs) and
+// Therefore, each CallOpMapper should provide the OPA-native call operand it handles (i.e. abs) and
 // define a function Map() which receives all arguments of the OPA-native function and maps them to a
 // datastore's native function call (i.e. ABS(arg)).
 //

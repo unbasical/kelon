@@ -18,8 +18,9 @@ import (
 // instance of a AstTranslator can be seen as a standalone thread with all its subcomponents attached to it.
 // As a result, two AstTranslators should be able to run in parallel.
 type AstTranslatorConfig struct {
-	Datastores  map[string]*data.DatastoreTranslator
-	SkipUnknown bool
+	Datastores   map[string]*data.Datastore
+	SkipUnknown  bool
+	ValidateMode bool
 }
 
 // AstTranslator is the interface that maps a partially evaluated AST returned by OPA to a final decision (Allow/Deny).
