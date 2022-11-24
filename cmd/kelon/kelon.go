@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"net/http"
+	"encoding/json"
 	"os"
 	"os/signal"
 	"strings"
@@ -36,8 +36,8 @@ var (
 	app = kingpin.New("kelon", "Kelon policy enforcer.")
 
 	// Commands
-	run  = app.Command("run", "Run kelon in production mode.")
-	test = app.Command("test", "Run kelon in test mode: test policies in dry-run")
+	run      = app.Command("run", "Run kelon in production mode.")
+	validate = app.Command("validate", "Run kelon in validate mode: validate policies by printing resulting datastore queries")
 
 	// Config paths
 	datastorePath     = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
@@ -71,11 +71,12 @@ var (
 	traceExportProtocol  = app.Flag("trace-export-protocol", "If traces are exported with OTLP, select the protocol to use [http|grpc]").Default("http").Envar("TRACE_EXPORT_PROTOCOL").Enum("http", "grpc")
 	traceExportEndpoint  = app.Flag("trace-export-endpoint", "If traces are exported with OTLP, this is the endpoint they will be exported to").Envar("TRACE_EXPORT_ENDPOINT").String()
 
-	// Body for dry run mode
-	inputBody = app.Flag("input-body", "Input Body to use in dry run mode").Envar("DRY_INPUT_BODY").String()
+	// Configs for validate mode
+	inputBody           = app.Flag("input-body", "Input Body to use in dry run mode").Envar("DRY_INPUT_BODY").String()
+	queryOutputFilename = app.Flag("query-output", "File to write the Query to (JSON). If not set, write to stdout using logging format").Envar("QUERY_OUTPUT_FILE").String()
 
 	// Global shared variables
-	dryrun          bool                      = false
+	validateMode                              = false
 	proxy           api.ClientProxy           = nil
 	envoyProxy      api.ClientProxy           = nil
 	configWatcher   watcher.ConfigWatcher     = nil
@@ -93,9 +94,10 @@ func main() {
 	})
 
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
-	case test.FullCommand():
+	case validate.FullCommand():
 		log.SetOutput(os.Stdout)
-		dryrun = true
+
+		validateMode = true
 
 		// Set log format
 		setLogFormat()
@@ -198,9 +200,19 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 func dryRunRequest() {
 	confLoader := configs.FileConfigLoader{DatastoreConfigPath: *datastorePath, APIConfigPath: *apiPath}
 	loadedConf, err := confLoader.Load()
-
 	if err != nil {
 		logging.LogForComponent("main").Fatalln("Unable to parse configuration: ", err.Error())
+	}
+
+	// Create logging file
+	if queryOutputFilename != nil && *queryOutputFilename != "" {
+		f, fileErr := os.Create(*queryOutputFilename)
+		if fileErr != nil {
+			logging.LogForComponent("main").Fatalln("Unable to parse crate file: ", fileErr.Error())
+		}
+
+		defer f.Close()
+		loadedConf.Data.OutputFile = f
 	}
 
 	ctx := context.Background()
@@ -226,20 +238,19 @@ func dryRunRequest() {
 		*regoDir = util.PrepocessPoliciesInDir(config, *regoDir)
 	}
 
-	startNewRestProxy(ctx, config, &serverConf)
-
-	httpRequest, err := http.NewRequestWithContext(ctx, "POST", "http://kelon.dryrun/v1/data", strings.NewReader(*inputBody))
+	err = (*serverConf.Compiler).Configure(config, &serverConf.PolicyCompilerConfig)
 	if err != nil {
-		logging.LogForComponent("main").Fatalf("DryRun: Unable to reconstruct HTTP-Request: %s", err.Error())
+		logging.LogForComponent("main").Fatalf(err.Error())
+	}
+
+	body, err := parseBodyFromString(*inputBody)
+	if err != nil {
+		logging.LogForComponent("main").Fatalf(err.Error())
 	}
 
 	// Execute Request
-	compiler.ServeHTTP(telemetry.NewInMemResponseWriter(), httpRequest)
-
-	// Shutdown
-	err = proxy.Stop(time.Second)
-	if err != nil {
-		logging.LogForComponent("main").Warnln(err.Error())
+	if _, err := compiler.Execute(ctx, body); err != nil {
+		logging.LogForComponent("main").Fatalf(err.Error())
 	}
 }
 
@@ -276,9 +287,7 @@ func makeTelemetryTraceProvider(ctx context.Context) telemetry.TraceProvider {
 }
 
 func makeConfigWatcher(configLoader configs.FileConfigLoader, configWatcherPath *string) {
-	if dryrun {
-		configWatcher = watcherInt.NewMock()
-	} else if regoDir == nil || *regoDir == "" {
+	if regoDir == nil || *regoDir == "" {
 		configWatcher = watcherInt.NewSimple(configLoader)
 	} else {
 		// Set configWatcherPath to rego path by default
@@ -338,13 +347,21 @@ func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor,
 			},
 			Translator: &translator,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
-				Datastores:  data.MakeDatastores(loadedConf.Data, dryrun),
+				Datastores:  data.MakeDatastores(loadedConf.Data, validateMode),
 				SkipUnknown: *astSkipUnknown,
 			},
 			AccessDecisionLogLevel: strings.ToUpper(*accessDecisionLogLevel),
 		},
 	}
 	return serverConf
+}
+
+func parseBodyFromString(input string) (map[string]interface{}, error) {
+	in := []byte(input)
+	var raw map[string]interface{}
+
+	err := json.Unmarshal(in, &raw)
+	return raw, err
 }
 
 func stopOnSIGTERM() {

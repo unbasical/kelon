@@ -5,15 +5,13 @@
 package opa
 
 import (
-	"net/http"
+	"context"
 
 	"github.com/open-policy-agent/opa/plugins"
-
-	"github.com/unbasical/kelon/pkg/watcher"
-
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/pkg/request"
 	"github.com/unbasical/kelon/pkg/translate"
+	"github.com/unbasical/kelon/pkg/watcher"
 )
 
 // PolicyCompilerConfig contains all configuration needed by a single opa.PolicyCompiler to run.
@@ -32,6 +30,13 @@ type PolicyCompilerConfig struct {
 	translate.AstTranslatorConfig
 	request.PathProcessorConfig
 	AccessDecisionLogLevel string
+}
+
+type Decision struct {
+	Allow   bool
+	Package string
+	Path    string
+	Method  string
 }
 
 // PolicyCompiler is the interface that makes final decisions on incoming requests.
@@ -53,5 +58,5 @@ type PolicyCompiler interface {
 	// Get the underlying open policy agent which is running inside the PolicyCompiler.
 	GetEngine() *plugins.Manager
 
-	http.Handler
+	Execute(ctx context.Context, request map[string]interface{}) (*Decision, error)
 }

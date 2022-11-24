@@ -1,6 +1,7 @@
 package configs
 
 import (
+	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -13,6 +14,7 @@ import (
 // unknowns for OPA's partial evaluation api.
 // The DatastoreSchema maps the datastore alias to a datastore schema to a slice of Entities which are contained in this schema.
 type DatastoreConfig struct {
+	OutputFile       *os.File
 	Datastores       map[string]*Datastore
 	DatastoreSchemas map[string]map[string]*EntitySchema `yaml:"entity_schemas"`
 }

@@ -1,19 +1,13 @@
 package opa
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/open-policy-agent/opa/plugins"
 	"github.com/open-policy-agent/opa/rego"
-	"github.com/open-policy-agent/opa/server/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/unbasical/kelon/configs"
@@ -31,26 +25,6 @@ type policyCompiler struct {
 	appConfig  *configs.AppConfig
 	config     *opa.PolicyCompilerConfig
 	engine     *OPA
-}
-
-type apiResponse struct {
-	Result bool `json:"result"`
-}
-
-type apiError struct {
-	Error struct {
-		Code    string `json:"code"`
-		Message string `json:"message,omitempty"`
-	} `json:"error"`
-}
-
-type decisionContext struct {
-	Path          string
-	Package       string
-	Method        string
-	Duration      time.Duration
-	Error         error
-	CorrelationID uuid.UUID
 }
 
 // Return a new instance of the default implementation of the opa.PolicyCompiler.
@@ -101,24 +75,10 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 	return nil
 }
 
-// See Process() from opa.PolicyCompiler
-func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// Set start time for request duration
-	startTime := time.Now()
-
-	ctx := req.Context()
-
+func (compiler policyCompiler) Execute(ctx context.Context, requestBody map[string]interface{}) (*opa.Decision, error) {
 	// Validate if policy compiler was configured correctly
 	if !compiler.configured {
-		compiler.handleError(w, errors.Errorf("PolicyCompiler was not configured! Please call Configure(). "))
-		return
-	}
-
-	// Parse body of request
-	requestBody, bodyErr := compiler.parseRequestBody(req)
-	if bodyErr != nil {
-		compiler.handleError(w, bodyErr)
-		return
+		return nil, errors.Errorf("PolicyCompiler was not configured! Please call Configure(). ")
 	}
 
 	// Extract input
@@ -130,178 +90,57 @@ func (compiler policyCompiler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 	rawInput, exists := requestBody["input"]
 	if !exists {
-		compiler.handleError(w, internalErrors.InvalidInput{Msg: "PolicyCompiler: Incoming request had no field 'input'!"})
-		return
+		return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Incoming requestBody had no field 'input'!"}
 	}
+
 	input, ok := rawInput.(map[string]interface{})
 	if !ok {
-		compiler.handleError(w, internalErrors.InvalidInput{Msg: "PolicyCompiler: Field 'input' in request body was no nested JSON object!"})
-		return
+		return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Field 'input' in requestBody body was no nested JSON object!"}
 	}
 	logging.LogForComponent("policyCompiler").Debugf("Received input: %+v", input)
 
 	// Process path
 	output, err := compiler.processPath(input)
 	if err != nil {
-		compiler.handleError(w, err)
-		return
+		return nil, err
 	}
 
 	path, err := extractURLFromRequestBody(input)
 	if err != nil {
-		compiler.handleError(w, err)
-		return
+		return nil, err
 	}
+
 	method, err := extractMethodFromRequestBody(input)
 	if err != nil {
-		compiler.handleError(w, err)
-		return
+		return nil, err
 	}
 
 	// Compile mapped path
-	queries, err := compiler.opaCompile(req, input, output)
+	queries, err := compiler.opaCompile(ctx, input, output)
 	if err != nil {
-		compiler.handleError(w, errors.Wrap(err, "PolicyCompiler: Error during policy compilation"))
-		return
+		return nil, err
 	}
 
 	// OPA decided denied
 	if queries.Queries == nil {
-		compiler.writeDeny(ctx, w, &decisionContext{Path: path.String(), Method: method, Package: output.Package, Duration: time.Since(startTime)})
-		return
+		return &opa.Decision{Allow: false, Package: output.Package}, nil
 	}
 	// Check if any query succeeded
 	if done := anyQuerySucceeded(queries); done {
-		compiler.writeAllow(ctx, w, &decisionContext{Path: path.String(), Method: method, Package: output.Package, Duration: time.Since(startTime)})
-		return
+		return &opa.Decision{Allow: true, Package: output.Package, Method: method, Path: path.String()}, nil
 	}
 
 	// Otherwise translate ast
 	result, err := (*compiler.config.Translator).Process(context.WithValue(ctx, constants.ContextKeyRegoPackage, output.Package), queries, output.Datastore)
 	if err != nil {
-		compiler.writeDenyError(ctx, w, &decisionContext{Path: path.String(), Method: method, Package: output.Package, Duration: time.Since(startTime),
-			Error: err, CorrelationID: uuid.New()})
-		return
+		return &opa.Decision{Allow: false, Package: output.Package, Method: method, Path: path.String()}, err
 	}
 
 	// If we receive something from the datastore, the query was successful
 	if result {
-		compiler.writeAllow(ctx, w, &decisionContext{Path: path.String(), Method: method, Package: output.Package, Duration: time.Since(startTime)})
-	} else {
-		compiler.writeDeny(ctx, w, &decisionContext{Path: path.String(), Method: method, Package: output.Package, Duration: time.Since(startTime)})
+		return &opa.Decision{Allow: true, Package: output.Package, Method: method, Path: path.String()}, nil
 	}
-}
-
-func (compiler policyCompiler) handleError(w http.ResponseWriter, err error) {
-	logging.LogForComponent("PolicyCompiler").Errorf("Handle error response: %s", err)
-
-	// Write response
-	switch errors.Cause(err).(type) {
-	case request.PathAmbiguousError:
-		writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
-	case request.PathNotFoundError:
-		writeError(w, http.StatusNotFound, types.CodeResourceNotFound, err)
-	case internalErrors.InvalidInput:
-		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
-	default:
-		writeError(w, http.StatusInternalServerError, types.CodeInternal, err)
-	}
-}
-
-func writeError(w http.ResponseWriter, status int, code string, err error) {
-	var resp apiError
-	resp.Error.Code = code
-	if err != nil {
-		resp.Error.Message = errors.Cause(err).Error()
-	}
-	writeJSON(w, status, resp)
-}
-
-func (compiler policyCompiler) writeDenyError(ctx context.Context, w http.ResponseWriter, loggingInfo *decisionContext) {
-	compiler.writeDeny(ctx, w, loggingInfo)
-	switch err := loggingInfo.Error.(type) {
-	case internalErrors.InvalidRequestTranslation:
-		for _, e := range err.Causes {
-			logging.LogWithCorrelationID(loggingInfo.CorrelationID).Warn(e)
-		}
-	default:
-		logging.LogWithCorrelationID(loggingInfo.CorrelationID).Warn(err.Error())
-	}
-}
-
-func (compiler policyCompiler) writeAllow(ctx context.Context, w http.ResponseWriter, loggingInfo *decisionContext) {
-	if compiler.config.RespondWithStatusCode {
-		w.WriteHeader(http.StatusOK)
-	} else {
-		writeJSON(w, http.StatusOK, apiResponse{Result: true})
-	}
-
-	labels := map[string]string{
-		constants.LabelPolicyDecision: "allow",
-		constants.LabelRegoPackage:    loggingInfo.Package,
-	}
-
-	compiler.appConfig.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, loggingInfo.Duration.Milliseconds(), labels)
-
-	logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration.String(), "ALLOW", "policyCompiler")
-}
-
-func (compiler policyCompiler) writeDeny(ctx context.Context, w http.ResponseWriter, loggingInfo *decisionContext) {
-	if compiler.config.RespondWithStatusCode {
-		w.WriteHeader(http.StatusForbidden)
-	} else {
-		writeJSON(w, http.StatusOK, apiResponse{Result: false})
-	}
-
-	labels := map[string]string{
-		constants.LabelPolicyDecision: "deny",
-		constants.LabelRegoPackage:    loggingInfo.Package,
-	}
-
-	compiler.appConfig.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, loggingInfo.Duration.Milliseconds(), labels)
-
-	if loggingInfo.Error != nil {
-		logging.LogAccessDecisionError(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration.String(), loggingInfo.Error.Error(), loggingInfo.CorrelationID.String(), "DENY", "policyCompiler")
-	} else {
-		logging.LogAccessDecision(compiler.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration.String(), "DENY", "policyCompiler")
-	}
-}
-
-func writeJSON(w http.ResponseWriter, status int, x interface{}) {
-	bs, _ := json.Marshal(x)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if _, err := w.Write(bs); err != nil {
-		logging.LogForComponent("policyCompiler").Fatalln("Unable to send response!")
-	}
-}
-
-func (compiler policyCompiler) parseRequestBody(req *http.Request) (map[string]interface{}, error) {
-	requestBody := make(map[string]interface{})
-	if log.GetLevel() == log.DebugLevel {
-		logging.LogForComponent("policyCompiler").Debugf("Received request: %+v", req)
-
-		// Log body and decode already logged body
-		buf := new(bytes.Buffer)
-		if _, parseErr := buf.ReadFrom(req.Body); parseErr != nil {
-			return nil, internalErrors.InvalidInput{Cause: parseErr, Msg: "PolicyCompiler: Error while parsing request body!"}
-		}
-
-		bodyString := buf.String()
-		if bodyString == "" {
-			return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Request had empty body!"}
-		}
-		logging.LogForComponent("policyCompiler").Debugf("Request had body: %s", bodyString)
-		if marshalErr := json.NewDecoder(strings.NewReader(bodyString)).Decode(&requestBody); marshalErr != nil {
-			return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
-		}
-	} else {
-		// Decode raw body
-		if marshalErr := json.NewDecoder(req.Body).Decode(&requestBody); marshalErr != nil {
-			return nil, internalErrors.InvalidInput{Cause: marshalErr, Msg: "PolicyCompiler: Error while decoding request body!"}
-		}
-	}
-	return requestBody, nil
+	return &opa.Decision{Allow: false, Package: output.Package, Method: method, Path: path.String()}, nil
 }
 
 func anyQuerySucceeded(queries *rego.PartialQueries) bool {
@@ -340,7 +179,7 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 	return output, nil
 }
 
-func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input map[string]interface{}, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
+func (compiler *policyCompiler) opaCompile(ctx context.Context, input map[string]interface{}, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
 	// Extract parameters for partial evaluation
 	opts := compiler.extractOpaOpts(output)
 	extractedInput := extractOpaInput(output, input)
@@ -348,7 +187,7 @@ func (compiler *policyCompiler) opaCompile(clientRequest *http.Request, input ma
 	logging.LogForComponent("policyCompiler").Debugf("Sending query=%s", query)
 
 	// Compile clientRequest and return answer
-	queries, err := compiler.engine.PartialEvaluate(clientRequest.Context(), extractedInput, query, opts...)
+	queries, err := compiler.engine.PartialEvaluate(ctx, extractedInput, query, opts...)
 	if err == nil {
 		if log.IsLevelEnabled(log.DebugLevel) {
 			for _, q := range queries.Queries {

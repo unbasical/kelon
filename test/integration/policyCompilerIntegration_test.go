@@ -1,9 +1,8 @@
 package integration
 
 import (
+	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path"
 	"runtime"
@@ -97,7 +96,7 @@ func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration)
 		APIConfigPath:       config.apiConfigPath,
 	}
 
-	// init policyCompiler to setup configWatcher
+	// init policyCompiler to set up configWatcher
 	testEnvironment := PolicyCompilerTestEnvironment{
 		name:                 name,
 		policyCompiler:       opa2.NewPolicyCompiler(),
@@ -113,7 +112,7 @@ func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration)
 			testEnvironment.onConfigLoaded(changeType, config, err)
 		})
 
-	// open and parse policycompiler test requests
+	// open and parse policyCompiler test requests
 	requests := &DBTranslatorRequests{}
 	inputBytes, err := os.ReadFile(config.requestPath)
 	if err != nil {
@@ -126,47 +125,35 @@ func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration)
 		t.FailNow()
 	}
 
-	var kelonRequest *http.Request
 	counter := 0
 
 	// send test http requests to policy compiler and evaluate response code
 	// db queries are tested in mocked db executor
 	for counter < len(requests.Requests) {
+		testName := requests.Requests[strconv.Itoa(counter)].Text
+
 		// create and http requests
-		body := requests.Requests[strconv.Itoa(counter)].Body
-		kelonRequest, err = http.NewRequest("POST", "/v1/data", strings.NewReader(body))
+		bodyStr := requests.Requests[strconv.Itoa(counter)].Body
+		var requestBody map[string]interface{}
+		err = json.Unmarshal([]byte(bodyStr), &requestBody)
 		if err != nil {
 			t.Error(err)
 			t.FailNow()
 		}
-		w := httptest.NewRecorder()
-		testEnvironment.policyCompiler.ServeHTTP(w, kelonRequest)
 
-		// assert response status
-		resp := w.Result()
-		statusCode := requests.Requests[strconv.Itoa(counter)].ResponseStatus
-		if strconv.Itoa(resp.StatusCode) != statusCode {
-			t.Errorf("Response status %s does not match expected status: %s in %s", strconv.Itoa(resp.StatusCode), statusCode, name)
+		_, respErr := testEnvironment.policyCompiler.Execute(context.Background(), requestBody)
+
+		// If error does not match expected success parameter -> fail
+		successExpected := requests.Requests[strconv.Itoa(counter)].Success
+		if (successExpected && respErr != nil) || (!successExpected && respErr == nil) {
+			if successExpected {
+				t.Errorf("Success expected, but go error [%s] in %s: %s", respErr, name, testName)
+			} else {
+				t.Errorf("Error expected but succeeded in %s: %s", name, testName)
+			}
+
 			t.FailNow()
 		}
-
-		// assert error expectation
-		errExpectation := requests.Requests[strconv.Itoa(counter)].ThrowError
-		if errExpectation == true {
-			var decisionBody DecisionBody
-			if json.NewDecoder(resp.Body).Decode(&decisionBody) != nil {
-				t.Errorf("Response Body %+v does not match expected format {\"resutl\":bool} in %s", resp.Body, name)
-				t.FailNow()
-			}
-
-			if decisionBody.Allow {
-				t.Errorf("Access decision %t does not match expected decision: %t in %s", decisionBody.Allow, false, name)
-				t.FailNow()
-			}
-		}
-
-		// close response body and increase counter for next iteration
-		_ = resp.Body.Close()
 		counter++
 	}
 }

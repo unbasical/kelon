@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -15,7 +13,7 @@ import (
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/pkg/api"
 	"github.com/unbasical/kelon/pkg/constants/logging"
-	"github.com/unbasical/kelon/pkg/telemetry"
+	"github.com/unbasical/kelon/pkg/opa"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	rpcstatus "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -34,7 +32,7 @@ type envoyExtAuthzGrpcServer struct {
 	cfg                 Config
 	appConf             *configs.AppConfig
 	server              *grpc.Server
-	compiler            *http.Handler
+	compiler            *opa.PolicyCompiler
 	preparedQueryDoOnce *sync.Once
 }
 
@@ -84,11 +82,8 @@ func (proxy *envoyProxy) Configure(ctx context.Context, appConf *configs.AppConf
 		return err
 	}
 
-	// Configure telemetry (if set)
-	handler := appConf.MetricsProvider.WrapHTTPHandler(ctx, compiler)
-
 	// Assign variables
-	proxy.envoy.compiler = &handler
+	proxy.envoy.compiler = &compiler
 	proxy.appConf = appConf
 	proxy.config = serverConf
 	proxy.configured = true
@@ -186,49 +181,33 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *extauthz.Check
 		token = tokenHeader
 	}
 
-	inputBody := fmt.Sprintf(`{
-		"input": {
-			"method": "%s",
-			"path": "%s",
-			"token": "%s",
-			"payload": %s
-		}
-	}`, r.GetMethod(), path, token, body)
+	inputBody := make(map[string]interface{})
+	inputBody["method"] = r.GetMethod()
+	inputBody["path"] = path
+	inputBody["token"] = token
+	inputBody["payload"] = body
 
-	httpRequest, err := http.NewRequestWithContext(ctx, "POST", "http://envoy.ext.auth.proxy/v1/data", strings.NewReader(inputBody))
+	decision, err := (*p.compiler).Execute(ctx, inputBody)
 	if err != nil {
-		return nil, errors.Wrap(err, "EnvoyProxy: Unable to reconstruct HTTP-Request")
-	}
-
-	// Set headers
-	for headerKey, headerValue := range r.GetHeaders() {
-		httpRequest.Header.Set(headerKey, headerValue)
-	}
-
-	logging.LogForComponent("envoyExtAuthzGrpcServer").Infof("Received Envoy-Ext-Auth-Check to URL: %s", httpRequest.RequestURI)
-
-	w := telemetry.NewInMemResponseWriter()
-	(*p.compiler).ServeHTTP(w, httpRequest)
-
-	resp := &extauthz.CheckResponse{}
-	switch w.StatusCode() {
-	case http.StatusOK:
-		resp.Status = &rpcstatus.Status{Code: int32(code.Code_OK)}
-	case http.StatusForbidden:
-		resp.Status = &rpcstatus.Status{Code: int32(code.Code_PERMISSION_DENIED)}
-	default:
-		proxyErr := errors.Wrap(errors.New(w.Body()), "EnvoyProxy: Error during request compilation")
+		proxyErr := errors.Wrap(err, "EnvoyProxy: Error during request compilation")
 		return nil, proxyErr
 	}
 
+	resp := &extauthz.CheckResponse{}
+	if decision.Allow {
+		resp.Status = &rpcstatus.Status{Code: int32(code.Code_OK)}
+	} else {
+		resp.Status = &rpcstatus.Status{Code: int32(code.Code_PERMISSION_DENIED)}
+	}
+
 	if log.IsLevelEnabled(log.DebugLevel) {
-		decision := "DENY"
-		if w.StatusCode() == http.StatusOK {
-			decision = "ALLOW"
+		d := "DENY"
+		if decision.Allow {
+			d = "ALLOW"
 		}
 		logging.LogForComponent("envoyExtAuthzGrpcServer").WithFields(log.Fields{
 			"dry-run":  p.cfg.DryRun,
-			"decision": decision,
+			"decision": d,
 		}).WithError(err).Debug("Returning policy decision.")
 	}
 
