@@ -4,32 +4,31 @@ requests:
         text: "MySQL: First App visible for everyone"
         success: true
     1:
-        body: '{ "input": { "method": "GET", "path": ["api", "mysql", "apps", "2"], "user": "Arnold" } }'
+        body: '{ "input": { "method": "GET", "path": ["api", "mysql", "apps", "2"], "user": "Arnold", "password": "pw_arnold"} }'
         text: "MySQL: Arnold can access his app"
         success: true
     2:
-        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/2", "user": "Anyone" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/2", "user": "Anyone", "password": "pw_anyone" } }'
         text: "MySQL: Anyone can't access Arnold's app"
         success: true
     3:
-        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/2", "user": "Kevin" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/2", "user": "Kevin", "password": "pw_kevin" } }'
         text: "MySQL: Kevin can access Arnold's app"
         success: true
     4:
-        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/2", "user": "Torben" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/2", "user": "Torben", "password": "pw_torben" } }'
         text: "MySQL: Torben can access Arnold's app"
         success: true
     5:
-        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/3", "user": "Anyone" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/3", "user": "Anyone", "password": "pw_anyone" } }'
         text: "MySQL: Anyone can access app with 5 stars"
         success: true
     6:
-        body: '{ "input": { "method": "GET", "path": "/api/mysql/error/2", "user": "Nobody" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/mysql/error/2", "user": "Nobody", "password": "pw_nobody" } }'
         text: "MySQL: Request has unknown path (Config allows * path)"
         success: true
-        error: true
     7:
-        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/4", "user": "Nobody" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/mysql/apps/4", "user": "Nobody", "password": "pw_nobody" } }'
         text: "MySQL: Policy has unknown function"
         success: false
     8:
@@ -37,31 +36,31 @@ requests:
         text: "PostgreSQL: First App visible for everyone"
         success: true
     9:
-        body: '{ "input": { "method": "GET", "path": [ "api", "pg", "apps", "2" ], "user": "Arnold" } }'
+        body: '{ "input": { "method": "GET", "path": [ "api", "pg", "apps", "2" ], "user": "Arnold", "password": "pw_arnold" } }'
         text: "PostgreSQL: Arnold can access his app"
         success: true
     10:
-        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/2", "user": "Anyone" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/2", "user": "Anyone", "password": "pw_anyone" } }'
         text: "PostgreSQL: Anyone can't access Arnold's app"
         success: true
     11:
-        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/2", "user": "Kevin" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/2", "user": "Kevin", "password": "pw_kevin" } }'
         text: "PostgreSQL: Kevin can access Arnold's app"
         success: true
     12:
-        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/2", "user": "Torben" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/2", "user": "Torben", "password": "pw_torben" } }'
         text: "PostgreSQL: Torben can access Arnold's app"
         success: true
     13:
-        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/3", "user": "Anyone" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/3", "user": "Anyone", "password": "pw_anyone" } }'
         text: "PostgreSQL: Anyone can access app with 5 stars"
         success: true
     14:
-        body: '{ "input": { "method": "GET", "path": "/api/pg/error/2", "user": "Nobody" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/pg/error/2", "user": "Nobody", "password": "pw_nobody" } }'
         text: "PostgreSQL: Request has unknown path"
         success: false
     15:
-        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/4", "user": "Nobody" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/pg/apps/4", "user": "Nobody", "password": "pw_nobody" } }'
         text: "PostgreSQL: Policy has unknown function"
         success: false
     16:
@@ -69,31 +68,31 @@ requests:
         text: "Mongo: First App visible for everyone"
         success: true
     17:
-        body: '{ "input": { "method": "GET", "path": [ "api", "mongo", "apps", "2" ], "user": "Arnold" } }'
+        body: '{ "input": { "method": "GET", "path": [ "api", "mongo", "apps", "2" ], "user": "Arnold", "password": "pw_arnold" } }'
         text: "Mongo: Arnold can access his app"
         success: true
     18:
-        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/2", "user": "Anyone" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/2", "user": "Anyone", "password": "pw_anyone" } }'
         text: "Mongo: Anyone can't access Arnold's app"
         success: true
     19:
-        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/2", "user": "Kevin" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/2", "user": "Kevin", "password": "pw_kevin" } }'
         text: "Mongo: Kevin can access Arnold's app"
         success: true
     20:
-        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/2", "user": "Torben" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/2", "user": "Torben", "password": "pw_torben" } }'
         text: "Mongo: Torben can access Arnold's app"
         success: true
     21:
-        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/3", "user": "Anyone" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/3", "user": "Anyone", "password": "pw_anyone" } }'
         text: "Mongo: Anyone can access app with 5 stars"
         success: true
     22:
-        body: '{ "input": { "method": "GET", "path": "/api/mongo/error/2", "user": "Nobody" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/mongo/error/2", "user": "Nobody", "password": "pw_nobody" } }'
         text: "Mongo: Request has unknown path"
         success: false
     23:
-        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/4", "user": "Nobody" } }'
+        body: '{ "input": { "method": "GET", "path": "/api/mongo/apps/4", "user": "Nobody", "password": "pw_nobody" } }'
         text: "Mongo: Policy has unknown function"
         success: false
 

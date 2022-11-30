@@ -36,7 +36,8 @@ type apiError struct {
 }
 
 type apiResponse struct {
-	Result bool `json:"result"`
+	Authentication bool `json:"authentication"`
+	Result         bool `json:"result"`
 }
 
 type patchImpl struct {
@@ -46,12 +47,13 @@ type patchImpl struct {
 }
 
 type decisionContext struct {
-	Path          string
-	Package       string
-	Method        string
-	Duration      time.Duration
-	Error         error
-	CorrelationID uuid.UUID
+	Path           string
+	Package        string
+	Method         string
+	Authentication bool
+	Duration       time.Duration
+	Error          error
+	CorrelationID  uuid.UUID
 }
 
 /*
@@ -675,7 +677,7 @@ func (proxy *restProxy) writeAllow(ctx context.Context, w http.ResponseWriter, l
 	if proxy.config.RespondWithStatusCode {
 		w.WriteHeader(http.StatusOK)
 	} else {
-		writeJSON(w, http.StatusOK, apiResponse{Result: true})
+		writeJSON(w, http.StatusOK, apiResponse{Authentication: true, Result: true})
 	}
 
 	labels := map[string]string{
@@ -692,7 +694,7 @@ func (proxy *restProxy) writeDeny(ctx context.Context, w http.ResponseWriter, lo
 	if proxy.config.RespondWithStatusCode {
 		w.WriteHeader(http.StatusForbidden)
 	} else {
-		writeJSON(w, http.StatusOK, apiResponse{Result: false})
+		writeJSON(w, http.StatusOK, apiResponse{Authentication: loggingInfo.Authentication, Result: false})
 	}
 
 	labels := map[string]string{
@@ -711,10 +713,11 @@ func (proxy *restProxy) writeDeny(ctx context.Context, w http.ResponseWriter, lo
 
 func loggingContextFromDecision(decision *opa.Decision, duration time.Duration) *decisionContext {
 	return &decisionContext{
-		Path:     decision.Path,
-		Package:  decision.Package,
-		Method:   decision.Method,
-		Duration: duration,
+		Path:           decision.Path,
+		Package:        decision.Package,
+		Method:         decision.Method,
+		Authentication: decision.Verify,
+		Duration:       duration,
 	}
 }
 

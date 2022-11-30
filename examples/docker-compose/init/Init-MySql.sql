@@ -42,11 +42,12 @@ CREATE TABLE `users` (
   `name` varchar(255) NOT NULL,
   `age` tinyint(4) DEFAULT NULL,
   `friend` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
-INSERT INTO `users` (`id`, `name`, `age`, `friend`) VALUES
-(1,	'Arnold',	72,	'John Connor'),
-(2,	'Kevin',	21,	'Kevin'),
-(3,	'Anyone',	NULL,	'Anyone'),
-(4, 'Torben', 42, 'Daniel');
+INSERT INTO `users` (`id`, `name`, `age`, `friend`, `password`) VALUES
+(1,	'Arnold',	72,	'John Connor', 'pw_arnold'),
+(2,	'Kevin',	21,	'Kevin', 'pw_kevin'),
+(3,	'Anyone',	NULL,	'Anyone', 'pw_anyone'),
+(4, 'Torben', 42, 'Daniel', 'pw_torben');

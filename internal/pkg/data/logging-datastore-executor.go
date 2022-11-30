@@ -49,6 +49,7 @@ func (ds *loggingDatastoreExecutor) Execute(ctx context.Context, query data.Data
 			return false, err
 		}
 
+		jsonString = append(jsonString, byte('\n'))
 		_, err = (*ds.file).Write(jsonString)
 		if err != nil {
 			return false, err

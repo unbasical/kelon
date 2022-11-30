@@ -1,5 +1,16 @@
 package applications.mongo
 
+verify = true {
+    input.path == ["api", "mongo", "apps", "1"]
+}
+
+verify = true {
+    some user
+
+    data.mongo.users[user].name == input.user
+    user.password = input.password
+}
+
 # Deny all by default
 allow = false
 

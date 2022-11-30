@@ -10,9 +10,11 @@ type APIConfig struct {
 // Each mapping has a type of 'mapping global' Prefix which should be appended to each Path of its Mappings.
 // The prefix can be a regular expression.
 type DatastoreAPIMapping struct {
-	Prefix    string `yaml:"path-prefix"`
-	Datastore string
-	Mappings  []*APIMapping
+	Prefix         string `yaml:"path-prefix"`
+	Datastore      string
+	Authentication *bool `yaml:",omitempty"`
+	Authorization  *bool `yaml:",omitempty"`
+	Mappings       []*APIMapping
 }
 
 // Mapping within a configs.DatastoreAPIMapping which holds all information that is needed to map an incoming
@@ -23,4 +25,16 @@ type APIMapping struct {
 	Package string
 	Methods []string
 	Queries []string
+}
+
+func (d *DatastoreAPIMapping) setDefaults() {
+	boolTrue := true
+
+	if d.Authorization == nil {
+		d.Authorization = &boolTrue
+	}
+
+	if d.Authentication == nil {
+		d.Authentication = &boolTrue
+	}
 }

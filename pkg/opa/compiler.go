@@ -33,6 +33,7 @@ type PolicyCompilerConfig struct {
 }
 
 type Decision struct {
+	Verify  bool
 	Allow   bool
 	Package string
 	Path    string

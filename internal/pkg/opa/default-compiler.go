@@ -115,32 +115,30 @@ func (compiler policyCompiler) Execute(ctx context.Context, requestBody map[stri
 		return nil, err
 	}
 
-	// Compile mapped path
-	queries, err := compiler.opaCompile(ctx, input, output)
-	if err != nil {
-		return nil, err
+	var verify = true
+	var allow = true
+
+	// Authentication
+	if output.Authentication {
+		verify, err = compiler.evalFunction(ctx, "verify", input, output)
+		if err != nil {
+			return &opa.Decision{Verify: false, Allow: false, Package: output.Package, Method: method, Path: path.String()}, err
+		}
 	}
 
-	// OPA decided denied
-	if queries.Queries == nil {
-		return &opa.Decision{Allow: false, Package: output.Package}, nil
-	}
-	// Check if any query succeeded
-	if done := anyQuerySucceeded(queries); done {
-		return &opa.Decision{Allow: true, Package: output.Package, Method: method, Path: path.String()}, nil
-	}
-
-	// Otherwise translate ast
-	result, err := (*compiler.config.Translator).Process(context.WithValue(ctx, constants.ContextKeyRegoPackage, output.Package), queries, output.Datastore)
-	if err != nil {
-		return &opa.Decision{Allow: false, Package: output.Package, Method: method, Path: path.String()}, err
+	// Authorization
+	if verify {
+		if output.Authorization {
+			allow, err = compiler.evalFunction(ctx, "allow", input, output)
+			if err != nil {
+				return &opa.Decision{Verify: true, Allow: false, Package: output.Package, Method: method, Path: path.String()}, err
+			}
+		}
+	} else {
+		allow = false
 	}
 
-	// If we receive something from the datastore, the query was successful
-	if result {
-		return &opa.Decision{Allow: true, Package: output.Package, Method: method, Path: path.String()}, nil
-	}
-	return &opa.Decision{Allow: false, Package: output.Package, Method: method, Path: path.String()}, nil
+	return &opa.Decision{Verify: verify, Allow: allow, Package: output.Package, Method: method, Path: path.String()}, nil
 }
 
 func anyQuerySucceeded(queries *rego.PartialQueries) bool {
@@ -179,11 +177,31 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 	return output, nil
 }
 
-func (compiler *policyCompiler) opaCompile(ctx context.Context, input map[string]interface{}, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
+func (compiler *policyCompiler) evalFunction(ctx context.Context, function string, input map[string]interface{}, output *request.PathProcessorOutput) (bool, error) {
+	// Compile mapped path
+	queries, err := compiler.opaCompile(ctx, input, function, output)
+	if err != nil {
+		return false, err
+	}
+
+	// OPA decided denied
+	if queries.Queries == nil {
+		return false, nil
+	}
+	// Check if any query succeeded
+	if done := anyQuerySucceeded(queries); done {
+		return true, nil
+	}
+
+	// Otherwise translate ast
+	return (*compiler.config.Translator).Process(context.WithValue(ctx, constants.ContextKeyRegoPackage, output.Package), queries, output.Datastore)
+}
+
+func (compiler *policyCompiler) opaCompile(ctx context.Context, input map[string]interface{}, function string, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
 	// Extract parameters for partial evaluation
 	opts := compiler.extractOpaOpts(output)
 	extractedInput := extractOpaInput(output, input)
-	query := fmt.Sprintf("data.%s.allow == true", output.Package)
+	query := fmt.Sprintf("data.%s.%s == true", output.Package, function)
 	logging.LogForComponent("policyCompiler").Debugf("Sending query=%s", query)
 
 	// Compile clientRequest and return answer

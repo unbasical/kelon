@@ -52,11 +52,19 @@ var wantDatatoreConfig = configs.DatastoreConfig{
 }
 
 //nolint:gochecknoglobals,gocritic
+var boolFalse = false
+
+//nolint:gochecknoglobals,gocritic
+var boolTrue = true
+
+//nolint:gochecknoglobals,gocritic
 var wantAPIConfig = &configs.APIConfig{
 	Mappings: []*configs.DatastoreAPIMapping{
 		{
-			Prefix:    "/api",
-			Datastore: "mysql",
+			Prefix:         "/api",
+			Datastore:      "mysql",
+			Authorization:  &boolFalse,
+			Authentication: &boolTrue,
 			Mappings: []*configs.APIMapping{
 				{
 					Path:    "/.*",

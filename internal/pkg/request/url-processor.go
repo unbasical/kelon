@@ -94,10 +94,12 @@ func (processor urlProcessor) handleInput(input *URLProcessorInput) (*request.Pa
 		return nil, errors.Wrap(err, "UrlProcessor: Error during path mapping.")
 	}
 	output := request.PathProcessorOutput{
-		Datastore: out.Datastore,
-		Package:   out.Package,
-		Path:      path,
-		Queries:   queries,
+		Datastore:      out.Datastore,
+		Package:        out.Package,
+		Authentication: out.Authentication,
+		Authorization:  out.Authorization,
+		Path:           path,
+		Queries:        queries,
 	}
 	return &output, nil
 }

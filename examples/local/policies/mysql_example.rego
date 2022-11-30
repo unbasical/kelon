@@ -1,5 +1,16 @@
 package applications.mysql
 
+verify = true {
+    input.path == ["api", "mysql", "apps", "1"]
+}
+
+verify = true {
+    some user
+
+    data.mysql.users[user].name == input.user
+    user.password = input.password
+}
+
 # Deny all by default
 allow = false
 

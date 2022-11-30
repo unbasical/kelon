@@ -67,6 +67,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(true);",
                   "});"
                 ],
@@ -86,7 +87,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": [\"api\", \"mysql\", \"apps\", \"2\"],\n        \"user\": \"Arnold\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": [\"api\", \"mysql\", \"apps\", \"2\"],\n        \"user\": \"Arnold\",\n        \"password\": \"pw_arnold\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -117,6 +118,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(false);",
                   "});"
                 ],
@@ -136,7 +138,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Anyone\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Anyone\",\n        \"password\": \"pw_anyone\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -186,7 +188,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Kevin\",\n        \"password\": \"pw_kevin\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -217,6 +219,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(true);",
                   "});"
                 ],
@@ -236,7 +239,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Torben\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Torben\",\n        \"password\": \"pw_torben\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -267,6 +270,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(true);",
                   "});"
                 ],
@@ -286,7 +290,58 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/3\",\n        \"user\": \"Anyone\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/3\",\n        \"user\": \"Anyone\",\n        \"password\": \"pw_anyone\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MySQL: Authentication Error",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(false);",
+                  "    pm.expect(jsonData.result).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": [\"api\", \"mysql\", \"apps\", \"2\"],\n        \"user\": \"Arnold\",\n        \"password\": \"incorrect\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -322,6 +377,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(true);",
                   "});"
                 ],
@@ -372,6 +428,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(true);",
                   "});"
                 ],
@@ -391,7 +448,58 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Arnold\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Arnold\",\n        \"password\": \"pw_arnold\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PostgreSQL: Arnold can access his app Copy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
+                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Arnold\",\n        \"password\": \"pw_arnold\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -422,6 +530,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(false);",
                   "});"
                 ],
@@ -441,7 +550,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Anyone\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Anyone\",\n        \"password\": \"pw_anyone\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -472,6 +581,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(true);",
                   "});"
                 ],
@@ -491,7 +601,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Kevin\",\n        \"password\": \"pw_kevin\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -522,6 +632,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(true);",
                   "});"
                 ],
@@ -541,7 +652,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Torben\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Torben\",\n        \"password\": \"pw_torben\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -564,7 +675,7 @@
           "response": []
         },
         {
-          "name": "PostgreSQL: Anyone can access app with 5 stars",
+          "name": "PostgreSQL: Authentication Error",
           "event": [
             {
               "listen": "test",
@@ -572,7 +683,8 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.expect(jsonData.authentication).to.eql(false);",
+                  "    pm.expect(jsonData.result).to.eql(false);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -591,7 +703,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/3\",\n        \"user\": \"Anyone\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/3\",\n        \"user\": \"Anyone\",\n        \"passwor\": \"incorrect\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -627,6 +739,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(true);",
                   "});"
                 ],
@@ -677,6 +790,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(true);",
                   "});"
                 ],
@@ -696,7 +810,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Arnold\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Arnold\",\n        \"password\": \"pw_arnold\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -727,6 +841,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(false);",
                   "});"
                 ],
@@ -746,7 +861,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Anyone\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Anyone\",\n        \"password\": \"pw_anyone\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -777,6 +892,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(true);",
                   "});"
                 ],
@@ -796,7 +912,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Kevin\",\n        \"password\": \"pw_kevin\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -827,6 +943,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(true);",
                   "});"
                 ],
@@ -846,7 +963,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Torben\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Torben\",\n        \"password\": \"pw_torben\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -877,6 +994,7 @@
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
                   "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(true);",
                   "    pm.expect(jsonData.result).to.eql(true);",
                   "});"
                 ],
@@ -896,7 +1014,58 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/3\",\n        \"user\": \"Anyone\"\n    }\n}",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/3\",\n        \"user\": \"Anyone\",\n        \"password\": \"pw_anyone\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://{{host_name}}:{{host_port}}/v1/data",
+              "protocol": "http",
+              "host": [
+                "{{host_name}}"
+              ],
+              "port": "{{host_port}}",
+              "path": [
+                "v1",
+                "data"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MongoDB: Authentication Error",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Response allowed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.authentication).to.eql(false);",
+                  "    pm.expect(jsonData.result).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "name": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Arnold\",\n        \"password\": \"incorrect\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"

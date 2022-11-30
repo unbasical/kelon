@@ -20,14 +20,15 @@ CREATE TABLE "appstore"."users" (
     "name" character varying(255) NOT NULL,
     "age" smallint,
     "friend" character varying,
+    "password" character varying,
     CONSTRAINT "users_id" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-INSERT INTO "appstore"."users" ("id", "name", "age", "friend") VALUES
-(1,	'Arnold',	72,	'John Connor'),
-(2,	'Kevin',	21,	'Kevin'),
-(3,	'Anyone',	NULL,	'Anyone'),
-(4, 'Torben', 42, 'Daniel');
+INSERT INTO "appstore"."users" ("id", "name", "age", "friend", "password") VALUES
+(1,	'Arnold',	72,	'John Connor', 'pw_arnold'),
+(2,	'Kevin',	21,	'Kevin', 'pw_kevin'),
+(3,	'Anyone',	NULL,	'Anyone', 'pw_anyone'),
+(4, 'Torben', 42, 'Daniel', 'pw_torben');
 
 
 CREATE TABLE "appstore"."app_rights" (
