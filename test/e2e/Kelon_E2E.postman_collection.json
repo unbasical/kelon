@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "0f8c5bd8-0ebd-4e42-ae88-f94cb1f46b92",
+    "_postman_id": "df5c7296-7bdc-488e-b0a7-af2b99b90b58",
     "name": "Kelon CI/CD E2E",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -16,8 +16,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -66,9 +65,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -117,9 +114,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(false);",
+                  "    pm.response.to.have.status(403);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -168,8 +163,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -218,9 +212,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -269,9 +261,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -320,9 +310,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(false);",
-                  "    pm.expect(jsonData.result).to.eql(false);",
+                  "    pm.response.to.have.status(401);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -376,9 +364,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -427,9 +413,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -478,9 +462,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -529,9 +511,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(false);",
+                  "    pm.response.to.have.status(403);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -580,9 +560,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -631,9 +609,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -682,9 +658,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(false);",
-                  "    pm.expect(jsonData.result).to.eql(false);",
+                  "    pm.response.to.have.status(401);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -738,9 +712,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -789,9 +761,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -840,9 +810,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(false);",
+                  "    pm.response.to.have.status(403);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -891,9 +859,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -942,9 +908,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -993,9 +957,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(true);",
-                  "    pm.expect(jsonData.result).to.eql(true);",
+                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -1044,9 +1006,7 @@
               "script": {
                 "exec": [
                   "pm.test(\"Response allowed\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.authentication).to.eql(false);",
-                  "    pm.expect(jsonData.result).to.eql(false);",
+                  "    pm.response.to.have.status(401);",
                   "});"
                 ],
                 "type": "text/javascript"

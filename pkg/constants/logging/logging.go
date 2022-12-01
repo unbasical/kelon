@@ -20,35 +20,21 @@ const LabelDuration string = "duration"
 // Label for decision decision
 const LabelDecision string = "decision"
 
+// Label for decision reason
+const LabelReason string = "reason"
+
 // Label for translation error
 const LabelError string = "error"
 
 // Label for multiline error logs
 const LabelCorrelation = "correlationId"
 
-func LogAccessDecision(accessDecisionLogLevel, path, method, duration, decision, component string) {
+func LogAccessDecision(accessDecisionLogLevel, decision, component string, additionalFields log.Fields) {
 	if checkAccessDecisionLogLevel(accessDecisionLogLevel, decision) {
-		log.WithFields(log.Fields{
-			LabelPath:      path,
-			LabelMethod:    method,
-			LabelDuration:  duration,
-			LabelDecision:  decision,
-			LabelComponent: component,
-		}).Info("Access decision:")
-	}
-}
+		additionalFields[LabelComponent] = component
+		additionalFields[LabelDecision] = decision
 
-func LogAccessDecisionError(accessDecisionLogLevel, path, method, duration, err, correlation, decision, component string) {
-	if checkAccessDecisionLogLevel(accessDecisionLogLevel, decision) {
-		log.WithFields(log.Fields{
-			LabelPath:        path,
-			LabelMethod:      method,
-			LabelDuration:    duration,
-			LabelDecision:    decision,
-			LabelError:       err,
-			LabelCorrelation: correlation,
-			LabelComponent:   component,
-		}).Warn("Access decision:")
+		log.WithFields(additionalFields).Info("Access decision:")
 	}
 }
 

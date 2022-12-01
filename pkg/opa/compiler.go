@@ -20,13 +20,12 @@ import (
 // instance of a PolicyCompiler can be seen as a standalone thread with all its subcomponents attached to it.
 // As a result, two PolicyCompilers should be able to run in parallel.
 type PolicyCompilerConfig struct {
-	RespondWithStatusCode bool
-	OpaConfigPath         *string
-	RegoDir               *string
-	Prefix                *string
-	PathProcessor         *request.PathProcessor
-	Translator            *translate.AstTranslator
-	ConfigWatcher         *watcher.ConfigWatcher
+	OpaConfigPath *string
+	RegoDir       *string
+	Prefix        *string
+	PathProcessor *request.PathProcessor
+	Translator    *translate.AstTranslator
+	ConfigWatcher *watcher.ConfigWatcher
 	translate.AstTranslatorConfig
 	request.PathProcessorConfig
 	AccessDecisionLogLevel string

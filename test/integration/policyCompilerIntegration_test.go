@@ -197,12 +197,11 @@ func (p *PolicyCompilerTestEnvironment) makeServerConfig(parser request.PathProc
 	serverConf := api.ClientProxyConfig{
 		Compiler: &p.policyCompiler,
 		PolicyCompilerConfig: opa.PolicyCompilerConfig{
-			RespondWithStatusCode: false,
-			Prefix:                &pathPrefix,
-			OpaConfigPath:         &opaPath,
-			RegoDir:               &regoDir,
-			ConfigWatcher:         &p.configWatcher,
-			PathProcessor:         &parser,
+			Prefix:        &pathPrefix,
+			OpaConfigPath: &opaPath,
+			RegoDir:       &regoDir,
+			ConfigWatcher: &p.configWatcher,
+			PathProcessor: &parser,
 			PathProcessorConfig: request.PathProcessorConfig{
 				PathMapper: &mapper,
 			},

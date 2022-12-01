@@ -48,11 +48,9 @@ var (
 	operandDir        = app.Flag("call-operand-dir", "Dir containing .yaml files which contain the call operand configuration for the datastores").Short('c').Envar("CALL_OPERANDS_DIR").Default("./call-operands").ExistingDir()
 
 	// Additional config
-	pathPrefix            = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
-	port                  = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
-	preprocessRegos       = app.Flag("preprocess-policies", "Preprocess incoming policies for internal use-case (EXPERIMENTAL FEATURE! DO NOT USE!).").Default("false").Envar("PREPROCESS_POLICIES").Bool()
-	respondWithStatusCode = app.Flag("respond-with-status-code", "Communicate Decision via status code 200 (ALLOW) or 403 (DENY).").Default("false").Envar("RESPOND_WITH_STATUS_CODE").Bool()
-	astSkipUnknown        = app.Flag("ast-skip-unknown", "Skip unknown parts in the AST and only log as warning.").Default("false").Envar("AST_SKIP_UNKNOWN").Bool()
+	pathPrefix     = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
+	port           = app.Flag("port", "Port on which the proxy endpoint is served.").Short('p').Default("8181").Envar("PORT").Uint32()
+	astSkipUnknown = app.Flag("ast-skip-unknown", "Skip unknown parts in the AST and only log as warning.").Default("false").Envar("AST_SKIP_UNKNOWN").Bool()
 
 	// Logging
 	logLevel               = app.Flag("log-level", "Log-Level for Kelon. Must be one of [DEBUG, INFO, WARN, ERROR]").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "debug", "info", "warn", "error")
@@ -185,10 +183,6 @@ func onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfi
 		traceProvider = config.TraceProvider // Stopped gracefully later on
 		serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
 
-		if *preprocessRegos {
-			*regoDir = util.PrepocessPoliciesInDir(config, *regoDir)
-		}
-
 		// Start rest proxy
 		startNewRestProxy(ctx, config, &serverConf)
 
@@ -237,10 +231,6 @@ func dryRunRequest() {
 	traceProvider = config.TraceProvider // Stopped gracefully later on
 	serverConf := makeServerConfig(compiler, parser, mapper, translator, loadedConf)
 
-	if *preprocessRegos {
-		*regoDir = util.PrepocessPoliciesInDir(config, *regoDir)
-	}
-
 	err = (*serverConf.Compiler).Configure(config, &serverConf.PolicyCompilerConfig)
 	if err != nil {
 		logging.LogForComponent("main").Fatalf(err.Error())
@@ -263,7 +253,12 @@ func dryRunRequest() {
 	} else {
 		allowString = "DENY"
 	}
-	logging.LogAccessDecision(serverConf.AccessDecisionLogLevel, d.Path, d.Method, "", allowString, "main")
+
+	logFields := log.Fields{
+		logging.LabelPath:   d.Path,
+		logging.LabelMethod: d.Method,
+	}
+	logging.LogAccessDecision(serverConf.AccessDecisionLogLevel, allowString, "main", logFields)
 }
 
 func makeTelemetryMetricsProvider(ctx context.Context) telemetry.MetricsProvider {
@@ -348,12 +343,11 @@ func makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor,
 	serverConf := api.ClientProxyConfig{
 		Compiler: &compiler,
 		PolicyCompilerConfig: opa.PolicyCompilerConfig{
-			RespondWithStatusCode: *respondWithStatusCode,
-			Prefix:                pathPrefix,
-			OpaConfigPath:         opaPath,
-			RegoDir:               regoDir,
-			ConfigWatcher:         &configWatcher,
-			PathProcessor:         &parser,
+			Prefix:        pathPrefix,
+			OpaConfigPath: opaPath,
+			RegoDir:       regoDir,
+			ConfigWatcher: &configWatcher,
+			PathProcessor: &parser,
 			PathProcessorConfig: request.PathProcessorConfig{
 				PathMapper: &mapper,
 			},
