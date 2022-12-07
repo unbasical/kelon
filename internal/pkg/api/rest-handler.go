@@ -20,7 +20,6 @@ import (
 	"github.com/open-policy-agent/opa/util"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	utilInt "github.com/unbasical/kelon/internal/pkg/util"
 	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	internalErrors "github.com/unbasical/kelon/pkg/errors"
@@ -35,10 +34,6 @@ type apiError struct {
 	} `json:"error"`
 }
 
-type apiResponse struct {
-	Result bool `json:"result"`
-}
-
 type patchImpl struct {
 	path  storage.Path
 	op    storage.PatchOp
@@ -46,12 +41,13 @@ type patchImpl struct {
 }
 
 type decisionContext struct {
-	Path          string
-	Package       string
-	Method        string
-	Duration      time.Duration
-	Error         error
-	CorrelationID uuid.UUID
+	Path           string
+	Package        string
+	Method         string
+	Authentication bool
+	Duration       time.Duration
+	Error          error
+	CorrelationID  uuid.UUID
 }
 
 /*
@@ -249,9 +245,6 @@ func (proxy *restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		return
 	}
-
-	// Translate
-	buf = []byte(utilInt.PreprocessPolicy(proxy.appConf, string(buf)))
 
 	// Parse Path
 	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
@@ -672,11 +665,7 @@ func (proxy *restProxy) writeDenyError(ctx context.Context, w http.ResponseWrite
 }
 
 func (proxy *restProxy) writeAllow(ctx context.Context, w http.ResponseWriter, loggingInfo *decisionContext) {
-	if proxy.config.RespondWithStatusCode {
-		w.WriteHeader(http.StatusOK)
-	} else {
-		writeJSON(w, http.StatusOK, apiResponse{Result: true})
-	}
+	w.WriteHeader(http.StatusOK)
 
 	labels := map[string]string{
 		constants.LabelPolicyDecision: "allow",
@@ -685,36 +674,55 @@ func (proxy *restProxy) writeAllow(ctx context.Context, w http.ResponseWriter, l
 
 	proxy.appConf.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, loggingInfo.Duration.Milliseconds(), labels)
 
-	logging.LogAccessDecision(proxy.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration.String(), "ALLOW", "policyCompiler")
+	logFields := log.Fields{
+		logging.LabelPath:     loggingInfo.Path,
+		logging.LabelMethod:   loggingInfo.Method,
+		logging.LabelDuration: loggingInfo.Duration.String(),
+	}
+
+	logging.LogAccessDecision(proxy.config.AccessDecisionLogLevel, "ALLOW", "policyCompiler", logFields)
 }
 
 func (proxy *restProxy) writeDeny(ctx context.Context, w http.ResponseWriter, loggingInfo *decisionContext) {
-	if proxy.config.RespondWithStatusCode {
-		w.WriteHeader(http.StatusForbidden)
+	var reason string
+	if !loggingInfo.Authentication {
+		reason = "Unauthenticated"
+		w.WriteHeader(http.StatusUnauthorized)
 	} else {
-		writeJSON(w, http.StatusOK, apiResponse{Result: false})
+		reason = "Unauthorized"
+		w.WriteHeader(http.StatusForbidden)
 	}
 
-	labels := map[string]string{
-		constants.LabelPolicyDecision: "deny",
-		constants.LabelRegoPackage:    loggingInfo.Package,
+	metricLabels := map[string]string{
+		constants.LabelPolicyDecision:       "deny",
+		constants.LabelPolicyDecisionReason: reason,
+		constants.LabelRegoPackage:          loggingInfo.Package,
 	}
 
-	proxy.appConf.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, loggingInfo.Duration.Milliseconds(), labels)
+	proxy.appConf.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, loggingInfo.Duration.Milliseconds(), metricLabels)
+
+	logFields := log.Fields{
+		logging.LabelPath:     loggingInfo.Path,
+		logging.LabelMethod:   loggingInfo.Method,
+		logging.LabelDuration: loggingInfo.Duration.String(),
+		logging.LabelReason:   reason,
+	}
 
 	if loggingInfo.Error != nil {
-		logging.LogAccessDecisionError(proxy.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration.String(), loggingInfo.Error.Error(), loggingInfo.CorrelationID.String(), "DENY", "policyCompiler")
-	} else {
-		logging.LogAccessDecision(proxy.config.AccessDecisionLogLevel, loggingInfo.Path, loggingInfo.Method, loggingInfo.Duration.String(), "DENY", "policyCompiler")
+		logFields[logging.LabelError] = loggingInfo.Error.Error()
+		logFields[logging.LabelCorrelation] = loggingInfo.CorrelationID.String()
 	}
+
+	logging.LogAccessDecision(proxy.config.AccessDecisionLogLevel, "DENY", "policyCompiler", logFields)
 }
 
 func loggingContextFromDecision(decision *opa.Decision, duration time.Duration) *decisionContext {
 	return &decisionContext{
-		Path:     decision.Path,
-		Package:  decision.Package,
-		Method:   decision.Method,
-		Duration: duration,
+		Path:           decision.Path,
+		Package:        decision.Package,
+		Method:         decision.Method,
+		Authentication: decision.Verify,
+		Duration:       duration,
 	}
 }
 

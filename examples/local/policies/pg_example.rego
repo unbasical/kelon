@@ -1,5 +1,16 @@
 package applications.pg
 
+verify = true {
+    input.path == ["api", "pg", "apps", "1"]
+}
+
+verify = true {
+    some user
+
+    data.pg.users[user].name == input.user
+    user.password = input.password
+}
+
 # Deny all by default
 allow = false
 

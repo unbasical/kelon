@@ -2,6 +2,7 @@ apis:
   # All api-mappings for datastore postgres
   - path-prefix: /api
     datastore: mysql
+    authorization: false
     mappings:
       # Match all requests (If methods are provided, all are matched)
       - path: /.*

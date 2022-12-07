@@ -19,10 +19,12 @@ type PathProcessorConfig struct {
 // Extracted Query-Parameters mapped to their values can i.e. be attached to the input-field of the OPA-query.
 // A slice containing all separated path parts is also returned.
 type PathProcessorOutput struct {
-	Datastore string
-	Package   string
-	Path      []string
-	Queries   map[string]interface{}
+	Datastore      string
+	Package        string
+	Authorization  bool
+	Authentication bool
+	Path           []string
+	Queries        map[string]interface{}
 }
 
 // PathProcessor is the interface that processes an incoming path by parsing and afterwards mapping it to a Datastore and a Package.

@@ -46,4 +46,6 @@ const LabelDBPoolName string = "pool.name"
 
 const LabelPolicyDecision string = "decision"
 
+const LabelPolicyDecisionReason string = "reason"
+
 const LabelRegoPackage string = "rego.package"

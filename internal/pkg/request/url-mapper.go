@@ -21,10 +21,12 @@ type pathMapper struct {
 }
 
 type compiledMapping struct {
-	matcher    *regexp.Regexp
-	mapping    *configs.APIMapping
-	importance int
-	datastore  string
+	matcher        *regexp.Regexp
+	mapping        *configs.APIMapping
+	authorization  bool
+	authentication bool
+	importance     int
+	datastore      string
 }
 
 type pathMapperInput struct {
@@ -107,8 +109,10 @@ func (mapper pathMapper) handleInput(input *pathMapperInput) (*request.MapperOut
 
 		// Match found
 		return &request.MapperOutput{
-			Datastore: matches[0].datastore,
-			Package:   matches[0].mapping.Package,
+			Datastore:      matches[0].datastore,
+			Package:        matches[0].mapping.Package,
+			Authentication: matches[0].authentication,
+			Authorization:  matches[0].authorization,
 		}, nil
 	}
 
@@ -146,10 +150,12 @@ func (mapper *pathMapper) generateMappings() error {
 			}
 
 			mapper.mappings = append(mapper.mappings, &compiledMapping{
-				matcher:    regex,
-				mapping:    mapping,
-				importance: len(pathPrefix) + len(mapping.Path) + queriesCount + endpointsCount,
-				datastore:  dsMapping.Datastore,
+				matcher:        regex,
+				mapping:        mapping,
+				authentication: *dsMapping.Authentication,
+				authorization:  *dsMapping.Authorization,
+				importance:     len(pathPrefix) + len(mapping.Path) + queriesCount + endpointsCount,
+				datastore:      dsMapping.Datastore,
 			})
 		}
 	}

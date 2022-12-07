@@ -194,21 +194,37 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *extauthz.Check
 	}
 
 	resp := &extauthz.CheckResponse{}
+
+	var reason string
+	var logDecision string
 	if decision.Allow {
+		logDecision = "ALLOW"
 		resp.Status = &rpcstatus.Status{Code: int32(code.Code_OK)}
 	} else {
-		resp.Status = &rpcstatus.Status{Code: int32(code.Code_PERMISSION_DENIED)}
+		logDecision = "DENY"
+		if !decision.Verify {
+			reason = "Unauthenticated"
+			resp.Status = &rpcstatus.Status{Code: int32(code.Code_UNAUTHENTICATED)}
+		} else {
+			reason = "Unauthorized"
+			resp.Status = &rpcstatus.Status{Code: int32(code.Code_PERMISSION_DENIED)}
+		}
 	}
 
 	if log.IsLevelEnabled(log.DebugLevel) {
-		d := "DENY"
-		if decision.Allow {
-			d = "ALLOW"
+		logFields := log.Fields{
+			"dry-run":             p.cfg.DryRun,
+			logging.LabelDecision: logDecision,
 		}
-		logging.LogForComponent("envoyExtAuthzGrpcServer").WithFields(log.Fields{
-			"dry-run":  p.cfg.DryRun,
-			"decision": d,
-		}).WithError(err).Debug("Returning policy decision.")
+
+		if !decision.Allow {
+			logFields[logging.LabelReason] = reason
+		}
+
+		logging.LogForComponent("envoyExtAuthzGrpcServer").
+			WithFields(logFields).
+			WithError(err).
+			Debug("Returning policy decision.")
 	}
 
 	// If dry-run mode, override the status code to unconditionally allow the request
