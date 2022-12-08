@@ -106,7 +106,7 @@ func extractChangeType(event fsnotify.Event) watcher.ChangeType {
 
 func closeWatcherOnSIGTERM(fileWatcher *fsnotify.Watcher) {
 	interruptChan := make(chan os.Signal, 1)
-	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
 
 	// Block until we receive our signal.
 	<-interruptChan

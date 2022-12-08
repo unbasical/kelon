@@ -52,7 +52,14 @@ func (ds *mongoDatastoreExecuter) Configure(appConf *configs.AppConfig, alias st
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	err = pingUntilReachable(alias, func() error {
-		return client.Ping(ctx, readpref.Primary())
+		pingErr := client.Ping(ctx, readpref.Primary())
+
+		_ = client.Disconnect(ctx)
+		if pingErr != nil {
+			client, err = mongo.Connect(ctx, clientOptions)
+			return err
+		}
+		return nil
 	})
 	if err != nil {
 		return errors.Wrap(err, "MongoDatastoreExecutor:")

@@ -1,0 +1,104 @@
+- name: "MySQL: First App visible for everyone"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/mysql/apps/1","user":"Test"}}'
+  statusCode: 200
+
+- name: "MySQL: Arnold can access his app"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/mysql/apps/2","user":"Arnold","password":"pw_arnold"}}'
+  statusCode: 200
+
+- name: "MySQL: Anyone can't access Arnold's app"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/mysql/apps/2","user":"Anyone","password":"pw_anyone"}}'
+  statusCode: 403
+
+- name: "MySQL: Kevin can access Arnold's app"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/mysql/apps/2","user":"Kevin","password":"pw_kevin"}}'
+  statusCode: 200
+
+- name: "MySQL: Torben can access Arnold's app"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/mysql/apps/2","user":"Torben","password":"pw_torben"}}'
+  statusCode: 200
+
+- name: "MySQL: Anyone can access app with 5 stars"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/mysql/apps/3","user":"Anyone","password":"pw_anyone"}}'
+  statusCode: 200
+
+- name: "MySQL: Authentication Error"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":["api","mysql","apps","2"],"user":"Arnold","password":"incorrect"}}'
+  statusCode: 401
+
+- name: "PostgreSQL: First App visible for everyone"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/pg/apps/1","user":"Test"}}'
+  statusCode: 200
+
+- name: "PostgreSQL: Arnold can access his app"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/pg/apps/2","user":"Arnold","password":"pw_arnold"}}'
+  statusCode: 200
+
+- name: "PostgreSQL: Anyone can't access Arnold's app"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/pg/apps/2","user":"Anyone","password":"pw_anyone"}}'
+  statusCode: 403
+
+- name: "PostgreSQL: Kevin can access Arnold's app"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/pg/apps/2","user":"Kevin","password":"pw_kevin"}}'
+  statusCode: 200
+
+- name: "PostgreSQL: Torben can access Arnold's app"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/pg/apps/2","user":"Torben","password":"pw_torben"}}'
+  statusCode: 200
+
+- name: "PostgreSQL: Anyone can access app with 5 stars"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/pg/apps/3","user":"Anyone","password":"pw_anyone"}}'
+  statusCode: 200
+
+- name: "PostgreSQL: Authentication Error"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":["api","pg","apps","2"],"user":"Arnold","password":"incorrect"}}'
+  statusCode: 401
+
+- name: "MongoDB: First App visible for everyone"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/mongo/apps/1","user":"Test"}}'
+  statusCode: 200
+
+- name: "MongoDB: Arnold can access his app"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/mongo/apps/2","user":"Arnold","password":"pw_arnold"}}'
+  statusCode: 200
+
+- name: "MongoDB: Anyone can't access Arnold's app"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/mongo/apps/2","user":"Anyone","password":"pw_anyone"}}'
+  statusCode: 403
+
+- name: "MongoDB: Kevin can access Arnold's app"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/mongo/apps/2","user":"Kevin","password":"pw_kevin"}}'
+  statusCode: 200
+
+- name: "MongoDB: Torben can access Arnold's app"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/mongo/apps/2","user":"Torben","password":"pw_torben"}}'
+  statusCode: 200
+
+- name: "MongoDB: Anyone can access app with 5 stars"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/mongo/apps/3","user":"Anyone","password":"pw_anyone"}}'
+  statusCode: 200
+
+- name: "MongoDB: Authentication Error"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":["api","mongo","apps","2"],"user":"Arnold","password":"incorrect"}}'
+  statusCode: 401
