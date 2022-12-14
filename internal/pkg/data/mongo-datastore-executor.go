@@ -103,10 +103,10 @@ func (ds *mongoDatastoreExecuter) Execute(ctx context.Context, query data.Datast
 
 			// Execute query
 			collection := ds.client.Database(ds.conn[dbKey]).Collection(coll)
-			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 
-			count, searchErr := collection.CountDocuments(ctx, filter)
+			count, searchErr := collection.CountDocuments(timeoutCtx, filter)
 			if searchErr != nil {
 				queryResults[index] = mongoQueryResult{
 					err:   searchErr,
