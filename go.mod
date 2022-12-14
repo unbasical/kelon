@@ -10,7 +10,7 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
-	github.com/lib/pq v1.10.6
+	github.com/lib/pq v1.10.7
 	github.com/open-policy-agent/opa v0.47.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
