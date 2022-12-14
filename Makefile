@@ -33,20 +33,7 @@ help: ## Display this help screen
 	@grep -h -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 e2e-test:
-	docker-compose up --build -d
-
-	while [[ "$$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8181/health)" != "200" ]]; do sleep 2; done
-
-	docker run -v $(PWD)/test/e2e:/etc/newman -t \
-		--network="kelon_compose_network" --rm\
-		postman/newman run Kelon_E2E.postman_collection.json \
-		--environment='kelon.postman_environment.json' \
-		--reporters cli,junit \
-		-n 5 \
-		--reporter-junit-export results/e2e-junit-results.xml || (docker-compose down --volumes; exit 1;)
-
-	docker-compose down --volumes
-	exit 0
+	@go test ./test/e2e
 
 load-test:
 	docker-compose up --build -d

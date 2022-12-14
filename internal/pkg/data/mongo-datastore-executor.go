@@ -52,8 +52,17 @@ func (ds *mongoDatastoreExecuter) Configure(appConf *configs.AppConfig, alias st
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	err = pingUntilReachable(alias, func() error {
-		return client.Ping(ctx, readpref.Primary())
+		pingErr := client.Ping(ctx, readpref.Primary())
+
+		if pingErr != nil {
+			_ = client.Disconnect(ctx)
+			client, err = mongo.Connect(ctx, clientOptions)
+			return err
+		}
+		return nil
 	})
+	// Wait for mongo to be able to fulfill query requests
+	time.Sleep(1000 * time.Millisecond)
 	if err != nil {
 		return errors.Wrap(err, "MongoDatastoreExecutor:")
 	}
@@ -94,10 +103,10 @@ func (ds *mongoDatastoreExecuter) Execute(ctx context.Context, query data.Datast
 
 			// Execute query
 			collection := ds.client.Database(ds.conn[dbKey]).Collection(coll)
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 
-			count, searchErr := collection.CountDocuments(ctx, filter)
+			count, searchErr := collection.CountDocuments(timeoutCtx, filter)
 			if searchErr != nil {
 				queryResults[index] = mongoQueryResult{
 					err:   searchErr,
