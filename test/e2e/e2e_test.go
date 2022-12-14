@@ -151,12 +151,15 @@ func (env *E2ETestEnvironment) startKelon() {
 }
 
 func (env *E2ETestEnvironment) waitForKelon() {
-	for {
+	healthy := false
+	for !healthy {
 		resp, httpErr := http.Get(fmt.Sprintf("http://localhost:%d/health", env.kelonPort))
-		if httpErr == nil && resp.StatusCode == http.StatusOK {
-			return
+		if httpErr == nil {
+			if resp.StatusCode == http.StatusOK {
+				healthy = true
+			}
+			_ = resp.Body.Close()
 		}
-		_ = resp.Body.Close()
 	}
 }
 
