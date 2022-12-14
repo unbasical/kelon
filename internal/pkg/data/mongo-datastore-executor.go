@@ -61,6 +61,8 @@ func (ds *mongoDatastoreExecuter) Configure(appConf *configs.AppConfig, alias st
 		}
 		return nil
 	})
+	// Wait for mongo to be able to fulfill query requests
+	time.Sleep(1000 * time.Millisecond)
 	if err != nil {
 		return errors.Wrap(err, "MongoDatastoreExecutor:")
 	}
@@ -101,7 +103,7 @@ func (ds *mongoDatastoreExecuter) Execute(ctx context.Context, query data.Datast
 
 			// Execute query
 			collection := ds.client.Database(ds.conn[dbKey]).Collection(coll)
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 
 			count, searchErr := collection.CountDocuments(ctx, filter)
