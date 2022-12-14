@@ -54,8 +54,8 @@ func (ds *mongoDatastoreExecuter) Configure(appConf *configs.AppConfig, alias st
 	err = pingUntilReachable(alias, func() error {
 		pingErr := client.Ping(ctx, readpref.Primary())
 
-		_ = client.Disconnect(ctx)
 		if pingErr != nil {
+			_ = client.Disconnect(ctx)
 			client, err = mongo.Connect(ctx, clientOptions)
 			return err
 		}
