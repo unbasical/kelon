@@ -3,6 +3,7 @@ apis:
   - path-prefix: /api
     datastores:
       - mysql
+      - pg
     authorization: false
     mappings:
       # Match all requests (If methods are provided, all are matched)

@@ -7,7 +7,7 @@ verify = true {
 verify = true {
     some user
 
-    data.pg.users[user].name == input.user
+    data.pg.pg_users[user].name == input.user
     user.password = input.password
 }
 
@@ -22,7 +22,7 @@ allow = true {
     input.path = ["api", "pg", "apps", appId]
 
     # Join
-    data.pg.users[u].id == data.pg.app_rights[r].user_id
+    data.pg.pg_users[u].id == data.pg.pg_app_rights[r].user_id
 
     # Where
     u.name == input.user
@@ -37,7 +37,7 @@ allow = true {
     input.method == "GET"
     input.path = ["api", "pg", "apps", appId]
 
-    data.pg.apps[app].id == appId
+    data.pg.pg_apps[app].id == appId
     app.stars == 5
 }
 
@@ -54,7 +54,7 @@ allow = true {
     input.method == "GET"
 
     # Query
-    data.pg.users[user].name == input.user
+    data.pg.pg_users[user].name == input.user
     old_or_kevin(user.age, user.friend)
 }
 
@@ -66,7 +66,7 @@ allow = true {
     input.path = ["api", "pg", "apps", "4"]
 
     # Get all apps with 5 starts
-    data.pg.apps[app].stars > 4
+    data.pg.pg_apps[app].stars > 4
 
     #If there is any one return true
     count(app) > 0

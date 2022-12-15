@@ -19,7 +19,7 @@ type PathProcessorConfig struct {
 // Extracted Query-Parameters mapped to their values can i.e. be attached to the input-field of the OPA-query.
 // A slice containing all separated path parts is also returned.
 type PathProcessorOutput struct {
-	Datastore      string
+	Datastores     []string
 	Package        string
 	Authorization  bool
 	Authentication bool

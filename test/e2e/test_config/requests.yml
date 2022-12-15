@@ -102,3 +102,48 @@
   url: "http://%s:%s/v1/data"
   body: '{"input":{"method":"GET","path":["api","mongo","apps","2"],"user":"Arnold","password":"incorrect"}}'
   statusCode: 401
+
+- name:  "Mixed: First App visible for everyone"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/mixed/apps/1", "user": "Test" } }'
+  statusCode: 200
+
+- name: "Mixed: Arnold can access his app"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": [ "api", "mixed", "apps", "2" ], "user": "Arnold", "password": "pw_arnold" } }'
+  statusCode : 200
+
+- name: "Mixed: Anyone can't access Arnold's app"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/mixed/apps/2", "user": "Anyone", "password": "pw_anyone" } }'
+  statusCode : 403
+
+- name: "Mixed: Kevin can access Arnold's app"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/mixed/apps/2", "user": "Kevin", "password": "pw_kevin" } }'
+  statusCode : 200
+
+- name: "Mixed: Torben can access Arnold's app"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/mixed/apps/2", "user": "Torben", "password": "pw_torben" } }'
+  statusCode : 200
+
+- name: "Mixed: Anyone can access app with 5 stars"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/mixed/apps/3", "user": "Anyone", "password": "pw_anyone" } }'
+  statusCode : 200
+
+- name: "Pure: First App visible for everyone"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/pure/apps/1", "user": "Nobody", "password": "pw_nobody" } }'
+  statusCode : 200
+
+- name: "Pure: Other apps only accessible by Torben"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/pure/apps/2", "user": "Torben", "password": "pw_torben" } }'
+  statusCode: 200
+
+- name: "Pure: Other apps not accessible for other than Torben"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/pure/apps/2", "user": "Nobody", "password": "pw_nobody" } }'
+  statusCode: 403

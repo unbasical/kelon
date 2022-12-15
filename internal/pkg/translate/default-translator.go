@@ -9,6 +9,7 @@ import (
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/data"
 	"github.com/unbasical/kelon/pkg/translate"
 )
 
@@ -58,42 +59,63 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *tra
 }
 
 // See translate.AstTranslator.
-func (trans astTranslator) Process(ctx context.Context, response *rego.PartialQueries, datastore string) (bool, error) {
+func (trans *astTranslator) Process(ctx context.Context, response *rego.PartialQueries, datastores []string) (bool, error) {
 	if !trans.configured {
 		return false, errors.Errorf("AstTranslator was not configured! Please call Configure(). ")
 	}
 
-	preprocessedQueries, preprocessErr := newAstPreprocessor().Process(ctx, response.Queries, datastore)
+	preprocessedQueries, preprocessErr := newAstPreprocessor().Process(ctx, response.Queries, datastores)
 	if preprocessErr != nil {
 		return false, errors.Wrap(preprocessErr, "AstTranslator: Error during preprocessing.")
 	}
 
-	processedQuery, processErr := newAstProcessor(trans.config.SkipUnknown, trans.config.ValidateMode).Process(ctx, preprocessedQueries)
-	if processErr != nil {
-		return false, processErr
-	}
-
-	if targetDB, ok := trans.config.Datastores[datastore]; ok {
-		pkg := ctx.Value(constants.ContextKeyRegoPackage).(string)
-
-		labels := map[string]string{
-			constants.LabelRegoPackage: pkg,
-			constants.LabelDBPoolName:  datastore,
+	datastoreSpecificQueries := make(map[string]data.Node)
+	for _, preprocessed := range preprocessedQueries {
+		processedQuery, processErr := newAstProcessor(trans.config.SkipUnknown, trans.config.ValidateMode).Process(ctx, preprocessed.query)
+		if processErr != nil {
+			return false, processErr
 		}
 
-		function := func(ctx context.Context, args ...interface{}) (interface{}, error) {
-			startTime := time.Now()
-			decision, err := (*targetDB).Execute(ctx, processedQuery)
-			duration := time.Since(startTime)
-
-			// Update Metrics
-			trans.appConf.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, duration.Milliseconds(), labels)
-			return decision, err
+		node, ok := datastoreSpecificQueries[preprocessed.datastore]
+		if !ok {
+			node = data.Union{Clauses: []data.Node{}}
 		}
+		union, _ := node.(data.Union)
 
-		val, err := trans.appConf.TraceProvider.ExecuteWithChildSpan(ctx, function, spanNameDatastoreQuery, labels)
-
-		return val.(bool), err
+		datastoreSpecificQueries[preprocessed.datastore] = data.Union{Clauses: append(union.Clauses, processedQuery)}
 	}
-	return false, errors.Errorf("AstTranslator: Unable to find datastore: " + datastore)
+
+	for datastore, specificQuery := range datastoreSpecificQueries {
+		queryToExecute := specificQuery
+		if targetDB, ok := trans.config.Datastores[datastore]; ok {
+			pkg := ctx.Value(constants.ContextKeyRegoPackage).(string)
+
+			labels := map[string]string{
+				constants.LabelRegoPackage: pkg,
+				constants.LabelDBPoolName:  datastore,
+			}
+
+			function := func(ctx context.Context, args ...interface{}) (interface{}, error) {
+				startTime := time.Now()
+				decision, err := (*targetDB).Execute(ctx, queryToExecute)
+				duration := time.Since(startTime)
+
+				// Update Metrics
+				trans.appConf.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, duration.Milliseconds(), labels)
+				return decision, err
+			}
+
+			res, err := trans.appConf.TraceProvider.ExecuteWithChildSpan(ctx, function, spanNameDatastoreQuery, labels)
+			if err != nil {
+				return false, err
+			}
+
+			if res.(bool) {
+				return true, nil
+			}
+		} else {
+			return false, errors.Errorf("AstTranslator: Unable to find datastore: %s", datastore)
+		}
+	}
+	return false, nil
 }

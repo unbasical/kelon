@@ -169,3 +169,63 @@ queries:
       users: '{ "$or": [ {"name": "Nobody", "password": "pw_nobody"} ] }'
     params: ""
     text: "Mongo - Verify: Policy has unknown function"
+  33:
+    query:
+      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND $2 = appstore.users.password)"
+    params: "Arnold, pw_arnold"
+    text: "Mixed - Verify: Arnold can access his app"
+  34:
+    query:
+      users: '{ "$or": [ {"name": "Arnold", "friend": "Kevin"}, {"name": "Arnold", "age": 42} ] }'
+      sql: "SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $1 = appstore.users.name AND appstore.app_rights.right = $2 AND appstore.app_rights.app_id = $3) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $4 AND appstore.apps.stars = $5)"
+    params: "Arnold, OWNER, 2, 2, 5"
+    text: "Mixed - Allow: Arnold can access his app"
+  35:
+    query:
+      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND $2 = appstore.users.password)"
+    params: "Anyone, pw_anyone"
+    text: "Mixed - Verify: Anyone can't access Arnold's app"
+  36:
+    query:
+      users: '{ "$or": [ {"name": "Anyone", "age": 42}, {"name": "Anyone", "friend": "Kevin"} ] }'
+      sql: "SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $1 = appstore.users.name AND appstore.app_rights.right = $2 AND appstore.app_rights.app_id = $3) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $4 AND appstore.apps.stars = $5)"
+    params: "Anyone, OWNER, 2, 2, 5"
+    text: "Mixed - Allow: Anyone can't access Arnold's app"
+  37:
+    query:
+      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND $2 = appstore.users.password)"
+    params: "Kevin, pw_kevin"
+    text: "Mixed - Verify: Kevin can access Arnold's app"
+  38:
+    query:
+      users: '{ "$or": [ {"name": "Kevin", "age": 42}, {"name": "Kevin", "friend": "Kevin"} ] }'
+      sql: "SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $1 = appstore.users.name AND appstore.app_rights.right = $2 AND appstore.app_rights.app_id = $3) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $4 AND appstore.apps.stars = $5)"
+    params: "Kevin, OWNER, 2, 2, 5"
+    text: "Mixed - Allow: Kevin can access Arnold's app"
+  39:
+    query:
+      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND $2 = appstore.users.password)"
+    params: "Torben, pw_torben"
+    text: "Mixed - Verify: Torben can access Arnold's app"
+  40:
+    query:
+      users: '{ "$or": [ {"name": "Torben", "age": 42}, {"name": "Torben", "friend": "Kevin"} ] }'
+      sql: "SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $1 = appstore.users.name AND appstore.app_rights.right = $2 AND appstore.app_rights.app_id = $3) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $4 AND appstore.apps.stars = $5)"
+    params: "Torben, OWNER, 2, 2, 5"
+    text: "Mixed - Allow: Torben can access Arnold's app"
+  41:
+    query:
+      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND $2 = appstore.users.password)"
+    params: "Anyone, pw_anyone"
+    text: "Mixed - Verify: Anyone can access app with 5 stars"
+  42:
+    query:
+      users: '{ "$or": [ {"name": "Anyone", "age": 42}, {"name": "Anyone", "friend": "Kevin"} ] }'
+      sql: "SELECT count(*) FROM appstore.users, appstore.app_rights WHERE (appstore.users.id = appstore.app_rights.user_id AND $1 = appstore.users.name AND appstore.app_rights.right = $2 AND appstore.app_rights.app_id = $3) UNION SELECT count(*) FROM appstore.apps WHERE (appstore.apps.id = $4 AND appstore.apps.stars = $5)"
+    params: "Anyone, OWNER, 2, 2, 5"
+    text: "Mixed - Allow: Anyone can access app with 5 stars"
+  43:
+    query:
+      sql: "SELECT count(*) FROM appstore.users WHERE ($1 = appstore.users.name AND $2 = appstore.users.password)"
+    params: "Nobody, pw_nobody"
+    text: "Mixed - Verify: Policy has unknown function"

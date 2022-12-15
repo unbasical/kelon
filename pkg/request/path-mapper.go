@@ -39,7 +39,7 @@ type PathNotFoundError struct {
 
 // Output returned by the RequestMapper.
 type MapperOutput struct {
-	Datastore      string
+	Datastores     []string
 	Package        string
 	Authorization  bool
 	Authentication bool
