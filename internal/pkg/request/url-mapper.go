@@ -26,7 +26,7 @@ type compiledMapping struct {
 	authorization  bool
 	authentication bool
 	importance     int
-	datastore      string
+	datastores     []string
 }
 
 type pathMapperInput struct {
@@ -109,7 +109,7 @@ func (mapper pathMapper) handleInput(input *pathMapperInput) (*request.MapperOut
 
 		// Match found
 		return &request.MapperOutput{
-			Datastore:      matches[0].datastore,
+			Datastores:     matches[0].datastores,
 			Package:        matches[0].mapping.Package,
 			Authentication: matches[0].authentication,
 			Authorization:  matches[0].authorization,
@@ -155,7 +155,7 @@ func (mapper *pathMapper) generateMappings() error {
 				authentication: *dsMapping.Authentication,
 				authorization:  *dsMapping.Authorization,
 				importance:     len(pathPrefix) + len(mapping.Path) + queriesCount + endpointsCount,
-				datastore:      dsMapping.Datastore,
+				datastores:     dsMapping.Datastores,
 			})
 		}
 	}

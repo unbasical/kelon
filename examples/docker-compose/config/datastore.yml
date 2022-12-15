@@ -59,10 +59,15 @@ entity_schemas:
     appstore:
       entities:
         - name: users
+          alias: pg_users
         - name: app_rights
+          alias: pg_app_rights
         - name: apps
+          alias: pg_apps
         - name: app_tags
+          alias: pg_app_tags
         - name: tags
+          alias: pg_tags
 
   mongo:
     appstore:

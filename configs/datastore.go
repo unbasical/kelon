@@ -2,9 +2,7 @@ package configs
 
 import (
 	"os"
-	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
@@ -105,50 +103,4 @@ func (entity Entity) getMappedName() string {
 		return entity.Alias
 	}
 	return entity.Name
-}
-
-func (conf DatastoreConfig) validate() error {
-	// Find custom mapping
-	for dsAlias, ds := range conf.DatastoreSchemas {
-		duplicatesCache := make(map[string]*Entity)
-		for schemaName, schema := range ds {
-			for _, entity := range schema.Entities {
-				// Search for duplicated entities inside all schemas for a datastore
-				search := entity.getMappedName()
-				if match, ok := duplicatesCache[search]; ok {
-					return errors.Errorf("The entity with name %q collides with entity %q inside all entitiy_schemas of the datastore %q!", entity.Name, match.Name, dsAlias)
-				}
-				duplicatesCache[search] = entity
-
-				// Search for any ambiguity inside each level of nested entities
-				if err := findEntityAmbiguity(*entity, []string{}); err != nil {
-					return errors.Wrapf(err, "Found ambiguous nested entities in datastore %q schema %q", dsAlias, schemaName)
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func findEntityAmbiguity(entity Entity, pathHistory []string) error {
-	// Reached end of recursion
-	if entity.Entities == nil {
-		return nil
-	}
-
-	// Crawl all nested entities and check for ambiguity on each level
-	duplicatesCache := make(map[string]*Entity)
-	for _, child := range entity.Entities {
-		search := child.getMappedName()
-		if match, ok := duplicatesCache[search]; ok {
-			return errors.Errorf("The entity with name %q collides with entity %q inside path %q!", child.Name, match.Name, strings.Join(pathHistory, " -> "))
-		}
-		duplicatesCache[search] = child
-
-		// Descend one level in entity tree
-		if err := findEntityAmbiguity(*child, append(pathHistory, search)); err != nil {
-			return err
-		}
-	}
-	return nil
 }

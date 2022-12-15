@@ -62,7 +62,7 @@ var wantAPIConfig = &configs.APIConfig{
 	Mappings: []*configs.DatastoreAPIMapping{
 		{
 			Prefix:         "/api",
-			Datastore:      "mysql",
+			Datastores:     []string{"mysql"},
 			Authorization:  &boolFalse,
 			Authentication: &boolTrue,
 			Mappings: []*configs.APIMapping{
@@ -131,7 +131,7 @@ func TestLoadAmbiguousEntitiesDatastoreFile(t *testing.T) {
 		DatastoreConfigPath: "./testdata/datastore_ambiguous_entities.yml",
 		APIConfigPath:       "./testdata/api.yml",
 	}.Load()
-	assert.EqualError(t, err, "Loaded invalid datastore config: The entity with name \"irrelevant\" collides with entity \"users\" inside all entitiy_schemas of the datastore \"mysql\"!")
+	assert.EqualError(t, err, "Loaded invalid datastore config: The entity \"mysql.appstore.irrelevant\" collides with entity \"mysql.appstore.users\"!")
 }
 
 func TestLoadAmbiguousNestedEntitiesDatastoreFile(t *testing.T) {
@@ -151,4 +151,22 @@ func TestLoadNotExistingApiFile(t *testing.T) {
 	if err == nil || err.Error() != "open ./api-not-existing.yml: no such file or directory" {
 		t.Error("File not found error not thrown!")
 	}
+}
+
+func TestLoadApiWithoutDatastores(t *testing.T) {
+	_, err := configs.FileConfigLoader{
+		DatastoreConfigPath: "./testdata/datastore.yml",
+		APIConfigPath:       "./testdata/api_no_datastores.yml",
+	}.Load()
+
+	assert.NoError(t, err, "")
+}
+
+func TestLoadAmbiguousEntitiesCausedByAPIMapping(t *testing.T) {
+	_, err := configs.FileConfigLoader{
+		DatastoreConfigPath: "./testdata/datastore_ambiguous_combined.yml",
+		APIConfigPath:       "./testdata/api_ambiguous_entities.yml",
+	}.Load()
+
+	assert.EqualError(t, err, "Loaded invalid datastore config: The entity \"pg.appstore.user_followers\" collides with entity \"mysql.appstore.followers\"!")
 }

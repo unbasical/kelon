@@ -173,7 +173,7 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 	if err != nil {
 		return nil, err
 	}
-	logging.LogForComponent("policyCompiler").Debugf("Mapped request [%s] to: Datastores [%s] Package: [%s]", inputURL, output.Datastore, output.Package)
+	logging.LogForComponent("policyCompiler").Debugf("Mapped request [%s] to: Datastores [%+v] Package: [%s]", inputURL, output.Datastores, output.Package)
 	return output, nil
 }
 
@@ -194,7 +194,7 @@ func (compiler *policyCompiler) evalFunction(ctx context.Context, function strin
 	}
 
 	// Otherwise translate ast
-	return (*compiler.config.Translator).Process(context.WithValue(ctx, constants.ContextKeyRegoPackage, output.Package), queries, output.Datastore)
+	return (*compiler.config.Translator).Process(context.WithValue(ctx, constants.ContextKeyRegoPackage, output.Package), queries, output.Datastores)
 }
 
 func (compiler *policyCompiler) opaCompile(ctx context.Context, input map[string]interface{}, function string, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
@@ -255,7 +255,10 @@ func extractURLFromRequestBody(input map[string]interface{}) (*url.URL, error) {
 }
 
 func (compiler *policyCompiler) extractOpaOpts(output *request.PathProcessorOutput) []func(*rego.Rego) {
-	unknowns := []string{fmt.Sprintf("data.%s", output.Datastore)}
+	unknowns := make([]string, len(output.Datastores))
+	for i, datastore := range output.Datastores {
+		unknowns[i] = fmt.Sprintf("data.%s", datastore)
+	}
 	logging.LogForComponent("policyCompiler").Debugf("Sending unknowns %+v", unknowns)
 	return []func(*rego.Rego){
 		rego.Unknowns(unknowns),

@@ -99,6 +99,7 @@ func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration)
 	// init policyCompiler to set up configWatcher
 	testEnvironment := PolicyCompilerTestEnvironment{
 		name:                 name,
+		t:                    t,
 		policyCompiler:       opa2.NewPolicyCompiler(),
 		configWatcher:        watcherInt.NewFileWatcher(configLoader, config.policiesPath),
 		opaPath:              config.opaPath,
@@ -155,6 +156,7 @@ func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration)
 			t.FailNow()
 		}
 		counter++
+		logging.LogForComponent("mockedDatastoreExecuter").Infof("PASS: %s", testName)
 	}
 }
 

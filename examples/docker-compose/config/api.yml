@@ -1,7 +1,8 @@
 apis:
   # Route all requests starting with /api/mysql to mysql database
   - path-prefix: /api/mysql
-    datastore: mysql
+    datastores:
+      - mysql
     mappings:
       - path: /apps/.*                   # Matches [GET,POST,PUT,DELETE,PATCH] /api/mysql/apps/.*
         package: applications.mysql
@@ -15,13 +16,30 @@ apis:
         package: test
   # Route all requests starting with /api/mongo to MongoDB
   - path-prefix: /api/mongo
-    datastore: mongo
+    datastores:
+      - mongo
     mappings:
       - path: /apps/.*
         package: applications.mongo
+  # Route all requests staring with /api/pure to no Datastore without authentication
+  - path-prefix: /api/pure
+    authentication: false
+    mappings:
+      - path: /apps/.*
+        package: applications.pure
+  # Route all requests starting with /api/mixed to MongoDB and Postgres
+  - path-prefix: /api/mixed
+    datastores:
+      - mongo
+      - pg
+    authentication: false
+    mappings:
+      - path: /apps/.*
+        package: applications.mixed
   # All other requests are routed to postgres
   - path-prefix: /api/.*?
-    datastore: pg
+    datastores:
+      - pg
     mappings:
       - path: /apps/.*
         package: applications.pg

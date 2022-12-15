@@ -68,7 +68,7 @@ func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
 	}
 
 	// Validate config
-	if err := result.Data.validate(); err != nil {
+	if err := result.API.validate(result.Data); err != nil {
 		return nil, errors.Wrap(err, "Loaded invalid datastore config")
 	}
 

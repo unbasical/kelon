@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sort"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -56,12 +58,17 @@ func (m *MockedDatastoreExecuter) Execute(ctx context.Context, query data.Datast
 	if reflect.ValueOf(query.Statement).Kind() == reflect.Map {
 		convertedStatement := query.Statement.(map[string]string)
 		for key, value := range convertedStatement {
-			if currentResponse.Query[key] != value {
-				m.t.Errorf("Testname: %s / Count %d / Key %s : Query %s does not match expected result %s", m.testName, m.counter, key, value, currentResponse.Query[key])
+			expected, ok := currentResponse.Query[key]
+			if !ok {
+				m.t.Errorf("Testname: %s / Count %d : Did not expect a query with key [%s]", m.testName, m.counter, key)
+				m.t.FailNow()
+			}
+			if !m.assertStrings(expected, value) {
+				m.t.Errorf("Testname: %s / Count %d / Key %s : Query [%s] does not match expected result [%s]", m.testName, m.counter, key, value, expected)
 				m.t.FailNow()
 			}
 		}
-	} else {
+	} else if reflect.ValueOf(query.Statement).Kind() == reflect.String {
 		// convert params slice to single string
 		paramsString := ""
 		for _, value := range query.Parameters {
@@ -73,13 +80,44 @@ func (m *MockedDatastoreExecuter) Execute(ctx context.Context, query data.Datast
 		}
 
 		// assert statement and params
-		if query.Statement != currentResponse.Query["sql"] && paramsString != currentResponse.Params {
-			m.t.Errorf("Testname: %s / Count %d : Query %s / %s does not match expected result %s / %s", m.testName, m.counter, query.Statement, paramsString, currentResponse.Query, currentResponse.Params)
+		expected, ok := currentResponse.Query["sql"]
+		if !ok {
+			m.t.Errorf("Testname: %s / Count %d : Did expect a query with key [sql]", m.testName, m.counter)
 			m.t.FailNow()
 		}
+		if !m.assertStrings(expected, query.Statement.(string)) && !m.assertStrings(paramsString, currentResponse.Params) {
+			m.t.Errorf("Testname: %s / Count %d : Query [%s / %s] does not match expected result [%s / %s]", m.testName, m.counter, query.Statement, paramsString, currentResponse.Query, currentResponse.Params)
+			m.t.FailNow()
+		}
+	} else {
+		m.t.Errorf("Testname: %s / Count %d : Unsupported Query type %T", m.testName, m.counter, query.Statement)
+		m.t.FailNow()
 	}
 	m.counter++
 	return true, nil
+}
+
+func (m *MockedDatastoreExecuter) assertStrings(expected, got string) bool {
+	for _, specialRune := range strings.Split(",:;\"'()[]{}", "") {
+		expected = strings.ReplaceAll(expected, specialRune, "")
+		got = strings.ReplaceAll(got, specialRune, "")
+	}
+
+	expectedTokens := strings.Split(expected, " ")
+	sort.Strings(expectedTokens)
+
+	gotTokens := strings.Split(got, " ")
+	sort.Strings(gotTokens)
+
+	if len(expectedTokens) != len(gotTokens) {
+		return false
+	}
+	for i, v := range expectedTokens {
+		if v != gotTokens[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (m *MockedDatastoreExecuter) Configure(appConf *configs.AppConfig, alias string) error {

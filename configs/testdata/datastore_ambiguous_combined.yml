@@ -1,0 +1,39 @@
+# Datastores to connect to
+datastores:
+  mysql:
+    type: mysql
+    connection:
+      host: "localhost"
+      port: 3306
+      database: mysql
+      user: mysql
+      password: SuperSecure
+    metadata:
+      default_schema: default
+  pg:
+    type: postgres
+    connection:
+      host: "localhost"
+      port: 5432
+      database: postgres
+      user: postgres
+      password: SuperSecure
+    metadata:
+      default_schema: default
+
+# Entity-Schemas define the structure of the entities of one schema inside a datastore
+entity_schemas:
+  mysql:                             # Target datastore
+    appstore:                           # Target schema
+      entities:                         # List of all entities of the schema
+        - name: users
+        - name: user_followers
+          alias: followers
+  pg:                               # Target datastore
+    appstore:                           # Target schema
+      entities:                         # List of all entities of the schema
+        - name: users
+          alias: pg_users
+        - name: user_followers
+          alias: followers
+

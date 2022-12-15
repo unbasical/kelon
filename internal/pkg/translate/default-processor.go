@@ -29,7 +29,7 @@ func newAstProcessor(skipUnknown, validateMode bool) *astProcessor {
 }
 
 // See translate.AstTranslator.
-func (p *astProcessor) Process(ctx context.Context, queries []ast.Body) (data.Node, error) {
+func (p *astProcessor) Process(ctx context.Context, query ast.Body) (data.Node, error) {
 	p.link = make(map[string]interface{})
 	p.conjunctions = []data.Node{}
 	p.entities = make(map[string]interface{})
@@ -38,32 +38,29 @@ func (p *astProcessor) Process(ctx context.Context, queries []ast.Body) (data.No
 	p.errors = []string{}
 
 	// NEW ERA
-	clauses := make([]data.Node, len(queries))
-	for i, q := range queries {
-		p.translateQuery(q)
-		condition := data.Condition{Clause: data.Conjunction{Clauses: append(p.conjunctions[:0:0], p.conjunctions...)}}
+	var clause data.Node
+	p.translateQuery(query)
+	condition := data.Condition{Clause: data.Conjunction{Clauses: append(p.conjunctions[:0:0], p.conjunctions...)}}
 
-		// Add new Query
-		delete(p.link, p.fromEntity.String())
-		clauses[i] = data.Query{
-			From:      *p.fromEntity,
-			Link:      toDataLink(p.link),
-			Condition: condition,
-		}
-
-		// Cleanup
-		p.conjunctions = p.conjunctions[:0]
-		p.fromEntity = nil
-		p.link = make(map[string]interface{})
+	// Add new Query
+	delete(p.link, p.fromEntity.String())
+	clause = data.Query{
+		From:      *p.fromEntity,
+		Link:      toDataLink(p.link),
+		Condition: condition,
 	}
+
+	// Cleanup
+	p.conjunctions = p.conjunctions[:0]
+	p.fromEntity = nil
+	p.link = make(map[string]interface{})
 
 	// AST transformation did produce errors
 	if len(p.errors) > 0 {
 		return nil, internalErrors.InvalidRequestTranslation{Causes: p.errors}
 	}
 
-	var result data.Node = data.Union{Clauses: clauses}
-	return result, nil
+	return clause, nil
 }
 
 func toDataLink(linkedEntities map[string]interface{}) data.Link {
