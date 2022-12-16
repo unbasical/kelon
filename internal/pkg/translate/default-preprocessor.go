@@ -2,7 +2,6 @@ package translate
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/open-policy-agent/opa/ast"
@@ -154,7 +153,7 @@ func (processor *astPreprocessor) substituteVars(terms []*ast.Term) ([]*ast.Term
 		if sub, ok := processor.localVars[v.String()]; ok {
 			transformedTerms = append(transformedTerms, sub)
 		} else {
-			return nil, errors.New(fmt.Sprintf("Undefined variable %s", v.String()))
+			return nil, errors.Errorf("Undefined variable %s", v.String())
 		}
 	}
 	return transformedTerms, nil
