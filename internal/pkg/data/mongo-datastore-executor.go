@@ -57,12 +57,12 @@ func (ds *mongoDatastoreExecuter) Configure(appConf *configs.AppConfig, alias st
 		if pingErr != nil {
 			_ = client.Disconnect(ctx)
 			client, err = mongo.Connect(ctx, clientOptions)
+			time.Sleep(1000 * time.Millisecond)
 			return err
 		}
 		return nil
 	})
 	// Wait for mongo to be able to fulfill query requests
-	time.Sleep(1000 * time.Millisecond)
 	if err != nil {
 		return errors.Wrap(err, "MongoDatastoreExecutor:")
 	}

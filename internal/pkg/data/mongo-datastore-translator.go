@@ -107,9 +107,9 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) (map[string]strin
 	result := make(map[string]string)
 	filtersByCollection := make(map[string][]string)
 	var filters []colFilter
-	var entities util.SStack
-	var relations util.SStack
-	var operands util.OpStack
+	var entities util.Stack[string]
+	var relations util.Stack[string]
+	var operands util.Stack[[]string]
 	// Walk input
 	err := input.Walk(func(q data.Node) error {
 		switch v := q.(type) {
@@ -165,12 +165,18 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) (map[string]strin
 				condition string
 			)
 			// Extract entity
-			entities, entity = entities.Pop()
+			entity, err := entities.Pop()
+			if err != nil {
+				return err
+			}
 			// Extract condition
-			if len(relations) > 0 {
-				condition = relations[0]
-				if len(relations) != 1 {
-					return errors.Errorf("MongoDatastoreTranslator: Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", len(relations))
+			if !relations.IsEmpty() {
+				condition, err = relations.Peek()
+				if err != nil {
+					return err
+				}
+				if relations.Size() != 1 {
+					return errors.Errorf("MongoDatastoreTranslator: Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", relations.Size())
 				}
 			}
 
@@ -179,28 +185,38 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) (map[string]strin
 				collection: entity,
 				filter:     condition,
 			})
-			relations = relations[:0]
+			relations.Clear()
 		case data.Link:
 			// Reset entities because mongo does not join, but can only access directly nested elements!
-			entities = entities[:0]
+			entities.Clear()
 		case data.Condition:
 			// Skip condition
 		case data.Conjunction:
 			// Expected stack: relations-top -> [conjunctions ...]
-			if len(relations) > 0 {
-				relations = relations[:0].Push(fmt.Sprintf("{%s}", strings.Join(relations, ", ")))
+			if !relations.IsEmpty() {
+				rels := relations.Values()
+				relations.Clear()
+				relations.Push(fmt.Sprintf("{%s}", strings.Join(rels, ", ")))
 				logging.LogForComponent("mongoDatastoreTranslator").Debugf("CONJUNCTION: relations |%+v <- TOP", relations)
 			}
 		case data.Attribute:
 			// Expected stack:  top -> [entity, ...]
 			var entity string
-			entities, entity = entities.Pop()
+			entity, err := entities.Pop()
+			if err != nil {
+				return err
+			}
 			// Mark entity with . to be replaced in finished query
-			operands.AppendToTop(fmt.Sprintf("\"{{%s.}}%s\"", entity, v.Name))
+			if err := util.AppendToTop(&operands, fmt.Sprintf("\"{{%s.}}%s\"", entity, v.Name)); err != nil {
+				return err
+			}
 		case data.Call:
 			// Expected stack:  top -> [args..., call-op]
 			var ops []string
-			operands, ops = operands.Pop()
+			ops, err := operands.Pop()
+			if err != nil {
+				return err
+			}
 			op := ops[0]
 
 			// Sort call operands in case of eq operation
@@ -229,24 +245,32 @@ func (ds *mongoDatastoreTranslator) translate(input data.Node) (map[string]strin
 				return errors.Errorf("MongoDatastoreTranslator: Unable to find mapping for operator [%s] in your policy by any of your datastore config!", op)
 			}
 
-			if len(operands) > 0 {
+			if operands.Size() > 0 {
 				// If we are in nested call -> push as operand
-				operands.AppendToTop(nextRel)
+				if err := util.AppendToTop(&operands, nextRel); err != nil {
+					return err
+				}
 			} else {
 				// We reached root operation -> relation is processed
-				relations = relations.Push(nextRel)
+				relations.Push(nextRel)
 				logging.LogForComponent("mongoDatastoreTranslator").Debugf("RELATION DONE: relations |%+v <- TOP", relations)
 			}
 		case data.Operator:
-			operands = operands.Push([]string{})
-			operands.AppendToTop(v.String())
+			operands.Push([]string{})
+			if err := util.AppendToTop(&operands, v.String()); err != nil {
+				return err
+			}
 		case data.Entity:
-			entities = entities.Push(v.String())
+			entities.Push(v.String())
 		case data.Constant:
 			if v.IsNumeric {
-				operands.AppendToTop(v.String())
+				if err := util.AppendToTop(&operands, v.String()); err != nil {
+					return err
+				}
 			} else {
-				operands.AppendToTop(fmt.Sprintf("\"%s\"", v.String()))
+				if err := util.AppendToTop(&operands, fmt.Sprintf("\"%s\"", v.String())); err != nil {
+					return err
+				}
 			}
 		default:
 			// Stop function in case of error
