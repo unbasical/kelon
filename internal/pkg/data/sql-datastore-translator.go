@@ -95,13 +95,13 @@ func (ds *sqlDatastoreTranslator) Execute(ctx context.Context, query data.Node) 
 
 // nolint:gocyclo,gocritic
 func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, params []interface{}, err error) {
-	var query util.SStack
-	var selects util.SStack
-	var entities util.SStack
-	var relations util.SStack
-	var joins util.SStack
+	var query util.Stack[string]
+	var selects util.Stack[string]
+	var entities util.Stack[string]
+	var relations util.Stack[string]
+	var joins util.Stack[string]
 
-	var operands util.OpStack
+	var operands util.Stack[[]string]
 
 	// Used for prepared statements
 	var values []interface{}
@@ -111,8 +111,8 @@ func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, 
 		switch v := q.(type) {
 		case data.Union:
 			// Expected stack:  top -> [Queries...]
-			query = query.Push(strings.Join(selects, " UNION "))
-			selects = selects[:0]
+			query.Push(strings.Join(selects.Values(), " UNION "))
+			selects.Clear()
 		case data.Query:
 			// Expected stack: entities-top -> [singleEntity] relations-top -> [singleCondition]
 			var (
@@ -121,59 +121,79 @@ func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, 
 				condition  string
 			)
 			// Extract entity
-			entities, entity = entities.Pop()
+			entity, err = entities.Pop()
+			if err != nil {
+				return err
+			}
 			// Extract joins
-			for _, j := range joins {
+			for _, j := range joins.Values() {
 				joinClause += j
 			}
 			// Extract condition
-			if len(relations) > 0 {
-				condition = relations[0]
-				if len(relations) != 1 {
-					return errors.Errorf("SqlDatastoreTranslator: Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", len(relations))
+			if !relations.IsEmpty() {
+				condition, err = relations.Peek()
+				if err != nil {
+					return err
+				}
+				if relations.Size() != 1 {
+					return errors.Errorf("SqlDatastoreTranslator: Error while building Query: Too many relations left to build 1 condition! len(relations) = %d", relations.Size())
 				}
 			}
 
 			//nolint:gosec
-			selects = selects.Push(fmt.Sprintf("SELECT count(*) FROM %s%s%s", entity, joinClause, condition))
-			joins = joins[:0]
-			relations = relations[:0]
+			selects.Push(fmt.Sprintf("SELECT count(*) FROM %s%s%s", entity, joinClause, condition))
+			joins.Clear()
+			relations.Clear()
 		case data.Link:
 			// Expected stack: entities-top -> [entities]
-			for _, entity := range entities {
-				joins = joins.Push(fmt.Sprintf(", %s", entity))
+			for _, entity := range entities.Values() {
+				joins.Push(fmt.Sprintf(", %s", entity))
 			}
-			entities = entities[:0]
+			entities.Clear()
 		case data.Condition:
 			// Expected stack: relations-top -> [singleRelation]
-			if len(relations) > 0 {
+			if !relations.IsEmpty() {
 				var rel string
-				relations, rel = relations.Pop()
+				rel, err = relations.Pop()
+				if err != nil {
+					return err
+				}
 				//nolint:gosec
-				relations = relations.Push(fmt.Sprintf(" WHERE %s", rel))
+				relations.Push(fmt.Sprintf(" WHERE %s", rel))
 				logging.LogForComponent("sqlDatastoreTranslator").Debugf("CONDITION: relations |%+v <- TOP", relations)
 			}
 		case data.Disjunction:
 			// Expected stack: relations-top -> [disjunctions ...]
-			if len(relations) > 0 {
-				relations = relations[:0].Push(fmt.Sprintf("(%s)", strings.Join(query, " OR ")))
+			if !relations.IsEmpty() {
+				relations.Clear()
+				relations.Push(fmt.Sprintf("(%s)", strings.Join(query.Values(), " OR ")))
 				logging.LogForComponent("sqlDatastoreTranslator").Debugf("DISJUNCTION: relations |%+v <- TOP", relations)
 			}
 		case data.Conjunction:
 			// Expected stack: relations-top -> [conjunctions ...]
-			if len(relations) > 0 {
-				relations = relations[:0].Push(fmt.Sprintf("(%s)", strings.Join(relations, " AND ")))
+			if !relations.IsEmpty() {
+				rels := relations.Values()
+				relations.Clear()
+				relations.Push(fmt.Sprintf("(%s)", strings.Join(rels, " AND ")))
 				logging.LogForComponent("sqlDatastoreTranslator").Debugf("CONJUNCTION: relations |%+v <- TOP", relations)
 			}
 		case data.Attribute:
 			// Expected stack:  top -> [entity, ...]
 			var entity string
-			entities, entity = entities.Pop()
-			operands.AppendToTop(fmt.Sprintf("%s.%s", entity, v.Name))
+			entity, err = entities.Pop()
+			if err != nil {
+				return err
+			}
+			if err = util.AppendToTop(&operands, fmt.Sprintf("%s.%s", entity, v.Name)); err != nil {
+				return err
+			}
 		case data.Call:
 			// Expected stack:  top -> [args..., call-op]
 			var ops []string
-			operands, ops = operands.Pop()
+			ops, err = operands.Pop()
+			if err != nil {
+				return err
+			}
 			op := ops[0]
 
 			// Handle Call
@@ -190,17 +210,21 @@ func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, 
 			} else {
 				return errors.Errorf("SqlDatastoreTranslator: Unable to find mapping for operator [%s] in your policy by any of your datastore config!", op)
 			}
-			if len(operands) > 0 {
+			if !operands.IsEmpty() {
 				// If we are in nested call -> push as operand
-				operands.AppendToTop(nextRel)
+				if err = util.AppendToTop(&operands, nextRel); err != nil {
+					return err
+				}
 			} else {
 				// We reached root operation -> relation is processed
-				relations = relations.Push(nextRel)
+				relations.Push(nextRel)
 				logging.LogForComponent("sqlDatastoreTranslator").Debugf("RELATION DONE: relations |%+v <- TOP", relations)
 			}
 		case data.Operator:
-			operands = operands.Push([]string{})
-			operands.AppendToTop(v.String())
+			operands.Push([]string{})
+			if err = util.AppendToTop(&operands, v.String()); err != nil {
+				return err
+			}
 		case data.Entity:
 			schema, entity, schemaError := ds.findSchemaForEntity(v.String())
 			if schemaError != nil {
@@ -208,14 +232,17 @@ func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, 
 			}
 			if schema == "public" && ds.appConf.Data.Datastores[ds.alias].Type == "postgres" {
 				// Special handle when datastore is postgres and schema is public
-				entities = entities.Push(entity.Name)
+				entities.Push(entity.Name)
 			} else {
 				// Normal case for all entities
-				entities = entities.Push(fmt.Sprintf("%s.%s", schema, entity.Name))
+				entities.Push(fmt.Sprintf("%s.%s", schema, entity.Name))
 			}
 		case data.Constant:
 			values = append(values, v.String())
-			operands.AppendToTop(getPreparePlaceholderForPlatform(ds.platform, len(values)))
+			if err = util.AppendToTop(&operands, getPreparePlaceholderForPlatform(ds.platform, len(values))); err != nil {
+				return err
+			}
+
 		default:
 			return errors.Errorf("SqlDatastoreTranslator: Unexpected input: %T -> %+v", v, v)
 		}
@@ -224,7 +251,7 @@ func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, 
 	if err != nil {
 		logging.LogForComponent("sqlDatastoreTranslator: ").Debug(err)
 	}
-	return strings.Join(query, ""), values, err
+	return strings.Join(query.Values(), ""), values, err
 }
 
 func (ds *sqlDatastoreTranslator) findSchemaForEntity(search string) (string, *configs.Entity, error) {

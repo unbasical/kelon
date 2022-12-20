@@ -40,6 +40,10 @@ linters-settings:
   funlen:
     lines: 100
     statements: 50
+  revive:
+    rules:
+      - name: error-strings
+        disabled: true
 
 linters:
   # please, do not use `enable-all`: it's deprecated and will be removed soon.
@@ -47,11 +51,11 @@ linters:
   disable-all: true
   enable:
     - bodyclose
-    - deadcode
     - depguard
     - dogsled
     - dupl
     - errcheck
+    - exportloopref
     - gochecknoinits
     - goconst
     - gocritic
@@ -59,26 +63,22 @@ linters:
     - gocyclo
     - gofmt
     - goimports
-    - golint
     - gosec
     - gosimple
     - govet
     - ineffassign
-    - interfacer
     - misspell
     - nakedret
-    - scopelint
+    - revive
     - staticcheck
-    - structcheck
     - stylecheck
     - typecheck
     - unconvert
     - unparam
     - unused
-    - varcheck
     - whitespace
 
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration
 service:
-  golangci-lint-version: 1.21.x # use the fixed version to not introduce new linters unexpectedly
+  golangci-lint-version: 1.50.x # use the fixed version to not introduce new linters unexpectedly

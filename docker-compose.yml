@@ -20,7 +20,7 @@ services:
       - CONFIG_WATCHER_PATH=/policies
 
   mysql:
-    image: mysql:5.7
+    image: mysql:8
     restart: always
     environment:
       MYSQL_DATABASE: 'appstore'
@@ -35,7 +35,7 @@ services:
       - ./examples/docker-compose/init/Init-MySql.sql:/docker-entrypoint-initdb.d/Init-MySql.sql
 
   postgres:
-    image: postgres:12
+    image: postgres:15
     restart: always
     environment:
       POSTGRES_DB: 'appstore'
@@ -49,7 +49,7 @@ services:
       - ./examples/docker-compose/init/Init-Postgres.sql:/docker-entrypoint-initdb.d/Init-Postgres.sql
 
   mongo:
-    image: mongo:4.2
+    image: mongo:6
     restart: always
     networks:
       - compose_network

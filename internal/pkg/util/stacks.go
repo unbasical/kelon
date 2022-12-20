@@ -2,63 +2,78 @@
 package util
 
 import (
+	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
-// Simple stack of strings.
-// Panics if operations (like Pop()) are performed on an empty stack.
-type SStack []string
-
-// Check if the stack is empty.
-func (s SStack) Empty() bool {
-	return len(s) == 0
+// Stack implementation with generics
+type Stack[T any] struct {
+	values []T
 }
 
-// Push a string to the top of the stack.
-func (s SStack) Push(v string) SStack {
-	return append(s, v)
+// IsEmpty checks if the stack is empty
+func (s *Stack[T]) IsEmpty() bool {
+	return len(s.values) == 0
 }
 
-// Pop the top element of the stack.
-func (s SStack) Pop() (stack SStack, slice string) {
-	l := len(s)
+// Size returns the size of the stack
+func (s *Stack[T]) Size() int {
+	return len(s.values)
+}
+
+// Clear drops all values from the stack
+func (s *Stack[T]) Clear() {
+	s.values = s.values[:0]
+}
+
+// Push adds a value v to the top of the stack
+func (s *Stack[T]) Push(v T) {
+	s.values = append(s.values, v)
+	logging.LogForComponent("Stack").Debugf("%30sStack len(%d) PUSH(%+v)", "", s.Size(), v)
+}
+
+// Pop takes the top most value from the stack
+// Throws and error if the stack is empty
+func (s *Stack[T]) Pop() (T, error) {
+	l := len(s.values)
+	var v T
 	if l <= 0 {
-		logging.LogForComponent("SStack").Panic("Stack is empty!")
-		panic("Error")
+		return v, errors.New("pop failed due to empty stack")
 	}
-	return s[:l-1], s[l-1]
+
+	v = s.values[l-1]
+	s.values = s.values[:l-1]
+	logging.LogForComponent("Stack").Debugf("%30sStack len(%d) POP()", "", s.Size())
+	return v, nil
 }
 
-// Stack of string slices.
-// Panics if operations (like Pop()) are performed on an empty stack.
-//
-// This stack also contains debug logs.
-type OpStack [][]string
-
-// Push a string slice to the top of the stack.
-func (s OpStack) Push(v []string) OpStack {
-	logging.LogForComponent("OpStack").Debugf("%30sOperands len(%d) PUSH(%+v)", "", len(s), v)
-	return append(s, v)
-}
-
-// Appends a new string to the top slice of the stack.
-func (s OpStack) AppendToTop(v string) {
-	l := len(s)
+// Peek returns the top most value from the stack without removing it
+// Throws and error if the stack is empty
+func (s *Stack[T]) Peek() (T, error) {
+	l := len(s.values)
+	var v T
 	if l <= 0 {
-		logging.LogForComponent("OpStack").Panic("Stack is empty!")
-		panic("Error")
+		return v, errors.New("peek failed due to empty stack")
 	}
-	s[l-1] = append(s[l-1], v)
-	logging.LogForComponent("OpStack").Debugf("%30sOperands len(%d) APPEND |%+v <- TOP", "", len(s), s[l-1])
+
+	v = s.values[l-1]
+	return v, nil
 }
 
-// Pop the top slice of the stack.
-func (s OpStack) Pop() (stack OpStack, slice []string) {
-	l := len(s)
-	if l <= 0 {
-		logging.LogForComponent("OpStack").Panic("Stack is empty!")
-		panic("Error")
+// Values returns all stack values as a slice
+func (s *Stack[T]) Values() []T {
+	return s.values
+}
+
+// AppendToTop Appends a new value to the top slice of the stack.
+func AppendToTop[T any](s *Stack[[]T], v T) error {
+	top, err := s.Pop()
+	if err != nil {
+		return errors.Wrap(err, "appendToTop failed: ")
 	}
-	logging.LogForComponent("OpStack").Debugf("%30sOperands len(%d) POP()", "", len(s))
-	return s[:l-1], s[l-1]
+
+	top = append(top, v)
+	s.Push(top)
+	logging.LogForComponent("Stack").Debugf("%30sStack len(%d) APPEND |%+v <- TOP", "", s.Size(), s.values[s.Size()-1])
+	return nil
 }
