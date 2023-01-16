@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -46,7 +47,7 @@ func NewMetricsProvider(ctx context.Context, name, format, protocol, endpoint st
 		instrumentsSync:  make(map[constants.MetricInstrument]instrument.Synchronous),
 		instrumentsAsync: make(map[constants.MetricInstrument]instrument.Asynchronous),
 	}
-
+	endpointWithoutProtocol := regexp.MustCompile(constants.ProtocolPrefixRe).ReplaceAllString(endpoint, "")
 	switch strings.ToLower(format) {
 	case constants.TelemetryPrometheus:
 		exporter, err := prometheus.New()
@@ -56,7 +57,7 @@ func NewMetricsProvider(ctx context.Context, name, format, protocol, endpoint st
 		m.provider = sdkmetric.NewMeterProvider(sdkmetric.WithReader(exporter))
 		m.exportType = constants.TelemetryPrometheus
 	case constants.TelemetryOtlp:
-		exporter, err := newOtlpMetricExporter(ctx, protocol, endpoint)
+		exporter, err := newOtlpMetricExporter(ctx, protocol, endpointWithoutProtocol)
 		if err != nil {
 			return nil, err
 		}
