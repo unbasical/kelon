@@ -3,6 +3,7 @@ package telemetry
 import (
 	"context"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -26,8 +27,9 @@ type traces struct {
 	name     string
 }
 
-func NewOtlpTraceProvider(ctx context.Context, name, protocol, endpoint string) (TraceProvider, error) {
-	exporter, err := newOtlpTraceExporter(ctx, protocol, endpoint)
+func NewTraceProvider(ctx context.Context, name, protocol, endpoint string) (TraceProvider, error) {
+	endpointWithoutProtocol := regexp.MustCompile(constants.ProtocolPrefixRe).ReplaceAllString(endpoint, "")
+	exporter, err := newOtlpTraceExporter(ctx, protocol, endpointWithoutProtocol)
 	if err != nil {
 		return nil, err
 	}

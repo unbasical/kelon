@@ -213,7 +213,7 @@ func (k *Kelon) onConfigLoaded(change watcher.ChangeType, loadedConf *configs.Ex
 
 func (k *Kelon) makeTelemetryMetricsProvider(ctx context.Context) telemetry.MetricsProvider {
 	if k.config.MetricProvider != nil && *k.config.MetricProvider != "" {
-		provider, err := telemetry.NewOtlpMetricsProvider(ctx, *k.config.OtlpServiceName, *k.config.MetricProvider, *k.config.OtlpMetricExportProtocol, *k.config.OtlpMetricExportEndpoint)
+		provider, err := telemetry.NewMetricsProvider(ctx, *k.config.OtlpServiceName, *k.config.MetricProvider, *k.config.OtlpMetricExportProtocol, *k.config.OtlpMetricExportEndpoint)
 		if err != nil {
 			logging.LogForComponent("main").Fatalf("Error during creation of MetricsProvider %q: %s", *k.config.MetricProvider, err)
 		}
@@ -229,7 +229,7 @@ func (k *Kelon) makeTelemetryMetricsProvider(ctx context.Context) telemetry.Metr
 
 func (k *Kelon) makeTelemetryTraceProvider(ctx context.Context) telemetry.TraceProvider {
 	if k.config.TraceProvider != nil && *k.config.TraceProvider != "" {
-		provider, err := telemetry.NewOtlpTraceProvider(ctx, *k.config.OtlpServiceName, *k.config.OtlpTraceExportProtocol, *k.config.OtlpTraceExportEndpoint)
+		provider, err := telemetry.NewTraceProvider(ctx, *k.config.OtlpServiceName, *k.config.OtlpTraceExportProtocol, *k.config.OtlpTraceExportEndpoint)
 		if err != nil {
 			logging.LogForComponent("main").Fatalf("Error during creation of TraceProvider %q: %s", *k.config.TraceProvider, err)
 		}

@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -38,15 +39,15 @@ type metrics struct {
 const ErrorInstrumentNotFound string = "instrument with name %s not found"
 const ErrorValueNotCastable string = "unable to cast to %T: %+v"
 
-// NewOtlpMetricsProvider creates a new metrics struct exporting metrics using the specified format and the protocol to use
+// NewMetricsProvider creates a new metrics struct exporting metrics using the specified format and the protocol to use
 // If the Prometheus format is chosen, the protocol attribute will be ignored
-func NewOtlpMetricsProvider(ctx context.Context, name, format, protocol, endpoint string) (MetricsProvider, error) {
+func NewMetricsProvider(ctx context.Context, name, format, protocol, endpoint string) (MetricsProvider, error) {
 	m := &metrics{
 		name:             name,
 		instrumentsSync:  make(map[constants.MetricInstrument]instrument.Synchronous),
 		instrumentsAsync: make(map[constants.MetricInstrument]instrument.Asynchronous),
 	}
-
+	endpointWithoutProtocol := regexp.MustCompile(constants.ProtocolPrefixRe).ReplaceAllString(endpoint, "")
 	switch strings.ToLower(format) {
 	case constants.TelemetryPrometheus:
 		exporter, err := prometheus.New()
@@ -56,7 +57,7 @@ func NewOtlpMetricsProvider(ctx context.Context, name, format, protocol, endpoin
 		m.provider = sdkmetric.NewMeterProvider(sdkmetric.WithReader(exporter))
 		m.exportType = constants.TelemetryPrometheus
 	case constants.TelemetryOtlp:
-		exporter, err := newOtlpMetricExporter(ctx, protocol, endpoint)
+		exporter, err := newOtlpMetricExporter(ctx, protocol, endpointWithoutProtocol)
 		if err != nil {
 			return nil, err
 		}
