@@ -44,12 +44,13 @@ var (
 	envoyReflection = app.Flag("envoy-reflection", "Enable/Disable the reflection feature of the envoy-proxy.").Default("true").Envar("ENVOY_REFLECTION").Bool()
 
 	// Configs for telemetry
-	metricService        = app.Flag("metric-service", "Service that is used for metrics [Prometheus|OTLP]").Envar("METRIC_SERVICE").Enum("Prometheus", "prometheus", "OTLP", "otlp")
-	metricExportProtocol = app.Flag("metric-export-protocol", "If metrics are exported with OTLP, select the protocol to use [http|grpc]").Default("http").Envar("METRIC_EXPORT_PROTOCOL").Enum("http", "grpc")
-	metricExportEndpoint = app.Flag("metric-export-endpoint", "If metrics are exported with OTLP, this is the endpoint they will be exported to").Envar("METRIC_EXPORT_ENDPOINT").String()
-	traceService         = app.Flag("trace-service", "Service that is used for tracing [OTLP]").Envar("TRACE_SERVICE").Enum("OTLP", "otlp")
-	traceExportProtocol  = app.Flag("trace-export-protocol", "If traces are exported with OTLP, select the protocol to use [http|grpc]").Default("http").Envar("TRACE_EXPORT_PROTOCOL").Enum("http", "grpc")
-	traceExportEndpoint  = app.Flag("trace-export-endpoint", "If traces are exported with OTLP, this is the endpoint they will be exported to").Envar("TRACE_EXPORT_ENDPOINT").String()
+	metricProvider           = app.Flag("metric-provider", "Provider that is used for metrics [Prometheus|OTLP]").Envar("METRIC_PROVIDER").Enum("Prometheus", "prometheus", "OTLP", "otlp")
+	traceProvider            = app.Flag("trace-provider", "Provider that is used for tracing [OTLP]").Envar("TRACE_PROVIDER").Enum("OTLP", "otlp")
+	otlpServiceName          = app.Flag("otlp-service-name", "If traces are exported with OTLP, this specifies the service name that is propagated inside child traces").Envar("OTLP_SERVICE_NAME").Default("kelon").String()
+	otlpMetricExportProtocol = app.Flag("otlp-metric-export-protocol", "If metrics are exported with OTLP, select the protocol to use [http|grpc]").Default("http").Envar("OTLP_METRIC_EXPORT_PROTOCOL").Enum("http", "grpc")
+	otlpMetricExportEndpoint = app.Flag("otlp-metric-export-endpoint", "If metrics are exported with OTLP, this is the endpoint they will be exported to").Envar("OTLP_METRIC_EXPORT_ENDPOINT").String()
+	otlpTraceExportProtocol  = app.Flag("otlp-trace-export-protocol", "If traces are exported with OTLP, select the protocol to use [http|grpc]").Default("http").Envar("OTLP_TRACE_EXPORT_PROTOCOL").Enum("http", "grpc")
+	otlpTraceExportEndpoint  = app.Flag("otlp-trace-export-endpoint", "If traces are exported with OTLP, this is the endpoint they will be exported to").Envar("OTLP_TRACE_EXPORT_ENDPOINT").String()
 
 	// Configs for validate mode
 	inputBody           = app.Flag("input-body", "Input Body to use in dry run mode").Envar("DRY_INPUT_BODY").String()
@@ -74,28 +75,29 @@ func main() {
 	setLogLevel()
 
 	config := core.KelonConfiguration{
-		DatastorePath:          datastorePath,
-		APIPath:                apiPath,
-		ConfigWatcherPath:      configWatcherPath,
-		OpaPath:                opaPath,
-		RegoDir:                regoDir,
-		OperandDir:             operandDir,
-		PathPrefix:             pathPrefix,
-		Port:                   port,
-		AstSkipUnknown:         astSkipUnknown,
-		AccessDecisionLogLevel: accessDecisionLogLevel,
-		EnvoyPort:              envoyPort,
-		EnvoyDryRun:            envoyDryRun,
-		EnvoyReflection:        envoyReflection,
-		MetricService:          metricService,
-		MetricExportProtocol:   metricExportProtocol,
-		MetricExportEndpoint:   metricExportEndpoint,
-		TraceService:           traceService,
-		TraceExportProtocol:    traceExportProtocol,
-		TraceExportEndpoint:    traceExportEndpoint,
-		Validate:               false,
-		InputBody:              inputBody,
-		QueryOutputFilename:    queryOutputFilename,
+		DatastorePath:            datastorePath,
+		APIPath:                  apiPath,
+		ConfigWatcherPath:        configWatcherPath,
+		OpaPath:                  opaPath,
+		RegoDir:                  regoDir,
+		OperandDir:               operandDir,
+		PathPrefix:               pathPrefix,
+		Port:                     port,
+		AstSkipUnknown:           astSkipUnknown,
+		AccessDecisionLogLevel:   accessDecisionLogLevel,
+		EnvoyPort:                envoyPort,
+		EnvoyDryRun:              envoyDryRun,
+		EnvoyReflection:          envoyReflection,
+		MetricProvider:           metricProvider,
+		TraceProvider:            traceProvider,
+		OtlpMetricExportProtocol: otlpMetricExportProtocol,
+		OtlpMetricExportEndpoint: otlpMetricExportEndpoint,
+		OtlpServiceName:          otlpServiceName,
+		OtlpTraceExportProtocol:  otlpTraceExportProtocol,
+		OtlpTraceExportEndpoint:  otlpTraceExportEndpoint,
+		Validate:                 false,
+		InputBody:                inputBody,
+		QueryOutputFilename:      queryOutputFilename,
 	}
 
 	kelon := core.Kelon{}

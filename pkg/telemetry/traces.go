@@ -26,7 +26,7 @@ type traces struct {
 	name     string
 }
 
-func NewTraceProvider(ctx context.Context, name, protocol, endpoint string) (TraceProvider, error) {
+func NewOtlpTraceProvider(ctx context.Context, name, protocol, endpoint string) (TraceProvider, error) {
 	exporter, err := newOtlpTraceExporter(ctx, protocol, endpoint)
 	if err != nil {
 		return nil, err

@@ -38,9 +38,9 @@ type metrics struct {
 const ErrorInstrumentNotFound string = "instrument with name %s not found"
 const ErrorValueNotCastable string = "unable to cast to %T: %+v"
 
-// NewMetricsProvider creates a new metrics struct exporting metrics using the specified format and the protocol to use
+// NewOtlpMetricsProvider creates a new metrics struct exporting metrics using the specified format and the protocol to use
 // If the Prometheus format is chosen, the protocol attribute will be ignored
-func NewMetricsProvider(ctx context.Context, name, format, protocol, endpoint string) (MetricsProvider, error) {
+func NewOtlpMetricsProvider(ctx context.Context, name, format, protocol, endpoint string) (MetricsProvider, error) {
 	m := &metrics{
 		name:             name,
 		instrumentsSync:  make(map[constants.MetricInstrument]instrument.Synchronous),
