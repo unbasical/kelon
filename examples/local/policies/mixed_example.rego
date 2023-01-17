@@ -82,10 +82,33 @@ allow = true {
     count(app) > 0
 }
 
+# Path: PUT /api/spice/apps/:app_id
+# Update App only permitted to owner, appstore manager and friends of Kevin
+allow = true {
+    input.method == "DELETE"
+    input.path = ["api", "mixed", "apps", appId]
+
+    # Query
+    data.mongo.users[user].name == input.user
+
+    admin_owner_or_kevin(input.user, appId, user.friend)
+}
+
 old_or_kevin(age, friend) {
     age == 42
 }
 
 old_or_kevin(age, friend) {
+    friend == "Kevin"
+}
+
+admin_owner_or_kevin(user, appId, friend) {
+    subject = sprintf("user:%s", [lower(user)])
+    resource = sprintf("app:app%s", [appId])
+
+    spice.permission_check(subject, "delete", resource)
+}
+
+admin_owner_or_kevin(user, appId, friend) {
     friend == "Kevin"
 }

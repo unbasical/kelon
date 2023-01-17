@@ -27,6 +27,13 @@ type Datastore struct {
 	Metadata        map[string]string
 }
 
+// SpiceDB hold all major configuration properties for SpiceDB support
+type SpiceDB struct {
+	Endpoint string
+	Insecure bool
+	Token    string
+}
+
 // List of entities of a schema
 type EntitySchema struct {
 	Entities []*Entity

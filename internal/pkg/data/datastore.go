@@ -3,6 +3,7 @@ package data
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,17 +13,15 @@ import (
 	"github.com/unbasical/kelon/pkg/data"
 )
 
+//nolint:gochecknoglobals,gocritic
 var (
-	//nolint:gochecknoglobals,gocritic
-	hostKey = "host"
-	//nolint:gochecknoglobals,gocritic
-	portKey = "port"
-	//nolint:gochecknoglobals,gocritic
-	dbKey = "database"
-	//nolint:gochecknoglobals,gocritic
-	userKey = "user"
-	//nolint:gochecknoglobals,gocritic
-	pwKey = "password"
+	keyHost     = "host"
+	keyPort     = "port"
+	keyDB       = "database"
+	keyUser     = "user"
+	keyPassword = "password"
+	keyInsecure = "insecure"
+	keyToken    = "token"
 )
 
 func extractAndValidateDatastore(appConf *configs.AppConfig, alias string) (*configs.Datastore, error) {
@@ -35,10 +34,10 @@ func extractAndValidateDatastore(appConf *configs.AppConfig, alias string) (*con
 	// Validate configuration
 	conf, ok := appConf.Data.Datastores[alias]
 	if !ok {
-		return nil, errors.Errorf("No datastore with alias [%s] configured!", alias)
+		return nil, errors.Errorf("no datastore with alias [%s] configured!", alias)
 	}
 	if strings.EqualFold(conf.Type, "") {
-		return nil, errors.Errorf("Alias of datastore is empty! Must be one of %+v!", sql.Drivers())
+		return nil, errors.Errorf("alias of datastore is empty! Must be one of %+v!", sql.Drivers())
 	}
 	if err := validateConnection(alias, conf.Connection); err != nil {
 		return nil, err
@@ -46,6 +45,35 @@ func extractAndValidateDatastore(appConf *configs.AppConfig, alias string) (*con
 
 	conf.CallOperandsDir = appConf.Data.CallOperandsDir
 	return conf, nil
+}
+
+func extractAndValidateSpiceDBDatastore(appConf *configs.AppConfig, alias string) (*configs.SpiceDB, error) {
+	if appConf == nil {
+		return nil, errors.Errorf("AppConfig not configured!")
+	}
+	if alias == "" {
+		return nil, errors.Errorf("Empty alias provided!")
+	}
+
+	// Validate configuration
+	conf, ok := appConf.Data.Datastores[alias]
+	if !ok {
+		return nil, errors.Errorf("no datastore with alias [%s] configured!", alias)
+	}
+	if strings.EqualFold(conf.Type, "") {
+		return nil, errors.Errorf("alias of datastore is empty! Must be one of %+v!", sql.Drivers())
+	}
+	if err := validateSpiceDBConnection(alias, conf.Connection); err != nil {
+		return nil, err
+	}
+
+	// Build SpiceDB Config
+	var spiceConf configs.SpiceDB
+	spiceConf.Token = conf.Connection[keyToken]
+	spiceConf.Insecure, _ = strconv.ParseBool(conf.Connection[keyInsecure])
+	spiceConf.Endpoint = fmt.Sprintf("%s:%s", conf.Connection[keyHost], conf.Connection[keyPort])
+
+	return &spiceConf, nil
 }
 
 func pingUntilReachable(alias string, ping func() error) error {
@@ -79,20 +107,40 @@ func loadCallOperands(conf *configs.Datastore) (map[string]func(args ...string) 
 }
 
 func validateConnection(alias string, conn map[string]string) error {
-	if _, ok := conn[hostKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", hostKey, alias)
+	if _, ok := conn[keyHost]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", keyHost, alias)
 	}
-	if _, ok := conn[portKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", portKey, alias)
+	if _, ok := conn[keyPort]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", keyPort, alias)
 	}
-	if _, ok := conn[dbKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", dbKey, alias)
+	if _, ok := conn[keyDB]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", keyDB, alias)
 	}
-	if _, ok := conn[userKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", userKey, alias)
+	if _, ok := conn[keyUser]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", keyUser, alias)
 	}
-	if _, ok := conn[pwKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", pwKey, alias)
+	if _, ok := conn[keyPassword]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", keyPassword, alias)
+	}
+	return nil
+}
+
+func validateSpiceDBConnection(alias string, conn map[string]string) error {
+	if _, ok := conn[keyHost]; !ok {
+		return errors.Errorf("SpiceDB: Field %s is missing in configured connection with alias %s!", keyHost, alias)
+	}
+	if _, ok := conn[keyPort]; !ok {
+		return errors.Errorf("SpiceDB: Field %s is missing in configured connection with alias %s!", keyPort, alias)
+	}
+	if _, ok := conn[keyToken]; !ok {
+		return errors.Errorf("SpiceDB: Field %s is missing in configured connection with alias %s!", keyToken, alias)
+	}
+	insecure, ok := conn[keyInsecure]
+	if !ok {
+		return errors.Errorf("SpiceDB: Field %s is missing in configured connection with alias %s!", keyInsecure, alias)
+	}
+	if _, err := strconv.ParseBool(insecure); err != nil {
+		return errors.Wrapf(err, "SpiceDB: Fiel %s is not a boolean in configured connection with alias %s!", keyInsecure, alias)
 	}
 	return nil
 }
@@ -132,15 +180,15 @@ func getPreparePlaceholderForPlatform(platform string, argCounter int) string {
 func extractAndSortConnectionParameters(conn map[string]string) (host, port, user, password, dbname string, options []string) {
 	for key, value := range conn {
 		switch key {
-		case hostKey:
+		case keyHost:
 			host = value
-		case portKey:
+		case keyPort:
 			port = value
-		case userKey:
+		case keyUser:
 			user = value
-		case pwKey:
+		case keyPassword:
 			password = value
-		case dbKey:
+		case keyDB:
 			dbname = value
 		default:
 			options = append(options, fmt.Sprintf("%s=%s", key, value))

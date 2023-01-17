@@ -184,7 +184,7 @@ func (p *PolicyCompilerTestEnvironment) onConfigLoaded(change watcher.ChangeType
 		config.Data.CallOperandsDir = "./call-operands"
 		serverConf := p.makeServerConfig(parser, mapper, translator, loadedConf)
 		if configErr := p.policyCompiler.Configure(config, &serverConf.PolicyCompilerConfig); configErr != nil {
-			p.t.Error(err)
+			p.t.Error(configErr)
 			p.t.FailNow()
 		}
 	}
@@ -230,6 +230,12 @@ func (p *PolicyCompilerTestEnvironment) mockMakeDatastores(config *configs.Datas
 		if ds.Type == data.TypeMongo {
 			newDs := dataInt.NewDatastore(dataInt.NewMongoDatastoreTranslator(), mocked)
 			logging.LogForComponent("factory").Infof("Init MongoDatastore of type [%s] with alias [%s]", ds.Type, dsName)
+			result[dsName] = &newDs
+			continue
+		}
+		if ds.Type == data.TypeSpice {
+			newDs := NewMockAuthzedDatastore()
+			logging.LogForComponent("factory").Infof("Init AuthzedDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
 			continue
 		}

@@ -15,6 +15,7 @@ const (
 	TypePostgres = "postgres"
 	TypeMysql    = "mysql"
 	TypeMongo    = "mongo"
+	TypeSpice    = "spicedb"
 )
 
 type DatastoreQuery struct {

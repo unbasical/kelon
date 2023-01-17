@@ -133,6 +133,26 @@
   body: '{ "input": { "method": "GET", "path": "/api/mixed/apps/3", "user": "Anyone", "password": "pw_anyone" } }'
   statusCode : 200
 
+- name:  "Mixed: Arnold can delete his App"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "DELETE", "path": "/api/mixed/apps/2", "user": "Arnold", "password": "pw_arnold" } }'
+  statusCode : 200
+
+- name:  "Mixed: Kevin can delete Arnold's App"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "DELETE", "path": "/api/mixed/apps/2", "user": "Kevin", "password": "pw_kevin" } }'
+  statusCode : 200
+
+- name:  "Mixed: Torben can delete Arnold's App"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "DELETE", "path": "/api/mixed/apps/2", "user": "Torben", "password": "pw_torben" } }'
+  statusCode : 200
+
+- name:  "Mixed: Anyone can't delete Arnold's App"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "DELETE", "path": "/api/mixed/apps/2", "user": "Anyone", "password": "pw_anyone" } }'
+  statusCode : 403
+
 - name: "Pure: First App visible for everyone"
   url: "http://%s:%s/v1/data"
   body: '{ "input": { "method": "GET", "path": "/api/pure/apps/1", "user": "Nobody", "password": "pw_nobody" } }'
@@ -147,3 +167,48 @@
   url: "http://%s:%s/v1/data"
   body: '{ "input": { "method": "GET", "path": "/api/pure/apps/2", "user": "Nobody", "password": "pw_nobody" } }'
   statusCode: 403
+
+- name:  "SpiceDB: First App visible for everyone"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/spice/apps/1", "user": "Test" } }'
+  statusCode: 200
+
+- name:  "SpiceDB: Arnold can access his app"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": [ "api", "spice", "apps", "2" ], "user": "Arnold", "password": "pw_arnold" } }'
+  statusCode : 200
+
+- name:  "SpiceDB: Anyone can't access Arnold's app"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/spice/apps/2", "user": "Anyone", "password": "pw_anyone" } }'
+  statusCode : 403
+
+- name:  "SpiceDB: Arnold can't manage the first App"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "PUT", "path": "/api/spice/apps/1", "user": "Arnold", "password": "pw_arnold" } }'
+  statusCode : 403
+
+- name:  "SpiceDB: Arnold can manage his App"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "PUT", "path": "/api/spice/apps/2", "user": "Arnold", "password": "pw_arnold" } }'
+  statusCode : 200
+
+- name:  "SpiceDB: Torben can't manage the first App"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "PUT", "path": "/api/spice/apps/1", "user": "Torben", "password": "pw_torben" } }'
+  statusCode : 403
+
+- name:  "SpiceDB: Arnold can delete his App"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "DELETE", "path": "/api/spice/apps/2", "user": "Arnold", "password": "pw_arnold" } }'
+  statusCode : 200
+
+- name:  "SpiceDB: Torben can delete the first App"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "DELETE", "path": "/api/spice/apps/1", "user": "Torben", "password": "pw_torben" } }'
+  statusCode : 200
+
+- name:  "SpiceDB: Anyone can't delete Arnold's App"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "DELETE", "path": "/api/spice/apps/2", "user": "Anyone", "password": "pw_anyone" } }'
+  statusCode : 403

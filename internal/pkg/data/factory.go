@@ -28,6 +28,12 @@ func makeExecutingDatastores(config *configs.DatastoreConfig) map[string]*data.D
 			result[dsName] = &newDs
 			continue
 		}
+		if ds.Type == data.TypeSpice {
+			newDs := NewAuthzedDatastore()
+			logging.LogForComponent("factory").Infof("Init AuthzedDatastore of type [%s] with alias [%s]", ds.Type, dsName)
+			result[dsName] = &newDs
+			continue
+		}
 
 		logging.LogForComponent("factory").Fatalf("Unable to init datastore of type %q! Type is not supported yet!", ds.Type)
 	}
@@ -46,6 +52,12 @@ func makeLoggingDatastores(config *configs.DatastoreConfig) map[string]*data.Dat
 		if ds.Type == data.TypeMongo {
 			newDs := NewDatastore(NewMongoDatastoreTranslator(), NewLoggingDatastoreExecutor(config.OutputFile))
 			logging.LogForComponent("factory").Infof("Init DryRun MongoDatastore of type [%s] with alias [%s]", ds.Type, dsName)
+			result[dsName] = &newDs
+			continue
+		}
+		if ds.Type == data.TypeSpice {
+			newDs := NewAuthzedDatastore()
+			logging.LogForComponent("factory").Infof("Init AuthzedDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
 			continue
 		}

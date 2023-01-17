@@ -43,6 +43,15 @@ datastores:
       telemetryName: Datasource
       telemetryType: MongoDB
 
+  spice:
+    type: spicedb
+    connection:
+      host: localhost
+      port: 50051
+      insecure: true
+      token: spicykelon
+
+
 # Entity-Schemas define the structure of the entities of one schema inside a datastore
 entity_schemas:
 

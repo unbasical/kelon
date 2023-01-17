@@ -62,6 +62,33 @@ services:
     volumes:
       - ./examples/docker-compose/init/Init-Mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
 
+  spicedb:
+    image: authzed/spicedb:v1.16.0
+    command: 'serve'
+    restart: "always"
+    networks:
+      - compose_network
+    ports:
+      - "50051:50051"
+    environment:
+      - "SPICEDB_GRPC_PRESHARED_KEY=spicykelon"
+    healthcheck:
+      test: [ "CMD", "/usr/local/bin/grpc_health_probe", "-addr=localhost:50051" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+
+  # used to set up spicedb
+  zed:
+    image: authzed/zed:v0.7.5
+    volumes:
+      - ./examples/docker-compose/init/Init-SpiceDB.yml:/opt/Init-SpiceDB.yml
+    depends_on:
+      spicedb:
+        condition: service_healthy
+    command: ["import", "file:///opt/Init-SpiceDB.yml" ,"--endpoint" ,"host.docker.internal:50051" ,"--token" ,"spicykelon" ,"--insecure"]
+
 networks:
   compose_network:
     driver: bridge

@@ -1,0 +1,49 @@
+---
+schema: |-
+  /** user represents a user that can be granted role(s) */
+  definition user {}
+  
+  /** appstore represents an appstore where apps are published */
+  definition appstore {
+    /** admin indicates that the user an appstore admin */
+    relation admin: user
+    
+    /** this permission allows all admins to manage every app in the appstore */
+    permission manage_apps = admin
+  }
+  
+  /** app represents an app in the appstore. */
+  definition app {
+    /** store references the appstore in which the app is being published */
+    relation store: appstore
+    
+    /** owner indicates that the user is an owner of the app */
+    relation owner: user
+    
+    permission modify = owner
+    permission delete = modify + owner + store->manage_apps
+  }
+
+
+relationships: |-
+  appstore:default#admin@user:torben
+  app:app1#store@appstore:default
+  app:app2#store@appstore:default
+  app:app3#store@appstore:default
+  app:app2#owner@user:arnold
+  
+
+# assertions:
+#   assertTrue:
+#     - "app:firstapp#owner@user:tom"
+#     - "app:firstapp#owner@user:fred"
+#     - "app:secondapp#owner@user:tom"
+#   assertFalse:
+#     - "app:secondapp#owner@user:fred"
+#
+# validation:
+#   app:firstapp#owner:
+#     - "[user:tom] is <app:firstapp#owner>"
+#     - "[user:fred] is <app:firstapp#owner>"
+#   app:secondapp#owner:
+#     - "[user:tom] is <app:secondapp#owner>"

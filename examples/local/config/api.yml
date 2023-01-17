@@ -39,6 +39,15 @@ apis:
       - path: /apps/.*
         package: applications.pure
 
+  # Route all requests staring with /api/spice to no Datastore without authentication
+  - path-prefix: /api/spice
+    authentication: false
+    datastores:
+      - mysql
+    mappings:
+      - path: /apps/.*
+        package: applications.spice
+
   # All other requests are routed to postgres
   - path-prefix: /api/.*?
     datastores:

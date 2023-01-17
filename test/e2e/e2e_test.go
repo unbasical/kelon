@@ -260,10 +260,10 @@ func configureExposablePorts(t *testing.T, config *testConfiguration) {
 		t.FailNow()
 	}
 
-	for serivce, ds := range data.Datastores {
-		id, idErr := serviceFromString(serivce)
+	for service, ds := range data.Datastores {
+		id, idErr := serviceFromString(service)
 		if idErr != nil {
-			t.Errorf("error extracting ports from config: %s", err.Error())
+			t.Errorf("error extracting ports from config for service %s: %s", service, idErr.Error())
 			t.FailNow()
 		}
 

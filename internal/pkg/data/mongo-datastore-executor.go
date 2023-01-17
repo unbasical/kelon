@@ -102,7 +102,7 @@ func (ds *mongoDatastoreExecuter) Execute(ctx context.Context, query data.Datast
 			}
 
 			// Execute query
-			collection := ds.client.Database(ds.conn[dbKey]).Collection(coll)
+			collection := ds.client.Database(ds.conn[keyDB]).Collection(coll)
 			timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 
