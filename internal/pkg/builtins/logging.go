@@ -1,6 +1,7 @@
 package builtins
 
 import (
+	"github.com/open-policy-agent/opa/rego"
 	"strings"
 
 	"github.com/open-policy-agent/opa/ast"
@@ -11,94 +12,80 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var logInfo = &ast.Builtin{
-	Name:        "log_info",
-	Description: "Logs the passed arguments at a info level.",
-	Decl:        types.NewVariadicFunction(nil, types.A, nil),
-	Categories:  []string{"logging"},
+var logInfo = &rego.Function{
+	Name: "log_info",
+	Decl: types.NewVariadicFunction(nil, types.A, nil),
 }
-var logDebug = &ast.Builtin{
-	Name:        "log_debug",
-	Description: "Logs the passed arguments at a debug level.",
-	Decl:        types.NewVariadicFunction(nil, types.A, nil),
-	Categories:  []string{"logging"},
+var logDebug = &rego.Function{
+	Name: "log_debug",
+	Decl: types.NewVariadicFunction(nil, types.A, nil),
 }
-var logWarn = &ast.Builtin{
-	Name:        "log_warn",
-	Description: "Logs the passed arguments at a warn level.",
-	Decl:        types.NewVariadicFunction(nil, types.A, nil),
-	Categories:  []string{"logging"},
+var logWarn = &rego.Function{
+	Name: "log_warn",
+	Decl: types.NewVariadicFunction(nil, types.A, nil),
 }
-var logError = &ast.Builtin{
-	Name:        "log_error",
-	Description: "Logs the passed arguments at a error level.",
-	Decl:        types.NewVariadicFunction(nil, types.A, nil),
-	Categories:  []string{"logging"},
+var logError = &rego.Function{
+	Name: "log_error",
+	Decl: types.NewVariadicFunction(nil, types.A, nil),
 }
-var logFatal = &ast.Builtin{
-	Name:        "log_fatal",
-	Description: "Logs the passed arguments at a fatal level.",
-	Decl:        types.NewVariadicFunction(nil, types.A, nil),
-	Categories:  []string{"logging"},
+var logFatal = &rego.Function{
+	Name: "log_fatal",
+	Decl: types.NewVariadicFunction(nil, types.A, nil),
 }
 
-func makeBuiltinLogFuncForLevel(level log.Level) func(topdown.BuiltinContext, []*ast.Term, func(*ast.Term) error) error {
-	return func(bctx topdown.BuiltinContext, operands []*ast.Term, iter func(*ast.Term) error) error {
+func makeBuiltinLogFuncForLevel(level log.Level) func(bctx rego.BuiltinContext, terms []*ast.Term) (*ast.Term, error) {
+	return func(bctx rego.BuiltinContext, terms []*ast.Term) (*ast.Term, error) {
 		if !log.IsLevelEnabled(level) {
-			return iter(nil)
+			return ast.NullTerm(), nil
 		}
 
-		arr, err := builtins.ArrayOperand(operands[0].Value, 1)
+		arr, err := builtins.ArrayOperand(terms[0].Value, 1)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		buf := make([]string, arr.Len())
-		err = builtinPrintCrossProductOperands(bctx, buf, level, arr, 0)
+		err = logWithLevel(level, arr)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		return iter(nil)
+		return ast.NullTerm(), nil
 	}
 }
 
-func builtinPrintCrossProductOperands(bctx topdown.BuiltinContext, buf []string, logLevel log.Level, operands *ast.Array, i int) error {
-	if i >= operands.Len() {
-		switch logLevel {
-		case log.InfoLevel:
-			log.Info(strings.Join(buf, " "))
-		case log.DebugLevel:
-			log.Debug(strings.Join(buf, " "))
-		case log.WarnLevel:
-			log.Warn(strings.Join(buf, " "))
-		case log.ErrorLevel:
-			log.Error(strings.Join(buf, " "))
-		case log.FatalLevel:
-			log.Error(strings.Join(buf, " "))
-			return topdown.Halt{Err: errors.Errorf("Fatal Log: %s", strings.Join(buf, " "))}
-		default:
-			return nil
-		}
-	}
+func logWithLevel(logLevel log.Level, operands *ast.Array) error {
+	var buf []string
 
-	xs, ok := operands.Elem(i).Value.(ast.Set)
-	if !ok {
-		return topdown.Halt{Err: errors.Errorf("illegal argument type: %v", ast.TypeName(operands.Elem(i).Value))}
-	}
-
-	if xs.Len() == 0 {
-		buf[i] = "<undefined>"
-		return builtinPrintCrossProductOperands(bctx, buf, logLevel, operands, i+1)
-	}
-
-	return xs.Iter(func(x *ast.Term) error {
-		switch v := x.Value.(type) {
+	fillBuf := func(term *ast.Term) error {
+		switch v := term.Value.(type) {
 		case ast.String:
-			buf[i] = string(v)
+			buf = append(buf, string(v))
 		default:
-			buf[i] = v.String()
+			buf = append(buf, v.String())
 		}
-		return builtinPrintCrossProductOperands(bctx, buf, logLevel, operands, i+1)
-	})
+		return nil
+	}
+
+	err := operands.Iter(fillBuf)
+	if err != nil {
+		return err
+	}
+
+	switch logLevel {
+	case log.InfoLevel:
+		log.Info(strings.Join(buf, " "))
+	case log.DebugLevel:
+		log.Debug(strings.Join(buf, " "))
+	case log.WarnLevel:
+		log.Warn(strings.Join(buf, " "))
+	case log.ErrorLevel:
+		log.Error(strings.Join(buf, " "))
+	case log.FatalLevel:
+		log.Error(strings.Join(buf, " "))
+		return topdown.Halt{Err: errors.Errorf("Fatal Log: %s", strings.Join(buf, " "))}
+	default:
+		return nil
+	}
+
+	return nil
 }
