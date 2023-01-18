@@ -2,6 +2,7 @@ package builtins
 
 import (
 	"github.com/open-policy-agent/opa/rego"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 	"strings"
 
 	"github.com/open-policy-agent/opa/ast"
@@ -54,15 +55,17 @@ func makeBuiltinLogFuncForLevel(level log.Level) func(bctx rego.BuiltinContext, 
 }
 
 func logWithLevel(logLevel log.Level, operands *ast.Array) error {
-	var buf []string
+	buf := make([]string, operands.Len())
+	idx := 0
 
 	fillBuf := func(term *ast.Term) error {
 		switch v := term.Value.(type) {
 		case ast.String:
-			buf = append(buf, string(v))
+			buf[idx] = string(v)
 		default:
-			buf = append(buf, v.String())
+			buf[idx] = v.String()
 		}
+		idx++
 		return nil
 	}
 
@@ -73,15 +76,15 @@ func logWithLevel(logLevel log.Level, operands *ast.Array) error {
 
 	switch logLevel {
 	case log.InfoLevel:
-		log.Info(strings.Join(buf, " "))
+		logging.LogForComponent("policy").Info(strings.Join(buf, " "))
 	case log.DebugLevel:
-		log.Debug(strings.Join(buf, " "))
+		logging.LogForComponent("policy").Debug(strings.Join(buf, " "))
 	case log.WarnLevel:
-		log.Warn(strings.Join(buf, " "))
+		logging.LogForComponent("policy").Warn(strings.Join(buf, " "))
 	case log.ErrorLevel:
-		log.Error(strings.Join(buf, " "))
+		logging.LogForComponent("policy").Error(strings.Join(buf, " "))
 	case log.FatalLevel:
-		log.Error(strings.Join(buf, " "))
+		logging.LogForComponent("policy").Error(strings.Join(buf, " "))
 		return topdown.Halt{Err: errors.Errorf("Fatal Log: %s", strings.Join(buf, " "))}
 	default:
 		return nil
