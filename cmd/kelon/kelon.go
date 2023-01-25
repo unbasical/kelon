@@ -74,18 +74,18 @@ func main() {
 	setLogLevel()
 
 	config := core.KelonConfiguration{
-		ConfigPath:             configurationPath,
-		ConfigWatcherPath:      configWatcherPath,
-		RegoDir:                regoDir,
-		OperandDir:             operandDir,
-		ExtensionDir:           extensionsDir,
-		PathPrefix:             pathPrefix,
-		Port:                   port,
-		AstSkipUnknown:         astSkipUnknown,
-		AccessDecisionLogLevel: accessDecisionLogLevel,
-		EnvoyPort:              envoyPort,
-		EnvoyDryRun:            envoyDryRun,
-		EnvoyReflection:        envoyReflection,
+		ConfigPath:               configurationPath,
+		ConfigWatcherPath:        configWatcherPath,
+		RegoDir:                  regoDir,
+		OperandDir:               operandDir,
+		ExtensionDir:             extensionsDir,
+		PathPrefix:               pathPrefix,
+		Port:                     port,
+		AstSkipUnknown:           astSkipUnknown,
+		AccessDecisionLogLevel:   accessDecisionLogLevel,
+		EnvoyPort:                envoyPort,
+		EnvoyDryRun:              envoyDryRun,
+		EnvoyReflection:          envoyReflection,
 		MetricProvider:           metricProvider,
 		TraceProvider:            traceProvider,
 		OtlpMetricExportProtocol: otlpMetricExportProtocol,
@@ -93,9 +93,9 @@ func main() {
 		OtlpServiceName:          otlpServiceName,
 		OtlpTraceExportProtocol:  otlpTraceExportProtocol,
 		OtlpTraceExportEndpoint:  otlpTraceExportEndpoint,
-		Validate:               false,
-		InputBody:              inputBody,
-		QueryOutputFilename:    queryOutputFilename,
+		Validate:                 false,
+		InputBody:                inputBody,
+		QueryOutputFilename:      queryOutputFilename,
 	}
 
 	kelon := core.Kelon{}
