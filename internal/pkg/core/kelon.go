@@ -13,6 +13,7 @@ import (
 	"github.com/unbasical/kelon/configs"
 	apiInt "github.com/unbasical/kelon/internal/pkg/api"
 	"github.com/unbasical/kelon/internal/pkg/api/envoy"
+	"github.com/unbasical/kelon/internal/pkg/builtins"
 	"github.com/unbasical/kelon/internal/pkg/data"
 	opaInt "github.com/unbasical/kelon/internal/pkg/opa"
 	requestInt "github.com/unbasical/kelon/internal/pkg/request"
@@ -78,6 +79,9 @@ func (k *Kelon) Configure(config *KelonConfiguration) {
 	if k.configured {
 		return
 	}
+
+	// Configure opa builtins
+	builtins.InitBuiltinFunctions()
 
 	k.config = config
 	k.configured = true
