@@ -10,10 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	opa2 "github.com/unbasical/kelon/internal/pkg/opa"
-
 	"github.com/unbasical/kelon/configs"
 	dataInt "github.com/unbasical/kelon/internal/pkg/data"
+	opa2 "github.com/unbasical/kelon/internal/pkg/opa"
 	requestInt "github.com/unbasical/kelon/internal/pkg/request"
 	translateInt "github.com/unbasical/kelon/internal/pkg/translate"
 	watcherInt "github.com/unbasical/kelon/internal/pkg/watcher"
@@ -29,12 +28,10 @@ import (
 )
 
 type testConfiguration struct {
-	dsConfigPath         string
-	apiConfigPath        string
+	configPath           string
 	policiesPath         string
 	evaluatedQueriesPath string
 	requestPath          string
-	opaPath              string
 	pathPrefix           string
 }
 
@@ -46,12 +43,10 @@ func Test_integration_policyCompiler(t *testing.T) {
 		{
 			name: "Test",
 			fields: testConfiguration{
-				dsConfigPath:         "./examples/local/config/datastore.yml",
-				apiConfigPath:        "./examples/local/config/api.yml",
+				configPath:           "./examples/local/config/kelon.yml",
 				policiesPath:         "./examples/local/policies",
 				evaluatedQueriesPath: "./test/integration/config/dbQueries.yml",
 				requestPath:          "./test/integration/config/dbRequests.yml",
-				opaPath:              "./examples/local/config/opa.yml",
 				pathPrefix:           "/v1",
 			},
 		},
@@ -71,7 +66,6 @@ type PolicyCompilerTestEnvironment struct {
 	configWatcher        watcher.ConfigWatcher
 	policyCompiler       opa.PolicyCompiler
 	t                    *testing.T
-	opaPath              string
 	pathPrefix           string
 	policiesPath         string
 	evaluatedQueriesPath string
@@ -92,8 +86,7 @@ func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration)
 
 	// init configloader
 	configLoader := configs.FileConfigLoader{
-		DatastoreConfigPath: config.dsConfigPath,
-		APIConfigPath:       config.apiConfigPath,
+		FilePath: config.configPath,
 	}
 
 	// init policyCompiler to set up configWatcher
@@ -102,7 +95,6 @@ func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration)
 		t:                    t,
 		policyCompiler:       opa2.NewPolicyCompiler(),
 		configWatcher:        watcherInt.NewFileWatcher(configLoader, config.policiesPath),
-		opaPath:              config.opaPath,
 		pathPrefix:           config.pathPrefix,
 		policiesPath:         config.policiesPath,
 		evaluatedQueriesPath: config.evaluatedQueriesPath,
@@ -179,12 +171,18 @@ func (p *PolicyCompilerTestEnvironment) onConfigLoaded(change watcher.ChangeType
 		)
 
 		// Build config
-		config.API = loadedConf.API
-		config.Data = loadedConf.Data
-		config.Data.CallOperandsDir = "./call-operands"
+		config.APIMappings = loadedConf.APIMappings
+		config.Datastores = loadedConf.Datastores
+		config.DatastoreSchemas = loadedConf.DatastoreSchemas
 		serverConf := p.makeServerConfig(parser, mapper, translator, loadedConf)
-		if configErr := p.policyCompiler.Configure(config, &serverConf.PolicyCompilerConfig); configErr != nil {
+		config.CallOperands, err = dataInt.LoadAllCallOperands(config.Datastores, nil)
+		if err != nil {
 			p.t.Error(err)
+			p.t.FailNow()
+		}
+
+		if configErr := p.policyCompiler.Configure(config, &serverConf.PolicyCompilerConfig); configErr != nil {
+			p.t.Error(configErr)
 			p.t.FailNow()
 		}
 	}
@@ -192,7 +190,6 @@ func (p *PolicyCompilerTestEnvironment) onConfigLoaded(change watcher.ChangeType
 
 func (p *PolicyCompilerTestEnvironment) makeServerConfig(parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
 	pathPrefix := p.pathPrefix
-	opaPath := p.opaPath
 	regoDir := p.policiesPath
 
 	// Build server config
@@ -200,7 +197,6 @@ func (p *PolicyCompilerTestEnvironment) makeServerConfig(parser request.PathProc
 		Compiler: &p.policyCompiler,
 		PolicyCompilerConfig: opa.PolicyCompilerConfig{
 			Prefix:        &pathPrefix,
-			OpaConfigPath: &opaPath,
 			RegoDir:       &regoDir,
 			ConfigWatcher: &p.configWatcher,
 			PathProcessor: &parser,
@@ -209,7 +205,7 @@ func (p *PolicyCompilerTestEnvironment) makeServerConfig(parser request.PathProc
 			},
 			Translator: &translator,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
-				Datastores: p.mockMakeDatastores(loadedConf.Data),
+				Datastores: p.mockMakeDatastores(loadedConf),
 			},
 			AccessDecisionLogLevel: strings.ToUpper("ALL"),
 		},
@@ -217,7 +213,7 @@ func (p *PolicyCompilerTestEnvironment) makeServerConfig(parser request.PathProc
 	return serverConf
 }
 
-func (p *PolicyCompilerTestEnvironment) mockMakeDatastores(config *configs.DatastoreConfig) map[string]*data.Datastore {
+func (p *PolicyCompilerTestEnvironment) mockMakeDatastores(config *configs.ExternalConfig) map[string]*data.Datastore {
 	result := make(map[string]*data.Datastore)
 	// create and insert mocked db executor into all datastores
 	mocked := NewMockedDatastoreExecuter(p.t, p.evaluatedQueriesPath, p.name)

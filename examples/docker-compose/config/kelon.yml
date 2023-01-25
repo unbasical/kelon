@@ -1,3 +1,49 @@
+apis:
+  # Route all requests starting with /api/mysql to mysql database
+  - path-prefix: /api/mysql
+    datastores:
+      - mysql
+    mappings:
+      - path: /apps/.*                   # Matches [GET,POST,PUT,DELETE,PATCH] /api/mysql/apps/.*
+        package: applications.mysql
+      - path: /apps/[\d]+               # Matches [GET,POST,PUT,DELETE,PATCH] /api/mysql/apps/[\d]+
+        package: applications.mysql
+      - path: /apps/[\d]+               # Only matches GET /api/mysql/apps/[\d]+
+        package: applications.mysql
+        methods:
+          - GET
+      - path: /.*
+        package: test
+  # Route all requests starting with /api/mongo to MongoDB
+  - path-prefix: /api/mongo
+    datastores:
+      - mongo
+    mappings:
+      - path: /apps/.*
+        package: applications.mongo
+  # Route all requests staring with /api/pure to no Datastore without authentication
+  - path-prefix: /api/pure
+    authentication: false
+    mappings:
+      - path: /apps/.*
+        package: applications.pure
+  # Route all requests starting with /api/mixed to MongoDB and Postgres
+  - path-prefix: /api/mixed
+    datastores:
+      - mongo
+      - pg
+    authentication: false
+    mappings:
+      - path: /apps/.*
+        package: applications.mixed
+  # All other requests are routed to postgres
+  - path-prefix: /api/.*?
+    datastores:
+      - pg
+    mappings:
+      - path: /apps/.*
+        package: applications.pg
+
 # Datastores to connect to
 datastores:
   mysql:
@@ -79,3 +125,17 @@ entity_schemas:
               entities:
                 - name: user
                   alias: users
+
+opa:
+  labels:
+    app: Kelon
+    region: europe-west3
+    environment: development
+
+  decision_logs:
+    console: true
+    reporting:
+      min_delay_seconds: 300
+      max_delay_seconds: 600
+
+  default_decision: /http/authz/allow

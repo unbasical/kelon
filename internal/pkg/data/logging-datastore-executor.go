@@ -3,7 +3,7 @@ package data
 import (
 	"context"
 	"encoding/json"
-	"os"
+	"io"
 
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/pkg/constants/logging"
@@ -12,14 +12,14 @@ import (
 
 type loggingDatastoreExecutor struct {
 	alias      string
-	file       *os.File
+	writer     io.Writer
 	configured bool
 	appConf    *configs.AppConfig
 }
 
-func NewLoggingDatastoreExecutor(file *os.File) data.DatastoreExecutor {
+func NewLoggingDatastoreExecutor(writer io.Writer) data.DatastoreExecutor {
 	return &loggingDatastoreExecutor{
-		file:    file,
+		writer:  writer,
 		appConf: nil,
 	}
 }
@@ -38,7 +38,7 @@ func (ds *loggingDatastoreExecutor) Configure(appConf *configs.AppConfig, alias 
 }
 
 func (ds *loggingDatastoreExecutor) Execute(ctx context.Context, query data.DatastoreQuery) (bool, error) {
-	if ds.file != nil {
+	if ds.writer != nil {
 		queryData := make(map[string]interface{})
 
 		queryData["query"] = query.Statement
@@ -50,7 +50,7 @@ func (ds *loggingDatastoreExecutor) Execute(ctx context.Context, query data.Data
 		}
 
 		jsonString = append(jsonString, byte('\n'))
-		_, err = (*ds.file).Write(jsonString)
+		_, err = ds.writer.Write(jsonString)
 		if err != nil {
 			return false, err
 		}

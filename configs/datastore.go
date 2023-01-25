@@ -1,33 +1,21 @@
 package configs
 
 import (
-	"os"
-
 	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
-// Configuration for the Datastore-mappings used by kelon to map incoming requests to datastores.
-//
-// This mapping is needed to set schemas for entities (coming from compiled regos) as well as using the datastore's alias as
-// unknowns for OPA's partial evaluation api.
-// The DatastoreSchema maps the datastore alias to a datastore schema to a slice of Entities which are contained in this schema.
-type DatastoreConfig struct {
-	OutputFile       *os.File
-	CallOperandsDir  string
-	Datastores       map[string]*Datastore
-	DatastoreSchemas map[string]map[string]*EntitySchema `yaml:"entity_schemas"`
-}
+// DatastoreSchemas maps the datastore alias to a datastore schema to a slice of Entities which are contained in this schema.
+type DatastoreSchemas = map[string]map[string]*EntitySchema
 
-// Each datastore has a fixed Type (enum type) and variable connection-/metadata-properties
+// Datastore has a fixed Type (enum type) and variable connection-/metadata-properties
 // Which should be validated and parsed by each data.Datastore separately.
 type Datastore struct {
-	Type            string
-	CallOperandsDir string
-	Connection      map[string]string
-	Metadata        map[string]string
+	Type       string
+	Connection map[string]string
+	Metadata   map[string]string
 }
 
-// List of entities of a schema
+// EntitySchema contains a List of entities of a schema
 type EntitySchema struct {
 	Entities []*Entity
 }
@@ -39,7 +27,7 @@ type Entity struct {
 	Entities []*Entity
 }
 
-// Check if a entity is contained inside a schema.
+// ContainsEntity checks if an entity is contained inside a schema.
 // The entity is searched by its alias which is either its name, or a specified alias!
 //
 // Returns a boolean indicating if the entity was found and the entity itself.
@@ -54,7 +42,7 @@ func (schema EntitySchema) ContainsEntity(search string) (bool, *Entity) {
 	return false, nil
 }
 
-// Returns true if the schema contains entities with nested entities
+// HasNestedEntities returns true if the schema contains entities with nested entities
 func (schema EntitySchema) HasNestedEntities() bool {
 	// Find custom mapping
 	for _, entity := range schema.Entities {
@@ -65,7 +53,7 @@ func (schema EntitySchema) HasNestedEntities() bool {
 	return false
 }
 
-// Returns search structure for fast finding of paths from a source to a destination
+// GenerateEntityPaths returns search structure for fast finding of paths from a source to a destination
 // returned map of maps has the semantic pathBegin -> pathEnd -> path
 func (schema EntitySchema) GenerateEntityPaths() map[string]map[string][]string {
 	result := make(map[string]map[string][]string)

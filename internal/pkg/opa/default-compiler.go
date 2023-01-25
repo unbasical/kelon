@@ -52,7 +52,7 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 	}
 
 	// Start OPA in background
-	engine, err := startOPA(compConf.OpaConfigPath, *compConf.RegoDir)
+	engine, err := startOPA(compConf.OPAConfig, *compConf.RegoDir)
 	if err != nil {
 		return errors.Wrap(err, "PolicyCompiler: Error while starting OPA.")
 	}
@@ -299,9 +299,9 @@ func initDependencies(compConf *opa.PolicyCompilerConfig, appConf *configs.AppCo
 	return nil
 }
 
-func startOPA(configFile *string, regosPath string) (*OPA, error) {
+func startOPA(conf interface{}, regosPath string) (*OPA, error) {
 	ctx := context.Background()
-	engine, err := NewOPA(ctx, regosPath, ConfigOPA(*configFile))
+	engine, err := NewOPA(ctx, regosPath, ConfigOPA(conf))
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to initialize OPA!")
 	}

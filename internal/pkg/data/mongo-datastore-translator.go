@@ -26,7 +26,7 @@ type mongoQueryResult struct {
 	count int64
 }
 
-// Return a new data.DatastoreTranslator which is able to connect to PostgreSQL and MySQL databases.
+// NewMongoDatastoreTranslator Returns a new data.DatastoreTranslator which is able to connect to MongoDB databases.
 func NewMongoDatastoreTranslator() data.DatastoreTranslator {
 	return &mongoDatastoreTranslator{
 		appConf:    nil,
@@ -47,7 +47,7 @@ func (ds *mongoDatastoreTranslator) Configure(appConf *configs.AppConfig, alias 
 	if err != nil {
 		return errors.Wrap(err, "MongoDatastoreTranslator:")
 	}
-	if schemas, ok := appConf.Data.DatastoreSchemas[alias]; ok {
+	if schemas, ok := appConf.DatastoreSchemas[alias]; ok {
 		if len(schemas) == 0 {
 			return errors.Errorf("MongoDatastoreTranslator: DatastoreTranslator with alias [%s] has no schemas configured!", alias)
 		}
@@ -56,16 +56,16 @@ func (ds *mongoDatastoreTranslator) Configure(appConf *configs.AppConfig, alias 
 	}
 
 	// Load call handlers
-	operands, err := loadCallOperands(conf)
-	if err != nil {
-		return errors.Wrap(err, "MongoDatastoreTranslator:")
+	operands, ok := appConf.CallOperands[conf.Type]
+	if !ok {
+		return errors.Errorf("no call-operands found for datastore with type [%s]", conf.Type)
 	}
 	ds.callOps = operands
 	logging.LogForComponent("mongoDatastoreTranslator").Infof("[%s] loaded call operands", alias)
 
 	// Load entity schemas
 	ds.entityPaths = make(map[string]map[string][]string)
-	for _, schema := range appConf.Data.DatastoreSchemas[alias] {
+	for _, schema := range appConf.DatastoreSchemas[alias] {
 		paths := schema.GenerateEntityPaths()
 		for k, v := range paths {
 			ds.entityPaths[k] = v

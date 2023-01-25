@@ -18,15 +18,13 @@ import (
 )
 
 type testConfiguration struct {
-	e2eConfig     ContainerConfiguration
-	kelonPort     uint32
-	dsConfigPath  string
-	apiConfigPath string
-	policiesPath  string
-	opaConfigPath string
-	callOpsPath   string
-	requestPath   string
-	pathPrefix    string
+	e2eConfig    ContainerConfiguration
+	kelonPort    uint32
+	configPath   string
+	policiesPath string
+	callOpsPath  string
+	requestPath  string
+	pathPrefix   string
 }
 
 func Test_e2e_kelon(t *testing.T) {
@@ -37,14 +35,11 @@ func Test_e2e_kelon(t *testing.T) {
 			exposePorts:    map[ServiceID][]string{},
 			waitStrategies: map[ServiceID]wait.Strategy{},
 		},
-		kelonPort:     8181,
-		dsConfigPath:  "../../examples/docker-compose/config/datastore.yml",
-		apiConfigPath: "../../examples/docker-compose/config/api.yml",
-		opaConfigPath: "../../examples/docker-compose/config/datastore.yml",
-		policiesPath:  "../../examples/docker-compose/policies/",
-		callOpsPath:   "../../call-operands",
-		requestPath:   "./test_config/requests.yml",
-		pathPrefix:    "/v1",
+		kelonPort:    8181,
+		configPath:   "../../examples/docker-compose/config/kelon.yml",
+		policiesPath: "../../examples/docker-compose/policies/",
+		requestPath:  "./test_config/requests.yml",
+		pathPrefix:   "/v1",
 	}
 
 	configureExposablePorts(t, &config)
@@ -63,10 +58,8 @@ type E2ETestEnvironment struct {
 	t            *testing.T
 	containerEnv *ContainerEnvironment
 	kelonPort    uint32
-	apiPath      string
-	dsPath       string
+	configPath   string
 	regoPath     string
-	opaPath      string
 	callOpsPath  string
 	pathPrefix   string
 	requests     []Request
@@ -93,9 +86,7 @@ func NewTest(ctx context.Context, t *testing.T, name string, config *testConfigu
 		t:            t,
 		containerEnv: container,
 		kelonPort:    config.kelonPort,
-		apiPath:      config.apiConfigPath,
-		dsPath:       modifyDatastoreConfig(ctx, t, container, config.dsConfigPath, dsPorts),
-		opaPath:      config.opaConfigPath,
+		configPath:   modifyDatastoreConfig(ctx, t, container, config.configPath, dsPorts),
 		regoPath:     config.policiesPath,
 		callOpsPath:  config.callOpsPath,
 		pathPrefix:   config.pathPrefix,
@@ -131,9 +122,7 @@ func (env *E2ETestEnvironment) startKelon() {
 	var astSkipUnknown = false
 
 	config := core.KelonConfiguration{
-		DatastorePath:          &env.dsPath,
-		APIPath:                &env.apiPath,
-		OpaPath:                &env.opaPath,
+		ConfigPath:             &env.configPath,
 		RegoDir:                &env.regoPath,
 		Port:                   &env.kelonPort,
 		OperandDir:             &env.callOpsPath,
@@ -187,7 +176,7 @@ func parseTestData(t *testing.T, path string) []Request {
 }
 
 func modifyDatastoreConfig(ctx context.Context, t *testing.T, containerEnv *ContainerEnvironment, path string, ports map[ServiceID]string) string {
-	var data configs.DatastoreConfig
+	var data configs.ExternalConfig
 	inputBytes, err := os.ReadFile(path)
 	if err != nil {
 		t.Errorf("error reading file %s: %s", path, err.Error())
@@ -247,16 +236,16 @@ func modifyDatastoreConfig(ctx context.Context, t *testing.T, containerEnv *Cont
 }
 
 func configureExposablePorts(t *testing.T, config *testConfiguration) {
-	var data configs.DatastoreConfig
-	inputBytes, err := os.ReadFile(config.dsConfigPath)
+	var data configs.ExternalConfig
+	inputBytes, err := os.ReadFile(config.configPath)
 	if err != nil {
-		t.Errorf("error reading file %s: %s", config.dsConfigPath, err.Error())
+		t.Errorf("error reading file %s: %s", config.configPath, err.Error())
 		t.FailNow()
 	}
 
 	err = yaml.Unmarshal(inputBytes, &data)
 	if err != nil {
-		t.Errorf("error parsing file %s: %s", config.dsConfigPath, err.Error())
+		t.Errorf("error parsing file %s: %s", config.configPath, err.Error())
 		t.FailNow()
 	}
 
