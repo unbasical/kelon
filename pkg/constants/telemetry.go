@@ -36,6 +36,8 @@ func (i MetricInstrument) String() string {
 	}
 }
 
+const ProtocolPrefixRe = "^\\w+://"
+
 const LabelHTTPMethod string = "http.method"
 
 const LabelHTTPStatusCode string = "http.status_code"

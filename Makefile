@@ -3,7 +3,7 @@ PKG := "github.com/unbasical/$(PROJECT_NAME)"
 PKG_LIST := $(shell go list ${PKG}/... | grep -v /vendor/)
 GO_FILES := $(shell find . -name '*.go' | grep -v /vendor/ | grep -v _test.go)
 
-.PHONY: all dep lint vet test test-coverage build clean e2e-test load-test load-test-update-postman
+.PHONY: all dep lint vet test test-coverage build install clean e2e-test load-test load-test-update-postman
  
 all: build
 
@@ -24,7 +24,10 @@ test-coverage: ## Run tests with coverage
 	# @cat cover.out >> coverage.txt
 
 build: dep ## Build the binary file
-	@go build -i -o out/kelon $(PKG)/cmd/kelon
+	@go build -o out/kelon $(PKG)/cmd/kelon
+
+install:
+	@go install $(PKG)/cmd/kelon
  
 clean: ## Remove previous build
 	@rm -f $(PROJECT_NAME)/build

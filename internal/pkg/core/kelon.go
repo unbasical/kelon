@@ -21,7 +21,6 @@ import (
 	translateInt "github.com/unbasical/kelon/internal/pkg/translate"
 	watcherInt "github.com/unbasical/kelon/internal/pkg/watcher"
 	"github.com/unbasical/kelon/pkg/api"
-	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/extensions"
 	"github.com/unbasical/kelon/pkg/opa"
@@ -53,12 +52,13 @@ type KelonConfiguration struct {
 	EnvoyReflection *bool
 
 	// Configs for telemetry
-	MetricService        *string
-	MetricExportProtocol *string
-	MetricExportEndpoint *string
-	TraceService         *string
-	TraceExportProtocol  *string
-	TraceExportEndpoint  *string
+	MetricProvider           *string
+	OtlpMetricExportProtocol *string
+	OtlpMetricExportEndpoint *string
+	TraceProvider            *string
+	OtlpTraceExportProtocol  *string
+	OtlpTraceExportEndpoint  *string
+	OtlpServiceName          *string
 
 	// Configs for validate mode
 	Validate            bool
@@ -252,14 +252,14 @@ func (k *Kelon) onConfigLoaded(change watcher.ChangeType, loadedConf *configs.Ex
 }
 
 func (k *Kelon) makeTelemetryMetricsProvider(ctx context.Context) telemetry.MetricsProvider {
-	if k.config.MetricService != nil && *k.config.MetricService != "" {
-		provider, err := telemetry.NewMetricsProvider(ctx, constants.TelemetryServiceName, *k.config.MetricService, *k.config.MetricExportProtocol, *k.config.MetricExportEndpoint)
+	if k.config.MetricProvider != nil && *k.config.MetricProvider != "" {
+		provider, err := telemetry.NewMetricsProvider(ctx, *k.config.OtlpServiceName, *k.config.MetricProvider, *k.config.OtlpMetricExportProtocol, *k.config.OtlpMetricExportEndpoint)
 		if err != nil {
-			logging.LogForComponent("main").Fatalf("Error during creation of MetricsProvider %q: %s", *k.config.MetricService, err)
+			logging.LogForComponent("main").Fatalf("Error during creation of MetricsProvider %q: %s", *k.config.MetricProvider, err)
 		}
 
 		if err := provider.Configure(ctx); err != nil {
-			logging.LogForComponent("main").Fatalf("Error during configuration of MetricsProvider %q: %s", *k.config.MetricService, err.Error())
+			logging.LogForComponent("main").Fatalf("Error during configuration of MetricsProvider %q: %s", *k.config.MetricProvider, err.Error())
 		}
 
 		return provider
@@ -268,14 +268,14 @@ func (k *Kelon) makeTelemetryMetricsProvider(ctx context.Context) telemetry.Metr
 }
 
 func (k *Kelon) makeTelemetryTraceProvider(ctx context.Context) telemetry.TraceProvider {
-	if k.config.TraceService != nil && *k.config.TraceService != "" {
-		provider, err := telemetry.NewTraceProvider(ctx, constants.TelemetryServiceName, *k.config.TraceExportProtocol, *k.config.TraceExportEndpoint)
+	if k.config.TraceProvider != nil && *k.config.TraceProvider != "" {
+		provider, err := telemetry.NewTraceProvider(ctx, *k.config.OtlpServiceName, *k.config.OtlpTraceExportProtocol, *k.config.OtlpTraceExportEndpoint)
 		if err != nil {
-			logging.LogForComponent("main").Fatalf("Error during creation of TraceProvider %q: %s", *k.config.TraceService, err)
+			logging.LogForComponent("main").Fatalf("Error during creation of TraceProvider %q: %s", *k.config.TraceProvider, err)
 		}
 
 		if err := provider.Configure(ctx); err != nil {
-			logging.LogForComponent("main").Fatalf("Error during configuration of TraceProvider %q: %s", *k.config.TraceService, err.Error())
+			logging.LogForComponent("main").Fatalf("Error during configuration of TraceProvider %q: %s", *k.config.TraceProvider, err.Error())
 		}
 
 		return provider
