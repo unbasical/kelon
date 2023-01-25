@@ -1,38 +1,41 @@
 package builtins
 
 import (
-	"github.com/open-policy-agent/opa/rego"
-	"github.com/unbasical/kelon/pkg/constants/logging"
 	"strings"
 
 	"github.com/open-policy-agent/opa/ast"
+	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/topdown"
 	"github.com/open-policy-agent/opa/topdown/builtins"
 	"github.com/open-policy-agent/opa/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
-var logInfo = &rego.Function{
-	Name: "log_info",
-	Decl: types.NewVariadicFunction(nil, types.A, nil),
-}
-var logDebug = &rego.Function{
-	Name: "log_debug",
-	Decl: types.NewVariadicFunction(nil, types.A, nil),
-}
-var logWarn = &rego.Function{
-	Name: "log_warn",
-	Decl: types.NewVariadicFunction(nil, types.A, nil),
-}
-var logError = &rego.Function{
-	Name: "log_error",
-	Decl: types.NewVariadicFunction(nil, types.A, nil),
-}
-var logFatal = &rego.Function{
-	Name: "log_fatal",
-	Decl: types.NewVariadicFunction(nil, types.A, nil),
-}
+// nolint:gochecknoglobals,gocritic
+var (
+	logInfo = &rego.Function{
+		Name: "log_info",
+		Decl: types.NewVariadicFunction(nil, types.A, nil),
+	}
+	logDebug = &rego.Function{
+		Name: "log_debug",
+		Decl: types.NewVariadicFunction(nil, types.A, nil),
+	}
+	logWarn = &rego.Function{
+		Name: "log_warn",
+		Decl: types.NewVariadicFunction(nil, types.A, nil),
+	}
+	logError = &rego.Function{
+		Name: "log_error",
+		Decl: types.NewVariadicFunction(nil, types.A, nil),
+	}
+	logFatal = &rego.Function{
+		Name: "log_fatal",
+		Decl: types.NewVariadicFunction(nil, types.A, nil),
+	}
+)
 
 func makeBuiltinLogFuncForLevel(level log.Level) func(bctx rego.BuiltinContext, terms []*ast.Term) (*ast.Term, error) {
 	return func(bctx rego.BuiltinContext, terms []*ast.Term) (*ast.Term, error) {
