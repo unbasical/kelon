@@ -21,12 +21,10 @@ var (
 	validate = app.Command("validate", "Run kelon in validate mode: validate policies by printing resulting datastore queries")
 
 	// Config paths
-	datastorePath     = app.Flag("datastore-conf", "Path to the datastore configuration yaml.").Short('d').Default("./datastore.yml").Envar("DATASTORE_CONF").ExistingFile()
-	apiPath           = app.Flag("api-conf", "Path to the api configuration yaml.").Short('a').Default("./api.yml").Envar("API_CONF").ExistingFile()
+	configurationPath = app.Flag("config", "Path to the configuration yaml.").Short('k').Default("./kelon.yml").Envar("KELON_CONF").ExistingFile()
 	configWatcherPath = app.Flag("config-watcher-path", "Path where the config watcher should listen for changes.").Envar("CONFIG_WATCHER_PATH").ExistingDir()
-	opaPath           = app.Flag("opa-conf", "Path to the OPA configuration yaml.").Short('o').Default("./opa.yml").Envar("OPA_CONF").ExistingFile()
 	regoDir           = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Short('r').Envar("REGO_DIR").ExistingDir()
-	operandDir        = app.Flag("call-operand-dir", "Dir containing .yaml files which contain the call operand configuration for the datastores").Short('c').Envar("CALL_OPERANDS_DIR").Default("./call-operands").ExistingDir()
+	operandDir        = app.Flag("call-operand-dir", "Dir containing .yaml files which contain the call operand configuration for the datastores").Short('c').Envar("CALL_OPERANDS_DIR").ExistingDir()
 
 	// Additional config
 	pathPrefix     = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
@@ -75,10 +73,8 @@ func main() {
 	setLogLevel()
 
 	config := core.KelonConfiguration{
-		DatastorePath:            datastorePath,
-		APIPath:                  apiPath,
+		ConfigPath:               configurationPath,
 		ConfigWatcherPath:        configWatcherPath,
-		OpaPath:                  opaPath,
 		RegoDir:                  regoDir,
 		OperandDir:               operandDir,
 		PathPrefix:               pathPrefix,

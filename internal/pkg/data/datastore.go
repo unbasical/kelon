@@ -33,7 +33,7 @@ func extractAndValidateDatastore(appConf *configs.AppConfig, alias string) (*con
 		return nil, errors.Errorf("Empty alias provided!")
 	}
 	// Validate configuration
-	conf, ok := appConf.Data.Datastores[alias]
+	conf, ok := appConf.Datastores[alias]
 	if !ok {
 		return nil, errors.Errorf("No datastore with alias [%s] configured!", alias)
 	}
@@ -44,7 +44,6 @@ func extractAndValidateDatastore(appConf *configs.AppConfig, alias string) (*con
 		return nil, err
 	}
 
-	conf.CallOperandsDir = appConf.Data.CallOperandsDir
 	return conf, nil
 }
 
@@ -62,20 +61,6 @@ func pingUntilReachable(alias string, ping func() error) error {
 		return errors.Wrap(pingFailure, "Unable to ping database")
 	}
 	return nil
-}
-
-func loadCallOperands(conf *configs.Datastore) (map[string]func(args ...string) (string, error), error) {
-	callOpsFile := fmt.Sprintf("%s/%s.yml", conf.CallOperandsDir, strings.ToLower(conf.Type))
-	handlers, err := LoadDatastoreCallOpsFile(callOpsFile)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to load call operands as handlers")
-	}
-
-	operands := map[string]func(args ...string) (string, error){}
-	for _, handler := range handlers {
-		operands[handler.Handles()] = handler.Map
-	}
-	return operands, nil
 }
 
 func validateConnection(alias string, conn map[string]string) error {

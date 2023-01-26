@@ -22,7 +22,7 @@ type sqlDatastoreTranslator struct {
 	configured bool
 }
 
-// Return a new data.DatastoreTranslator which is able to connect to PostgreSQL and MySQL databases.
+// NewSQLDatastoreTranslator returns a new data.DatastoreTranslator which is able to connect to PostgreSQL and MySQL databases.
 func NewSQLDatastoreTranslator() data.DatastoreTranslator {
 	return &sqlDatastoreTranslator{
 		appConf:    nil,
@@ -43,7 +43,7 @@ func (ds *sqlDatastoreTranslator) Configure(appConf *configs.AppConfig, alias st
 	if e != nil {
 		return errors.Wrap(e, "SqlDatastoreTranslator:")
 	}
-	if schemas, ok := appConf.Data.DatastoreSchemas[alias]; ok {
+	if schemas, ok := appConf.DatastoreSchemas[alias]; ok {
 		if len(schemas) == 0 {
 			return errors.Errorf("SqlDatastoreTranslator: DatastoreTranslator with alias [%s] has no schemas configured!", alias)
 		}
@@ -58,9 +58,9 @@ func (ds *sqlDatastoreTranslator) Configure(appConf *configs.AppConfig, alias st
 	}
 
 	// Load call handlers
-	operands, err := loadCallOperands(conf)
-	if err != nil {
-		return errors.Wrap(err, "SqlDatastoreTranslator:")
+	operands, ok := appConf.CallOperands[conf.Type]
+	if !ok {
+		return errors.Errorf("no call-operands found for datastore with type [%s]", conf.Type)
 	}
 	ds.callOps = operands
 	logging.LogForComponent("sqlDatastoreTranslator").Infof("SqlDatastoreTranslator [%s] laoded call operands", alias)
@@ -68,7 +68,7 @@ func (ds *sqlDatastoreTranslator) Configure(appConf *configs.AppConfig, alias st
 	// Assign values
 	ds.conn = conf.Connection
 	ds.platform = conf.Type
-	ds.schemas = appConf.Data.DatastoreSchemas[alias]
+	ds.schemas = appConf.DatastoreSchemas[alias]
 	ds.appConf = appConf
 	ds.alias = alias
 	ds.configured = true
@@ -230,7 +230,7 @@ func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, 
 			if schemaError != nil {
 				return schemaError
 			}
-			if schema == "public" && ds.appConf.Data.Datastores[ds.alias].Type == "postgres" {
+			if schema == "public" && ds.appConf.Datastores[ds.alias].Type == "postgres" {
 				// Special handle when datastore is postgres and schema is public
 				entities.Push(entity.Name)
 			} else {

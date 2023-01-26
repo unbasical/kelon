@@ -1,3 +1,27 @@
+apis:
+  # All api-mappings for datastore postgres
+  - path-prefix: /api
+    datastores:
+      - mysql
+      - pg
+    authorization: false
+    mappings:
+      # Match all requests (If methods are provided, all are matched)
+      - path: /.*
+        package: default
+      # Create article
+      - path: /articles
+        package: articles
+        methods:
+          - POST
+      # Get articles by author
+      - path: /articles
+        package: articles
+        methods:
+          - GET
+        queries:
+          - author
+
 # Datastores to connect to
 datastores:
   mysql:

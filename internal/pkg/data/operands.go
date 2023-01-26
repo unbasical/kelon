@@ -1,18 +1,22 @@
 package data
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"regexp"
 	"strconv"
-
-	"github.com/unbasical/kelon/pkg/constants/logging"
-
-	"github.com/unbasical/kelon/pkg/data"
+	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/data"
 	"gopkg.in/yaml.v3"
 )
+
+//go:embed call-operands
+var callOpsDir embed.FS
 
 type GenericCallOpMapper struct {
 	operator  string
@@ -108,6 +112,43 @@ func (h *loadedCallHandler) Map(args ...string) (string, error) {
 	return fmt.Sprintf(h.targetMapping, rearangedArgs...), nil
 }
 
+// LoadAllCallOperands will try loading the call operands from the configured directory.
+// If directory was not configured or and error while parsing occurred, the default call operands will be used.
+func LoadAllCallOperands(dsConfs map[string]*configs.Datastore, callOperandsDir *string) (map[string]map[string]func(args ...string) (string, error), error) {
+	operands := map[string]map[string]func(args ...string) (string, error){}
+
+	for _, dsConf := range dsConfs {
+		var defaultHandlers []data.CallOpMapper
+		var customHandlers []data.CallOpMapper
+		var parseErr error
+
+		defaultHandlers, parseErr = LoadDefaultDatastoreCallOps(dsConf.Type)
+		if parseErr != nil {
+			return nil, errors.Wrapf(parseErr, "unable to load call operands for datastores of type %s", dsConf.Type)
+		}
+
+		if callOperandsDir != nil && *callOperandsDir != "" {
+			callOpsFilePath := fmt.Sprintf("%s/%s.yml", *callOperandsDir, strings.ToLower(dsConf.Type))
+			customHandlers, parseErr = LoadDatastoreCallOpsFile(callOpsFilePath)
+			if parseErr != nil {
+				logging.LogForComponent("callOperandsLoader").Warnf("failed loading custom call operands for %s. Only default call operands will be used", dsConf.Type)
+			}
+		}
+
+		ops := map[string]func(args ...string) (string, error){}
+		for _, handler := range defaultHandlers {
+			ops[handler.Handles()] = handler.Map
+		}
+		for _, handler := range customHandlers {
+			ops[handler.Handles()] = handler.Map
+		}
+
+		operands[dsConf.Type] = ops
+	}
+
+	return operands, nil
+}
+
 func LoadDatastoreCallOpsBytes(input []byte) ([]data.CallOpMapper, error) {
 	if input == nil {
 		return nil, errors.Errorf("Data must not be nil! ")
@@ -141,4 +182,14 @@ func LoadDatastoreCallOpsFile(filePath string) ([]data.CallOpMapper, error) {
 		return LoadDatastoreCallOpsBytes(datastoreOpsBytes)
 	}
 	return nil, errors.Wrap(ioError, "Unable to load datastore-call-operands")
+}
+
+func LoadDefaultDatastoreCallOps(dsType string) ([]data.CallOpMapper, error) {
+	filepath := fmt.Sprintf("call-operands/%s.yml", strings.ToLower(dsType))
+	opsBytes, ioError := callOpsDir.ReadFile(filepath)
+	if ioError != nil {
+		return nil, errors.Wrapf(ioError, "unable to load default call-operands for datastore %q", dsType)
+	}
+
+	return LoadDatastoreCallOpsBytes(opsBytes)
 }

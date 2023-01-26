@@ -1,0 +1,9 @@
+call-operands:
+
+  # Relational operands
+  - op: eq
+    args: 2
+    mapping: "override $0 $1"
+  - op: custom
+    args: 1
+    mapping: "custom $0"

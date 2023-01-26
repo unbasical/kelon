@@ -123,7 +123,7 @@ func (mapper pathMapper) handleInput(input *pathMapperInput) (*request.MapperOut
 }
 
 func (mapper *pathMapper) generateMappings() error {
-	for _, dsMapping := range mapper.appConf.API.Mappings {
+	for _, dsMapping := range mapper.appConf.APIMappings {
 		pathPrefix := dsMapping.Prefix
 		for _, mapping := range dsMapping.Mappings {
 			endpointsRegex := "[(GET)|(POST)|(PUT)|(DELETE)|(PATCH)]"

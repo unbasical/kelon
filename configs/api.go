@@ -7,12 +7,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Configuration for the API-mappings used by kelon to map incoming requests to rego packages.
-type APIConfig struct {
-	Mappings []*DatastoreAPIMapping `yaml:"apis"`
-}
+//nolint:gochecknoglobals,gocritic
+var boolTrue = true
 
-// API-mapping for one of the datastores defined in configs.DatastoreConfig.
+// DatastoreAPIMapping holds the API-mappings for one of the datastores defined in configs.DatastoreConfig.
 //
 // Each mapping has a type of 'mapping global' Prefix which should be appended to each Path of its Mappings.
 // The prefix can be a regular expression.
@@ -24,7 +22,7 @@ type DatastoreAPIMapping struct {
 	Mappings       []*APIMapping
 }
 
-// Mapping within a configs.DatastoreAPIMapping which holds all information that is needed to map an incoming
+// APIMapping within a configs.DatastoreAPIMapping which holds all information that is needed to map an incoming
 // request to a rego package.
 // The Path can be a regular expression.
 type APIMapping struct {
@@ -34,42 +32,50 @@ type APIMapping struct {
 	Queries []string
 }
 
-func (a *APIConfig) validate(config *DatastoreConfig) error {
-	for _, mapping := range a.Mappings {
-		duplicatesCache := make(map[string]struct {
-			path   string
-			entity *Entity
-		})
+func (m *DatastoreAPIMapping) Validate(schema DatastoreSchemas) error {
+	duplicatesCache := make(map[string]struct {
+		path   string
+		entity *Entity
+	})
 
-		for _, dsAlias := range mapping.Datastores {
-			dsSchemas, ok := config.DatastoreSchemas[dsAlias]
-			if !ok {
-				return errors.Errorf("datastore with name [%s] not found in datastore config", dsAlias)
-			}
+	for _, dsAlias := range m.Datastores {
+		dsSchemas, ok := schema[dsAlias]
+		if !ok {
+			return errors.Errorf("datastore with name [%s] not found in datastore config", dsAlias)
+		}
 
-			for schemaName, schema := range dsSchemas {
-				for _, entity := range schema.Entities {
-					// Search for duplicated entities inside all schemas for all datastores
-					search := entity.getMappedName()
-					if match, ok := duplicatesCache[search]; ok {
-						collidingPath := fmt.Sprintf("%s.%s.%s", dsAlias, schemaName, entity.Name)
-						return errors.Errorf("The entity %q collides with entity %q!", collidingPath, match.path)
-					}
-					duplicatesCache[search] = struct {
-						path   string
-						entity *Entity
-					}{path: fmt.Sprintf("%s.%s.%s", dsAlias, schemaName, search), entity: entity}
+		for schemaName, schema := range dsSchemas {
+			for _, entity := range schema.Entities {
+				// Search for duplicated entities inside all schemas for all datastores
+				search := entity.getMappedName()
+				if match, ok := duplicatesCache[search]; ok {
+					collidingPath := fmt.Sprintf("%s.%s.%s", dsAlias, schemaName, entity.Name)
+					return errors.Errorf("The entity %q collides with entity %q!", collidingPath, match.path)
+				}
+				duplicatesCache[search] = struct {
+					path   string
+					entity *Entity
+				}{path: fmt.Sprintf("%s.%s.%s", dsAlias, schemaName, search), entity: entity}
 
-					// Search for any ambiguity inside each level of nested entities
-					if err := findEntityAmbiguity(*entity, []string{}); err != nil {
-						return errors.Wrapf(err, "Found ambiguous nested entities in datastore %q schema %q", dsAlias, schemaName)
-					}
+				// Search for any ambiguity inside each level of nested entities
+				if err := findEntityAmbiguity(*entity, []string{}); err != nil {
+					return errors.Wrapf(err, "Found ambiguous nested entities in datastore %q schema %q", dsAlias, schemaName)
 				}
 			}
 		}
 	}
 
 	return nil
+}
+
+func (m *DatastoreAPIMapping) Defaults() {
+	if m.Authorization == nil {
+		m.Authorization = &boolTrue
+	}
+
+	if m.Authentication == nil {
+		m.Authentication = &boolTrue
+	}
 }
 
 func findEntityAmbiguity(entity Entity, pathHistory []string) error {
@@ -93,16 +99,4 @@ func findEntityAmbiguity(entity Entity, pathHistory []string) error {
 		}
 	}
 	return nil
-}
-
-func (d *DatastoreAPIMapping) setDefaults() {
-	boolTrue := true
-
-	if d.Authorization == nil {
-		d.Authorization = &boolTrue
-	}
-
-	if d.Authentication == nil {
-		d.Authentication = &boolTrue
-	}
 }

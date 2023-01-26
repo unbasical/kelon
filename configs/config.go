@@ -1,4 +1,4 @@
-// Central package for app-global config.
+// Package configs acts as the central place for app-global configuration.
 package configs
 
 import (
@@ -9,101 +9,98 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Configuration for the entire app.
+// AppConfig represents the configuration for the entire app.
 type AppConfig struct {
 	ExternalConfig
+	CallOperands    map[string]map[string]func(args ...string) (string, error)
 	MetricsProvider telemetry.MetricsProvider
 	TraceProvider   telemetry.TraceProvider
 }
 
-// External config.
+// ExternalConfig holds all externally configurable properties
 type ExternalConfig struct {
-	Data *DatastoreConfig
-	API  *APIConfig
+	APIMappings      []*DatastoreAPIMapping              `yaml:"apis"`
+	Datastores       map[string]*Datastore               `yaml:"datastores"`
+	DatastoreSchemas map[string]map[string]*EntitySchema `yaml:"entity_schemas"`
+	OPA              interface{}                         `yaml:"opa"`
+}
+
+func (ec *ExternalConfig) Defaults() {
+	for _, mapping := range ec.APIMappings {
+		mapping.Defaults()
+	}
+
+	if ec.OPA == nil {
+		ec.OPA = struct{}{}
+	}
+}
+
+func (ec *ExternalConfig) Validate() error {
+	for _, mapping := range ec.APIMappings {
+		if err := mapping.Validate(ec.DatastoreSchemas); err != nil {
+			return errors.Wrap(err, "loaded invalid configuration")
+		}
+	}
+
+	return nil
 }
 
 // ConfigLoader is the interface that the functionality of loading kelon's external configuration.
-//
-// Load loads all external configuration files from a predefined source.
-// It returns the loaded configuration and any error encountered that caused the Loader to stop early.
 type ConfigLoader interface {
+	// Load loads all external configuration files from a predefined source.
+	// It returns the loaded configuration and any error encountered that caused the Loader to stop early.
 	Load() (*ExternalConfig, error)
 }
 
-// ByteConfigLoader implements configs.ConfigLoader by loading config from
-// two provided bytes slices.
+// ByteConfigLoader implements Loader by loading config from provided bytes slices.
 type ByteConfigLoader struct {
-	DatastoreConfigBytes []byte
-	APIConfigBytes       []byte
+	FileBytes []byte
 }
 
-// Implementing Load from configs.ConfigLoader by using the properties of the ByteConfigLoader.
+// Load implementation from ExternalLoader by using the properties of the ByteConfigLoader.
 func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
-	if l.DatastoreConfigBytes == nil {
-		return nil, errors.Errorf("DatastoreConfigBytes must not be nil!")
-	}
-	if l.APIConfigBytes == nil {
-		return nil, errors.Errorf("APIConfigBytes must not be nil! ")
+	if l.FileBytes == nil {
+		return nil, errors.Errorf("config bytes must not be nil! ")
 	}
 
 	result := new(ExternalConfig)
 
-	// Load datastore config
-	result.Data = new(DatastoreConfig)
 	// Expand datastore config with environment variables
-	l.DatastoreConfigBytes = []byte(os.ExpandEnv(string(l.DatastoreConfigBytes)))
-	if err := yaml.Unmarshal(l.DatastoreConfigBytes, result.Data); err != nil {
-		return nil, errors.Errorf("Unable to parse datastore config: " + err.Error())
+	l.FileBytes = []byte(os.ExpandEnv(string(l.FileBytes)))
+	if err := yaml.Unmarshal(l.FileBytes, result); err != nil {
+		return nil, errors.Errorf("Unable to parse struct of type %T: %s", result, err.Error())
 	}
 
-	// Load API config
-	result.API = new(APIConfig)
-	if err := yaml.Unmarshal(l.APIConfigBytes, result.API); err != nil {
-		return nil, errors.Errorf("Unable to parse api config: " + err.Error())
-	}
+	result.Defaults()
 
-	// Set default values
-	for _, mapping := range result.API.Mappings {
-		mapping.setDefaults()
+	if err := result.Validate(); err != nil {
+		return nil, err
 	}
-
-	// Validate config
-	if err := result.API.validate(result.Data); err != nil {
-		return nil, errors.Wrap(err, "Loaded invalid datastore config")
-	}
-
 	return result, nil
 }
 
-// FileConfigLoader implements configs.ConfigLoader by loading config from
+// FileConfigLoader implements Loader by loading config from
 // two files located at given paths.
 type FileConfigLoader struct {
-	DatastoreConfigPath string
-	APIConfigPath       string
+	FilePath string
 }
 
-// Implementing Load from configs.ConfigLoader by using the properties of the FileConfigLoader.
+// Load implementation from Loader by using the properties of the FileConfigLoader.
 func (l FileConfigLoader) Load() (*ExternalConfig, error) {
-	if l.DatastoreConfigPath == "" {
-		return nil, errors.Errorf("DatastoreConfigPath must not be empty!")
-	}
-	if l.APIConfigPath == "" {
-		return nil, errors.Errorf("APIConfigPath must not be empty! ")
+	if l.FilePath == "" {
+		return nil, errors.New("filepath must not be empty")
 	}
 
-	// Load dsConfigBytes from file
+	// Load configBy from file
 	var (
 		ioError        error
-		dsConfigBytes  []byte
-		apiConfigBytes []byte
+		datastoreBytes []byte
 	)
-	if dsConfigBytes, ioError = os.ReadFile(l.DatastoreConfigPath); ioError == nil {
-		if apiConfigBytes, ioError = os.ReadFile(l.APIConfigPath); ioError == nil {
-			return ByteConfigLoader{
-				DatastoreConfigBytes: dsConfigBytes,
-				APIConfigBytes:       apiConfigBytes,
-			}.Load()
-		}
+	if datastoreBytes, ioError = os.ReadFile(l.FilePath); ioError != nil {
+		return nil, ioError
 	}
-	return nil, ioError
+
+	return ByteConfigLoader{
+		FileBytes: datastoreBytes,
+	}.Load()
 }

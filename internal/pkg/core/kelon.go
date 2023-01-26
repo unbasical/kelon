@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -30,10 +31,8 @@ import (
 
 type KelonConfiguration struct {
 	// Config paths
-	DatastorePath     *string
-	APIPath           *string
+	ConfigPath        *string
 	ConfigWatcherPath *string
-	OpaPath           *string
 	RegoDir           *string
 	OperandDir        *string
 
@@ -68,6 +67,7 @@ type KelonConfiguration struct {
 type Kelon struct {
 	configured      bool
 	config          *KelonConfiguration
+	dsLoggingWriter io.Writer
 	proxy           api.ClientProxy
 	envoyProxy      api.ClientProxy
 	configWatcher   watcher.ConfigWatcher
@@ -84,6 +84,7 @@ func (k *Kelon) Configure(config *KelonConfiguration) {
 	builtins.InitBuiltinFunctions()
 
 	k.config = config
+
 	k.configured = true
 }
 
@@ -94,8 +95,7 @@ func (k *Kelon) Start() {
 
 	// Init config loader
 	configLoader := configs.FileConfigLoader{
-		DatastoreConfigPath: *k.config.DatastorePath,
-		APIConfigPath:       *k.config.APIPath,
+		FilePath: *k.config.ConfigPath,
 	}
 
 	// Start app after config is present
@@ -111,7 +111,7 @@ func (k *Kelon) StartValidate() {
 
 	k.makeConfigWatcher(configs.FileConfigLoader{}, k.config.ConfigWatcherPath)
 
-	confLoader := configs.FileConfigLoader{DatastoreConfigPath: *k.config.DatastorePath, APIConfigPath: *k.config.APIPath}
+	confLoader := configs.FileConfigLoader{FilePath: *k.config.ConfigPath}
 	loadedConf, err := confLoader.Load()
 	if err != nil {
 		logging.LogForComponent("main").Fatalln("Unable to parse configuration: ", err.Error())
@@ -125,7 +125,7 @@ func (k *Kelon) StartValidate() {
 		}
 
 		defer f.Close()
-		loadedConf.Data.OutputFile = f
+		k.dsLoggingWriter = f
 	}
 
 	ctx := context.Background()
@@ -139,29 +139,36 @@ func (k *Kelon) StartValidate() {
 	)
 
 	// Build config
-	config.API = loadedConf.API
-	config.Data = loadedConf.Data
-	config.Data.CallOperandsDir = *k.config.OperandDir
+	config.APIMappings = loadedConf.APIMappings
+	config.DatastoreSchemas = loadedConf.DatastoreSchemas
+	config.Datastores = loadedConf.Datastores
+	config.OPA = loadedConf.OPA
 	config.MetricsProvider = telemetry.NewNoopMetricProvider()
 	k.metricsProvider = config.MetricsProvider // Stopped gracefully later on
 	config.TraceProvider = telemetry.NewNoopTraceProvider()
 	k.traceProvider = config.TraceProvider // Stopped gracefully later on
+
 	serverConf := k.makeServerConfig(compiler, parser, mapper, translator, loadedConf)
+
+	config.CallOperands, err = data.LoadAllCallOperands(config.Datastores, k.config.OperandDir)
+	if err != nil {
+		logging.LogForComponent("main").Fatalln(err.Error())
+	}
 
 	err = (*serverConf.Compiler).Configure(config, &serverConf.PolicyCompilerConfig)
 	if err != nil {
-		logging.LogForComponent("main").Fatalf(err.Error())
+		logging.LogForComponent("main").Fatalln(err.Error())
 	}
 
 	body, err := parseBodyFromString(*k.config.InputBody)
 	if err != nil {
-		logging.LogForComponent("main").Fatalf(err.Error())
+		logging.LogForComponent("main").Fatalln(err.Error())
 	}
 
 	// Execute Request
 	d, err := compiler.Execute(ctx, body)
 	if err != nil {
-		logging.LogForComponent("main").Fatalf(err.Error())
+		logging.LogForComponent("main").Fatalln(err.Error())
 	}
 
 	var allowString string
@@ -196,14 +203,19 @@ func (k *Kelon) onConfigLoaded(change watcher.ChangeType, loadedConf *configs.Ex
 		)
 
 		// Build config
-		config.API = loadedConf.API
-		config.Data = loadedConf.Data
-		config.Data.CallOperandsDir = *k.config.OperandDir
+		config.APIMappings = loadedConf.APIMappings
+		config.DatastoreSchemas = loadedConf.DatastoreSchemas
+		config.Datastores = loadedConf.Datastores
+		config.OPA = loadedConf.OPA
 		config.MetricsProvider = k.makeTelemetryMetricsProvider(ctx)
 		k.metricsProvider = config.MetricsProvider // Stopped gracefully later on
 		config.TraceProvider = k.makeTelemetryTraceProvider(ctx)
 		k.traceProvider = config.TraceProvider // Stopped gracefully later on
+
 		serverConf := k.makeServerConfig(compiler, parser, mapper, translator, loadedConf)
+
+		// load call operands for the datastore translator
+		k.loadCallOperands(config)
 
 		// Start rest proxy
 		k.startNewRestProxy(ctx, config, &serverConf)
@@ -259,6 +271,14 @@ func (k *Kelon) makeConfigWatcher(configLoader configs.FileConfigLoader, configW
 	}
 }
 
+func (k *Kelon) loadCallOperands(appConfig *configs.AppConfig) {
+	ops, err := data.LoadAllCallOperands(appConfig.Datastores, k.config.OperandDir)
+	if err != nil {
+		logging.LogForComponent("main").Fatalln(err.Error())
+	}
+	appConfig.CallOperands = ops
+}
+
 func (k *Kelon) startNewRestProxy(ctx context.Context, appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
 	// Create Rest proxy and start
 	k.proxy = apiInt.NewRestProxy(*k.config.PathPrefix, int32(*k.config.Port))
@@ -298,8 +318,8 @@ func (k *Kelon) makeServerConfig(compiler opa.PolicyCompiler, parser request.Pat
 		Compiler: &compiler,
 		PolicyCompilerConfig: opa.PolicyCompilerConfig{
 			Prefix:        k.config.PathPrefix,
-			OpaConfigPath: k.config.OpaPath,
 			RegoDir:       k.config.RegoDir,
+			OPAConfig:     loadedConf.OPA,
 			ConfigWatcher: &k.configWatcher,
 			PathProcessor: &parser,
 			PathProcessorConfig: request.PathProcessorConfig{
@@ -307,7 +327,7 @@ func (k *Kelon) makeServerConfig(compiler opa.PolicyCompiler, parser request.Pat
 			},
 			Translator: &translator,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
-				Datastores:   data.MakeDatastores(loadedConf.Data, k.config.Validate),
+				Datastores:   data.MakeDatastores(loadedConf, k.dsLoggingWriter, k.config.Validate),
 				SkipUnknown:  *k.config.AstSkipUnknown,
 				ValidateMode: k.config.Validate,
 			},

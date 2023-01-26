@@ -23,6 +23,7 @@ import (
 	"github.com/open-policy-agent/opa/storage/inmem"
 	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/pkg/constants/logging"
+	"gopkg.in/yaml.v3"
 )
 
 // OPA represents an instance of the policy engine.
@@ -37,13 +38,13 @@ type loadResult struct {
 }
 
 // ConfigOPA sets the configuration file to use on the OPA instance.
-func ConfigOPA(fileName string) func(opa *OPA) error {
+func ConfigOPA(conf interface{}) func(opa *OPA) error {
 	return func(opa *OPA) error {
-		bs, err := os.ReadFile(fileName)
+		configBytes, err := yaml.Marshal(conf)
 		if err != nil {
 			return err
 		}
-		opa.configBytes = bs
+		opa.configBytes = configBytes
 		return nil
 	}
 }
@@ -209,18 +210,19 @@ func compileAndStoreInputs(ctx context.Context, store storage.Store, txn storage
 
 func loadPaths(paths []string, filter loader.Filter, asBundle bool) (*loadResult, error) {
 	result := &loadResult{}
+	fileLoader := loader.NewFileLoader()
 	var err error
 
 	if asBundle {
 		result.Bundles = make(map[string]*bundle.Bundle, len(paths))
 		for _, path := range paths {
-			result.Bundles[path], err = loader.AsBundle(path)
+			result.Bundles[path], err = fileLoader.AsBundle(path)
 			if err != nil {
 				return nil, err
 			}
 		}
 	} else {
-		loaded, err := loader.Filtered(paths, filter)
+		loaded, err := fileLoader.Filtered(paths, filter)
 		if err != nil {
 			return nil, err
 		}
