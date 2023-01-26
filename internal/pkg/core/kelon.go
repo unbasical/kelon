@@ -15,12 +15,14 @@ import (
 	apiInt "github.com/unbasical/kelon/internal/pkg/api"
 	"github.com/unbasical/kelon/internal/pkg/api/envoy"
 	"github.com/unbasical/kelon/internal/pkg/data"
+	extensions2 "github.com/unbasical/kelon/internal/pkg/extensions"
 	opaInt "github.com/unbasical/kelon/internal/pkg/opa"
 	requestInt "github.com/unbasical/kelon/internal/pkg/request"
 	translateInt "github.com/unbasical/kelon/internal/pkg/translate"
 	watcherInt "github.com/unbasical/kelon/internal/pkg/watcher"
 	"github.com/unbasical/kelon/pkg/api"
 	"github.com/unbasical/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/extensions"
 	"github.com/unbasical/kelon/pkg/opa"
 	"github.com/unbasical/kelon/pkg/request"
 	"github.com/unbasical/kelon/pkg/telemetry"
@@ -65,14 +67,15 @@ type KelonConfiguration struct {
 }
 
 type Kelon struct {
-	configured      bool
-	config          *KelonConfiguration
-	dsLoggingWriter io.Writer
-	proxy           api.ClientProxy
-	envoyProxy      api.ClientProxy
-	configWatcher   watcher.ConfigWatcher
-	metricsProvider telemetry.MetricsProvider
-	traceProvider   telemetry.TraceProvider
+	configured       bool
+	config           *KelonConfiguration
+	dsLoggingWriter  io.Writer
+	proxy            api.ClientProxy
+	envoyProxy       api.ClientProxy
+	configWatcher    watcher.ConfigWatcher
+	metricsProvider  telemetry.MetricsProvider
+	traceProvider    telemetry.TraceProvider
+	extensionFactory extensions.Factory
 }
 
 func (k *Kelon) Configure(config *KelonConfiguration) {
@@ -81,6 +84,7 @@ func (k *Kelon) Configure(config *KelonConfiguration) {
 	}
 
 	k.config = config
+	k.extensionFactory = k.makeExtensionFactory()
 
 	k.configured = true
 }
@@ -140,12 +144,25 @@ func (k *Kelon) StartValidate() {
 	config.DatastoreSchemas = loadedConf.DatastoreSchemas
 	config.Datastores = loadedConf.Datastores
 	config.OPA = loadedConf.OPA
+	config.Builtins = loadedConf.Builtins
 	config.MetricsProvider = telemetry.NewNoopMetricProvider()
 	k.metricsProvider = config.MetricsProvider // Stopped gracefully later on
 	config.TraceProvider = telemetry.NewNoopTraceProvider()
 	k.traceProvider = config.TraceProvider // Stopped gracefully later on
 
-	serverConf := k.makeServerConfig(compiler, parser, mapper, translator, loadedConf)
+	// configure extension factory
+	err = k.extensionFactory.Configure(ctx, config)
+	if err != nil {
+		logging.LogForComponent("main").Fatalln(err.Error())
+	}
+
+	// Register Builtins
+	err = k.extensionFactory.RegisterBuiltinFunctions(ctx)
+	if err != nil {
+		logging.LogForComponent("main").Fatalln(err.Error())
+	}
+
+	serverConf := k.makeServerConfig(ctx, compiler, parser, mapper, translator, loadedConf)
 
 	config.CallOperands, err = data.LoadAllCallOperands(config.Datastores, k.config.OperandDir)
 	if err != nil {
@@ -204,12 +221,22 @@ func (k *Kelon) onConfigLoaded(change watcher.ChangeType, loadedConf *configs.Ex
 		config.DatastoreSchemas = loadedConf.DatastoreSchemas
 		config.Datastores = loadedConf.Datastores
 		config.OPA = loadedConf.OPA
+		config.Builtins = loadedConf.Builtins
 		config.MetricsProvider = k.makeTelemetryMetricsProvider(ctx)
 		k.metricsProvider = config.MetricsProvider // Stopped gracefully later on
 		config.TraceProvider = k.makeTelemetryTraceProvider(ctx)
 		k.traceProvider = config.TraceProvider // Stopped gracefully later on
 
-		serverConf := k.makeServerConfig(compiler, parser, mapper, translator, loadedConf)
+		// configure extension factory
+		if err = k.extensionFactory.Configure(ctx, config); err != nil {
+			logging.LogForComponent("main").Fatalln(err.Error())
+		}
+		// register builtins
+		if err = k.extensionFactory.RegisterBuiltinFunctions(ctx); err != nil {
+			logging.LogForComponent("main").Fatalln(err.Error())
+		}
+
+		serverConf := k.makeServerConfig(ctx, compiler, parser, mapper, translator, loadedConf)
 
 		// load call operands for the datastore translator
 		k.loadCallOperands(config)
@@ -268,6 +295,13 @@ func (k *Kelon) makeConfigWatcher(configLoader configs.FileConfigLoader, configW
 	}
 }
 
+func (k *Kelon) makeExtensionFactory() extensions.Factory {
+	if k.config.ExtensionDir != nil && *k.config.ExtensionDir != "" {
+		return extensions2.NewExtensionFactory(*k.config.ExtensionDir)
+	}
+	return extensions2.NewNoopFactory()
+}
+
 func (k *Kelon) loadCallOperands(appConfig *configs.AppConfig) {
 	ops, err := data.LoadAllCallOperands(appConfig.Datastores, k.config.OperandDir)
 	if err != nil {
@@ -309,7 +343,7 @@ func (k *Kelon) startNewEnvoyProxy(ctx context.Context, appConfig *configs.AppCo
 	}
 }
 
-func (k *Kelon) makeServerConfig(compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
+func (k *Kelon) makeServerConfig(ctx context.Context, compiler opa.PolicyCompiler, parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
 	// Build server config
 	serverConf := api.ClientProxyConfig{
 		Compiler: &compiler,
@@ -324,7 +358,7 @@ func (k *Kelon) makeServerConfig(compiler opa.PolicyCompiler, parser request.Pat
 			},
 			Translator: &translator,
 			AstTranslatorConfig: translate.AstTranslatorConfig{
-				Datastores:   data.MakeDatastores(loadedConf, k.dsLoggingWriter, k.config.Validate),
+				Datastores:   data.MakeDatastores(ctx, loadedConf, k.extensionFactory, k.dsLoggingWriter, k.config.Validate),
 				SkipUnknown:  *k.config.AstSkipUnknown,
 				ValidateMode: k.config.Validate,
 			},
