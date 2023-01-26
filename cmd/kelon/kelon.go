@@ -25,7 +25,6 @@ var (
 	configWatcherPath = app.Flag("config-watcher-path", "Path where the config watcher should listen for changes.").Envar("CONFIG_WATCHER_PATH").ExistingDir()
 	regoDir           = app.Flag("rego-dir", "Dir containing .rego files which will be loaded into OPA.").Short('r').Envar("REGO_DIR").ExistingDir()
 	operandDir        = app.Flag("call-operand-dir", "Dir containing .yaml files which contain the call operand configuration for the datastores").Short('c').Envar("CALL_OPERANDS_DIR").ExistingDir()
-	extensionsDir     = app.Flag("extension-dir", "Dir containing .so plugin binaries which should be loaded as extensions").Short('e').Envar("EXTENSION_DIR").ExistingDir()
 
 	// Additional config
 	pathPrefix     = app.Flag("path-prefix", "Prefix which is used to proxy OPA's Data-API.").Default("/v1").Envar("PATH_PREFIX").String()
@@ -78,7 +77,6 @@ func main() {
 		ConfigWatcherPath:        configWatcherPath,
 		RegoDir:                  regoDir,
 		OperandDir:               operandDir,
-		ExtensionDir:             extensionsDir,
 		PathPrefix:               pathPrefix,
 		Port:                     port,
 		AstSkipUnknown:           astSkipUnknown,
