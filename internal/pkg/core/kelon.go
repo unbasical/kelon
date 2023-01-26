@@ -36,6 +36,7 @@ type KelonConfiguration struct {
 	ConfigWatcherPath *string
 	RegoDir           *string
 	OperandDir        *string
+	ExtensionDir      *string
 
 	// Additional config
 	PathPrefix     *string
