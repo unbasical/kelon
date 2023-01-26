@@ -23,7 +23,6 @@ type ExternalConfig struct {
 	Datastores       map[string]*Datastore               `yaml:"datastores"`
 	DatastoreSchemas map[string]map[string]*EntitySchema `yaml:"entity_schemas"`
 	OPA              interface{}                         `yaml:"opa"`
-	Builtins         []*Builtin                          `yaml:"builtins"`
 }
 
 func (ec *ExternalConfig) Defaults() {
