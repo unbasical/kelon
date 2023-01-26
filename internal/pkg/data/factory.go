@@ -1,23 +1,21 @@
 package data
 
 import (
-	"context"
 	"io"
 
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/data"
-	"github.com/unbasical/kelon/pkg/extensions"
 )
 
-func MakeDatastores(ctx context.Context, config *configs.ExternalConfig, extensionFactory extensions.Factory, dsLoggingWriter io.Writer, loggingMode bool) map[string]*data.Datastore {
+func MakeDatastores(config *configs.ExternalConfig, dsLoggingWriter io.Writer, loggingMode bool) map[string]*data.Datastore {
 	if loggingMode {
-		return makeLoggingDatastores(ctx, config, extensionFactory, dsLoggingWriter)
+		return makeLoggingDatastores(config, dsLoggingWriter)
 	}
-	return makeExecutingDatastores(ctx, config, extensionFactory)
+	return makeExecutingDatastores(config)
 }
 
-func makeExecutingDatastores(ctx context.Context, config *configs.ExternalConfig, extensionFactory extensions.Factory) map[string]*data.Datastore {
+func makeExecutingDatastores(config *configs.ExternalConfig) map[string]*data.Datastore {
 	result := make(map[string]*data.Datastore)
 	for dsName, ds := range config.Datastores {
 		switch {
@@ -30,19 +28,13 @@ func makeExecutingDatastores(ctx context.Context, config *configs.ExternalConfig
 			logging.LogForComponent("factory").Infof("Init MongoDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
 		default:
-			newDs, err := extensionFactory.MakeDatastore(ctx, ds.Type)
-			if err != nil {
-				logging.LogForComponent("factory").Fatalf("Unable to init datastore of type %q: %s", ds.Type, err.Error())
-			}
-
-			logging.LogForComponent("factory").Infof("Init datastore of type [%s] with alias [%s]", ds.Type, dsName)
-			result[dsName] = &newDs
+			logging.LogForComponent("factory").Fatalf("Unable to init datastore of type %q! Type is not supported yet!", ds.Type)
 		}
 	}
 	return result
 }
 
-func makeLoggingDatastores(ctx context.Context, config *configs.ExternalConfig, extensionFactory extensions.Factory, dsLoggingWriter io.Writer) map[string]*data.Datastore {
+func makeLoggingDatastores(config *configs.ExternalConfig, dsLoggingWriter io.Writer) map[string]*data.Datastore {
 	result := make(map[string]*data.Datastore)
 	for dsName, ds := range config.Datastores {
 		switch {
@@ -55,13 +47,7 @@ func makeLoggingDatastores(ctx context.Context, config *configs.ExternalConfig, 
 			logging.LogForComponent("factory").Infof("Init DryRun MongoDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
 		default:
-			newDs, err := extensionFactory.MakeDatastore(ctx, ds.Type)
-			if err != nil {
-				logging.LogForComponent("factory").Fatalf("Unable to init datastore of type %q: %s", ds.Type, err.Error())
-			}
-
-			logging.LogForComponent("factory").Infof("Init datastore of type [%s] with alias [%s]", ds.Type, dsName)
-			result[dsName] = &newDs
+			logging.LogForComponent("factory").Fatalf("Unable to init datastore of type %q! Type is not supported yet!", ds.Type)
 		}
 	}
 	return result
