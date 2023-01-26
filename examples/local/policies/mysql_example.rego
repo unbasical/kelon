@@ -38,7 +38,7 @@ allow = true {
     input.path = ["api", "mysql", "apps", appId]
 
     data.mysql.apps[app].id == appId
-    app.stars == 5
+    absolute(app.stars) == 5
 }
 
 # Path: GET /api/mysql/apps/:app_id

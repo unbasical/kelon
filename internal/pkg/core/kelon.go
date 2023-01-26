@@ -81,7 +81,7 @@ func (k *Kelon) Configure(config *KelonConfiguration) {
 	}
 
 	// Configure opa builtins
-	builtins.InitBuiltinFunctions()
+	builtins.RegisterLoggingFunctions()
 
 	k.config = config
 

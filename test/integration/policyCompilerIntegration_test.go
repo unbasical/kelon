@@ -30,6 +30,7 @@ import (
 type testConfiguration struct {
 	configPath           string
 	policiesPath         string
+	callOpsPath          string
 	evaluatedQueriesPath string
 	requestPath          string
 	pathPrefix           string
@@ -45,6 +46,7 @@ func Test_integration_policyCompiler(t *testing.T) {
 			fields: testConfiguration{
 				configPath:           "./examples/local/config/kelon.yml",
 				policiesPath:         "./examples/local/policies",
+				callOpsPath:          "./examples/local/call-operands",
 				evaluatedQueriesPath: "./test/integration/config/dbQueries.yml",
 				requestPath:          "./test/integration/config/dbRequests.yml",
 				pathPrefix:           "/v1",
@@ -68,6 +70,7 @@ type PolicyCompilerTestEnvironment struct {
 	t                    *testing.T
 	pathPrefix           string
 	policiesPath         string
+	callOpsPath          string
 	evaluatedQueriesPath string
 }
 
@@ -97,6 +100,7 @@ func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration)
 		configWatcher:        watcherInt.NewFileWatcher(configLoader, config.policiesPath),
 		pathPrefix:           config.pathPrefix,
 		policiesPath:         config.policiesPath,
+		callOpsPath:          config.callOpsPath,
 		evaluatedQueriesPath: config.evaluatedQueriesPath,
 	}
 
@@ -175,7 +179,7 @@ func (p *PolicyCompilerTestEnvironment) onConfigLoaded(change watcher.ChangeType
 		config.Datastores = loadedConf.Datastores
 		config.DatastoreSchemas = loadedConf.DatastoreSchemas
 		serverConf := p.makeServerConfig(parser, mapper, translator, loadedConf)
-		config.CallOperands, err = dataInt.LoadAllCallOperands(config.Datastores, nil)
+		config.CallOperands, err = dataInt.LoadAllCallOperands(config.Datastores, &p.callOpsPath)
 		if err != nil {
 			p.t.Error(err)
 			p.t.FailNow()

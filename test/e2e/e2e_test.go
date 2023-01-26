@@ -38,6 +38,7 @@ func Test_e2e_kelon(t *testing.T) {
 		kelonPort:    8181,
 		configPath:   "../../examples/docker-compose/config/kelon.yml",
 		policiesPath: "../../examples/docker-compose/policies/",
+		callOpsPath:  "../../examples/docker-compose/call-operands",
 		requestPath:  "./test_config/requests.yml",
 		pathPrefix:   "/v1",
 	}
