@@ -32,7 +32,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.11.2
 	golang.org/x/exp v0.0.0-20221212164502-fae10dda9338
 	google.golang.org/genproto v0.0.0-20230117162540-28d6b9783ac4
-	google.golang.org/grpc v1.52.0
+	google.golang.org/grpc v1.52.3
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/yaml.v3 v3.0.1
 )
