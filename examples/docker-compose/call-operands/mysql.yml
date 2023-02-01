@@ -1,0 +1,6 @@
+call-operands:
+  # Custom Builtin Function
+  - op: absolute
+    args: 1
+    mapping: "ABS($0)"
+    register-builtin: true

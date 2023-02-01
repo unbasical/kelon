@@ -38,7 +38,7 @@ allow = true {
     input.path = ["api", "pg", "apps", appId]
 
     data.pg.pg_apps[app].id == appId
-    app.stars == 5
+    absolute(app.stars) == 5
 }
 
 # Path: GET /api/pg/apps/:app_id

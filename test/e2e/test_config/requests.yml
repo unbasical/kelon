@@ -28,6 +28,11 @@
   body: '{"input":{"method":"GET","path":"/api/mysql/apps/3","user":"Anyone","password":"pw_anyone"}}'
   statusCode: 200
 
+- name: "MySQL: Torben can access 5 start App"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/mysql/apps/3","user":"Torben","password":"pw_torben"}}'
+  statusCode: 200
+
 - name: "MySQL: Authentication Error"
   url: "http://%s:%s/v1/data"
   body: '{"input":{"method":"GET","path":["api","mysql","apps","2"],"user":"Arnold","password":"incorrect"}}'
@@ -61,6 +66,11 @@
 - name: "PostgreSQL: Anyone can access app with 5 stars"
   url: "http://%s:%s/v1/data"
   body: '{"input":{"method":"GET","path":"/api/pg/apps/3","user":"Anyone","password":"pw_anyone"}}'
+  statusCode: 200
+
+- name: "PostgresSQL: Torben can access 5 start App"
+  url: "http://%s:%s/v1/data"
+  body: '{"input":{"method":"GET","path":"/api/pg/apps/3","user":"Torben","password":"pw_torben"}}'
   statusCode: 200
 
 - name: "PostgreSQL: Authentication Error"
