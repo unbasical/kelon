@@ -58,12 +58,12 @@ type callHandlers struct {
 }
 
 type loadedCallHandler struct {
-	Operator      string `yaml:"op"`
-	ArgsCount     int    `yaml:"args"`
-	Mapping       string `yaml:"mapping"`
-	Builtin       bool   `yaml:"builtin"`
-	targetMapping string
-	indexMapping  []int
+	Operator        string `yaml:"op"`
+	ArgsCount       int    `yaml:"args"`
+	Mapping         string `yaml:"mapping"`
+	RegisterBuiltin bool   `yaml:"register-builtin"`
+	targetMapping   string
+	indexMapping    []int
 }
 
 func (h *loadedCallHandler) Handles() string {
@@ -165,7 +165,7 @@ func loadDatastoreCallOpsBytes(input []byte, dsFunctions map[string]int) ([]data
 
 	result := make([]data.CallOpMapper, len(loadedConf.CallOperands))
 	for i, h := range loadedConf.CallOperands {
-		if h.Builtin {
+		if h.RegisterBuiltin {
 			// Check function to be registered expects same args count as already registered function
 			if argsCount, ok := dsFunctions[h.Operator]; ok && argsCount != h.ArgsCount {
 				return nil, errors.Errorf("tried registering function %q with %d args but was already registered with %d args", h.Operator, argsCount, h.ArgsCount)

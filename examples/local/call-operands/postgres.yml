@@ -3,4 +3,4 @@ call-operands:
   - op: absolute
     args: 1
     mapping: "ABS($0)"
-    builtin: true
+    register-builtin: true
