@@ -4,12 +4,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/alecthomas/kingpin/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/unbasical/kelon/common"
 	"github.com/unbasical/kelon/internal/pkg/core"
 	"github.com/unbasical/kelon/internal/pkg/util"
 	"github.com/unbasical/kelon/pkg/constants/logging"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 //nolint:gochecknoglobals,gocritic
