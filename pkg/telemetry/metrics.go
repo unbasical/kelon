@@ -129,6 +129,7 @@ func (m *metrics) GetHTTPMetricsHandler() (http.Handler, error) {
 	return nil, nil
 }
 
+//nolint:dupl,gocritic
 func (m *metrics) UpdateHistogramMetric(ctx context.Context, instrument constants.MetricInstrument, value interface{}, labels map[string]string) {
 	histogram, ok := m.instruments[instrument].(metric.Int64Histogram)
 	if !ok {
@@ -146,6 +147,7 @@ func (m *metrics) UpdateHistogramMetric(ctx context.Context, instrument constant
 	histogram.Record(ctx, val, metric.WithAttributes(attr...))
 }
 
+//nolint:dupl,gocritic
 func (m *metrics) UpdateGaugeMetric(ctx context.Context, instrument constants.MetricInstrument, value interface{}, labels map[string]string) {
 	gauge, ok := m.instruments[instrument].(metric.Int64UpDownCounter)
 	if !ok {
@@ -163,6 +165,7 @@ func (m *metrics) UpdateGaugeMetric(ctx context.Context, instrument constants.Me
 	gauge.Add(ctx, val, metric.WithAttributes(attr...))
 }
 
+//nolint:dupl,gocritic
 func (m *metrics) UpdateCounterMetric(ctx context.Context, instrument constants.MetricInstrument, value interface{}, labels map[string]string) {
 	counter, ok := m.instruments[instrument].(metric.Int64Counter)
 	if !ok {
