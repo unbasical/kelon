@@ -126,6 +126,25 @@ entity_schemas:
                 - name: user
                   alias: users
 
+# JWT Authenticator config
+jwt:
+  example:
+    jwks_urls:
+      - "file:///jwks/jwks-hs.json"
+    jwks_max_wait: 100ms
+    jwks_ttl: 30m
+    target_audience:
+      - "aud-1"
+      - "aud-2"
+    trusted_issuers:
+      - "iss-1"
+      - "iss-2"
+    allowed_algorithms:
+      - "HS256"
+    required_scopes:
+      - "required"
+    scope_strategy: "exact"
+
 opa:
   labels:
     app: Kelon

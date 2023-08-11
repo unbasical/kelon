@@ -2,12 +2,12 @@ package translate
 
 import (
 	"context"
+	"github.com/unbasical/kelon/internal/pkg/util"
 	"strconv"
 
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/pkg/constants/logging"
-	"golang.org/x/exp/slices"
 )
 
 type preprocessedQuery struct {
@@ -91,7 +91,7 @@ func (processor *astPreprocessor) transformRefs(value interface{}) (interface{},
 
 		// if no datastore was configured yet, set one
 		if processor.expectedDatastore == "" {
-			if slices.Contains(processor.datastorePool, dsNode) {
+			if util.SliceContains(processor.datastorePool, dsNode) {
 				processor.expectedDatastore = dsNode
 			} else {
 				return nil, errors.Errorf("Invalid reference: expected one of %+v, but got [%s]", processor.datastorePool, node[1].String())

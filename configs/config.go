@@ -19,10 +19,11 @@ type AppConfig struct {
 
 // ExternalConfig holds all externally configurable properties
 type ExternalConfig struct {
-	APIMappings      []*DatastoreAPIMapping              `yaml:"apis"`
-	Datastores       map[string]*Datastore               `yaml:"datastores"`
-	DatastoreSchemas map[string]map[string]*EntitySchema `yaml:"entity_schemas"`
-	OPA              interface{}                         `yaml:"opa"`
+	APIMappings       []*DatastoreAPIMapping              `yaml:"apis"`
+	Datastores        map[string]*Datastore               `yaml:"datastores"`
+	DatastoreSchemas  map[string]map[string]*EntitySchema `yaml:"entity_schemas"`
+	JwtAuthenticators map[string]*JwtAuthentication       `yaml:"jwt"`
+	OPA               interface{}                         `yaml:"opa"`
 }
 
 func (ec *ExternalConfig) Defaults() {
@@ -93,14 +94,14 @@ func (l FileConfigLoader) Load() (*ExternalConfig, error) {
 
 	// Load configBy from file
 	var (
-		ioError        error
-		datastoreBytes []byte
+		ioError   error
+		fileBytes []byte
 	)
-	if datastoreBytes, ioError = os.ReadFile(l.FilePath); ioError != nil {
+	if fileBytes, ioError = os.ReadFile(l.FilePath); ioError != nil {
 		return nil, ioError
 	}
 
 	return ByteConfigLoader{
-		FileBytes: datastoreBytes,
+		FileBytes: fileBytes,
 	}.Load()
 }

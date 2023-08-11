@@ -1,7 +1,10 @@
 package configs_test
 
 import (
+	"github.com/unbasical/kelon/internal/pkg/util"
+	"net/url"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/unbasical/kelon/configs"
@@ -73,6 +76,25 @@ var wantedExternalConfig = configs.ExternalConfig{
 						Alias: "followers",
 					},
 				},
+			},
+		},
+	},
+	JwtAuthenticators: map[string]*configs.JwtAuthentication{
+		"example": {
+			JwksStringURLs: []string{
+				"file:///path/to/jwks.json",
+				"https://example.domain.com/.well-known/openid-configuration",
+			},
+			JwksMaxWait:       time.Millisecond * 100,
+			JwksTTL:           time.Minute * 30,
+			TargetAudience:    []string{"aud-1", "aud-2"},
+			TrustedIssuers:    []string{"iss-1"},
+			AllowedAlgorithms: []string{"HS256", "RS256"},
+			RequiredScopes:    []string{"scope-1"},
+			ScopeStrategy:     "exact",
+			JwksUrls: []url.URL{
+				*util.MustParseURL("file:///path/to/jwks.json"),
+				*util.MustParseURL("https://example.domain.com/.well-known/openid-configuration"),
 			},
 		},
 	},

@@ -48,3 +48,23 @@ entity_schemas:
         - name: users
         - name: user_followers
           alias: followers
+
+# JWT Authenticator config
+jwt:
+  example:
+    jwks_urls:
+      - "file:///path/to/jwks.json"
+      - "https://example.domain.com/.well-known/openid-configuration"
+    jwks_max_wait: 100ms
+    jwks_ttl: 30m
+    target_audience:
+      - "aud-1"
+      - "aud-2"
+    trusted_issuers:
+      - "iss-1"
+    allowed_algorithms:
+      - "HS256"
+      - "RS256"
+    required_scopes:
+      - "scope-1"
+    scope_strategy: "exact"

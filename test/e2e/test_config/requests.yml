@@ -157,3 +157,13 @@
   url: "http://%s:%s/v1/data"
   body: '{ "input": { "method": "GET", "path": "/api/pure/apps/2", "user": "Nobody", "password": "pw_nobody" } }'
   statusCode: 403
+
+- name: "JWT: Other apps accessible with valid Token"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/jwt/apps/2", "user": "Torben", "password": "pw_torben" }, "token": "eyJhbGciOiJIUzI1NiIsImtpZCI6IjY0ZjQ4YTA1LTdlYTUtNGFhZi04MGNmLWYwNmIwMDMzYjQ3NyIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiYXVkLTEiLCJhdWQtMiJdLCJleHAiOjE2OTExNDU3MjUsImlzcyI6Imlzcy0yIiwic2NvcGVzIjoic2NvcGUtMyBzY29wZS0yIHNjb3BlLTEgcmVxdWlyZWQiLCJzdWIiOiJzdWIifQ.IBsee77rfrgd3pKHZJSAHRfRTyOQJIC-hJEj5VsBDGg" }'
+  statusCode: 200
+
+- name: "JWT: Other apps not accessible with invalid Token"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/jwt/apps/2", "user": "Torben", "password": "pw_torben" }, "token": "eyJhbGciOiJIUzI1NiIsImtpZCI6IjY0ZjQ4YTA1LTdlYTUtNGFhZi04MGNmLWYwNmIwMDMzYjQ3NyIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiYXVkLTEiLCJhdWQtMiJdLCJleHAiOjE2OTExNDU3MjUsImlzcyI6Imlzcy0yIiwic2NvcGVzIjoic2NvcGUtMyBzY29wZS0yIHNjb3BlLTEiLCJzdWIiOiJzdWIifQ.-AOPCWFuOMr_l1WGRfaDbS1jphhPuyNK3Ae2YW7Pdm8" }'
+  statusCode: 403

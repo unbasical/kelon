@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"github.com/unbasical/kelon/internal/pkg/authn"
+	authn2 "github.com/unbasical/kelon/pkg/authn"
 	"io"
 	"os"
 	"os/signal"
@@ -65,6 +67,7 @@ type KelonConfiguration struct {
 }
 
 type Kelon struct {
+	cancelCtx       context.CancelFunc
 	configured      bool
 	config          *KelonConfiguration
 	dsLoggingWriter io.Writer
@@ -190,7 +193,8 @@ func (k *Kelon) onConfigLoaded(change watcher.ChangeType, loadedConf *configs.Ex
 		logging.LogForComponent("main").Fatalln("Unable to parse configuration: ", err.Error())
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	k.cancelCtx = cancel
 
 	if change == watcher.ChangeAll {
 		// Configure application
@@ -207,10 +211,13 @@ func (k *Kelon) onConfigLoaded(change watcher.ChangeType, loadedConf *configs.Ex
 		config.DatastoreSchemas = loadedConf.DatastoreSchemas
 		config.Datastores = loadedConf.Datastores
 		config.OPA = loadedConf.OPA
+		config.JwtAuthenticators = loadedConf.JwtAuthenticators
 		config.MetricsProvider = k.makeTelemetryMetricsProvider(ctx)
 		k.metricsProvider = config.MetricsProvider // Stopped gracefully later on
 		config.TraceProvider = k.makeTelemetryTraceProvider(ctx)
 		k.traceProvider = config.TraceProvider // Stopped gracefully later on
+
+		k.makeAuthenticators(ctx, config.JwtAuthenticators)
 
 		serverConf := k.makeServerConfig(compiler, parser, mapper, translator, loadedConf)
 
@@ -269,6 +276,22 @@ func (k *Kelon) makeConfigWatcher(configLoader configs.FileConfigLoader, configW
 		}
 		k.configWatcher = watcherInt.NewFileWatcher(configLoader, *configWatcherPath)
 	}
+}
+
+func (k *Kelon) makeAuthenticators(ctx context.Context, configs map[string]*configs.JwtAuthentication) {
+	var auths []authn2.Authenticator
+
+	for alias, config := range configs {
+		a := authn.NewJwtAuthenticator()
+		err := a.Configure(ctx, config, alias)
+		if err != nil {
+			logging.LogForComponent("main").Fatalf("Error during creation of JwtAuthenticator [%s]: %s", alias, err)
+		}
+
+		auths = append(auths, a)
+	}
+
+	builtins.RegisterAuthenticatorFunction(auths)
 }
 
 func (k *Kelon) loadCallOperands(appConfig *configs.AppConfig) {
@@ -353,6 +376,9 @@ func (k *Kelon) stopOnSIGTERM() {
 	<-interruptChan
 
 	logging.LogForComponent("main").Infoln("Caught SIGTERM...")
+
+	// Cancel the main context
+	k.cancelCtx()
 
 	// Stop metrics provider
 	// This is done blocking to ensure all metrics are sent!
