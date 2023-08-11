@@ -17,7 +17,7 @@ import (
 	otlphttp "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 )
@@ -34,10 +34,12 @@ func NewTraceProvider(ctx context.Context, name, protocol, endpoint string) (Tra
 		return nil, err
 	}
 
+	defResources := resource.Default()
+
 	r, err := resource.Merge(
-		resource.Default(),
+		defResources,
 		resource.NewWithAttributes(
-			semconv.SchemaURL,
+			defResources.SchemaURL(),
 			semconv.ServiceNameKey.String(name),
 		),
 	)
