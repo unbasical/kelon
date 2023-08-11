@@ -39,7 +39,7 @@ func makeLoggingDatastores(config *configs.ExternalConfig, dsLoggingWriter io.Wr
 	for dsName, ds := range config.Datastores {
 		switch {
 		case ds.Type == data.TypeMysql || ds.Type == data.TypePostgres:
-			newDs := NewDatastore(NewSQLDatastoreTranslator(), NewSQLDatastoreExecutor())
+			newDs := NewDatastore(NewSQLDatastoreTranslator(), NewLoggingDatastoreExecutor(dsLoggingWriter))
 			logging.LogForComponent("factory").Infof("Init DryRun SqlDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
 		case ds.Type == data.TypeMongo:

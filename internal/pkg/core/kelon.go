@@ -69,6 +69,7 @@ type KelonConfiguration struct {
 type Kelon struct {
 	cancelCtx       context.CancelFunc
 	configured      bool
+	logger          *log.Entry
 	config          *KelonConfiguration
 	dsLoggingWriter io.Writer
 	proxy           api.ClientProxy
@@ -83,6 +84,8 @@ func (k *Kelon) Configure(config *KelonConfiguration) {
 		return
 	}
 
+	k.logger = logging.LogForComponent("main")
+
 	// Configure opa builtins
 	builtins.RegisterLoggingFunctions()
 
@@ -93,7 +96,7 @@ func (k *Kelon) Configure(config *KelonConfiguration) {
 
 func (k *Kelon) Start() {
 	if !k.configured {
-		logging.LogForComponent("main").Fatalf("Kelon was not configured! Please call Configure()!")
+		k.logger.Fatalf("Kelon was not configured! Please call Configure()!")
 	}
 
 	// Init config loader
@@ -107,90 +110,9 @@ func (k *Kelon) Start() {
 	k.stopOnSIGTERM()
 }
 
-func (k *Kelon) StartValidate() {
-	if !k.configured {
-		logging.LogForComponent("main").Fatalf("Kelon was not configured! Please call Configure()!")
-	}
-
-	k.makeConfigWatcher(configs.FileConfigLoader{}, k.config.ConfigWatcherPath)
-
-	confLoader := configs.FileConfigLoader{FilePath: *k.config.ConfigPath}
-	loadedConf, err := confLoader.Load()
-	if err != nil {
-		logging.LogForComponent("main").Fatalln("Unable to parse configuration: ", err.Error())
-	}
-
-	// Create logging file
-	if k.config.QueryOutputFilename != nil && *k.config.QueryOutputFilename != "" {
-		f, fileErr := os.Create(*k.config.QueryOutputFilename)
-		if fileErr != nil {
-			logging.LogForComponent("main").Fatalln("Unable to parse crate file: ", fileErr.Error())
-		}
-
-		defer f.Close()
-		k.dsLoggingWriter = f
-	}
-
-	ctx := context.Background()
-	// Configure application
-	var (
-		config     = new(configs.AppConfig)
-		compiler   = opaInt.NewPolicyCompiler()
-		parser     = requestInt.NewURLProcessor()
-		mapper     = requestInt.NewPathMapper()
-		translator = translateInt.NewAstTranslator()
-	)
-
-	// Build config
-	config.APIMappings = loadedConf.APIMappings
-	config.DatastoreSchemas = loadedConf.DatastoreSchemas
-	config.Datastores = loadedConf.Datastores
-	config.OPA = loadedConf.OPA
-	config.MetricsProvider = telemetry.NewNoopMetricProvider()
-	k.metricsProvider = config.MetricsProvider // Stopped gracefully later on
-	config.TraceProvider = telemetry.NewNoopTraceProvider()
-	k.traceProvider = config.TraceProvider // Stopped gracefully later on
-
-	serverConf := k.makeServerConfig(compiler, parser, mapper, translator, loadedConf)
-
-	config.CallOperands, err = data.LoadAllCallOperands(config.Datastores, k.config.OperandDir)
-	if err != nil {
-		logging.LogForComponent("main").Fatalln(err.Error())
-	}
-
-	err = (*serverConf.Compiler).Configure(config, &serverConf.PolicyCompilerConfig)
-	if err != nil {
-		logging.LogForComponent("main").Fatalln(err.Error())
-	}
-
-	body, err := parseBodyFromString(*k.config.InputBody)
-	if err != nil {
-		logging.LogForComponent("main").Fatalln(err.Error())
-	}
-
-	// Execute Request
-	d, err := compiler.Execute(ctx, body)
-	if err != nil {
-		logging.LogForComponent("main").Fatalln(err.Error())
-	}
-
-	var allowString string
-	if d.Allow {
-		allowString = "ALLOW"
-	} else {
-		allowString = "DENY"
-	}
-
-	logFields := log.Fields{
-		logging.LabelPath:   d.Path,
-		logging.LabelMethod: d.Method,
-	}
-	logging.LogAccessDecision(serverConf.AccessDecisionLogLevel, allowString, "main", logFields)
-}
-
 func (k *Kelon) onConfigLoaded(change watcher.ChangeType, loadedConf *configs.ExternalConfig, err error) {
 	if err != nil {
-		logging.LogForComponent("main").Fatalln("Unable to parse configuration: ", err.Error())
+		k.logger.Fatalln("Unable to parse configuration: ", err.Error())
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -238,11 +160,11 @@ func (k *Kelon) makeTelemetryMetricsProvider(ctx context.Context) telemetry.Metr
 	if k.config.MetricProvider != nil && *k.config.MetricProvider != "" {
 		provider, err := telemetry.NewMetricsProvider(ctx, *k.config.OtlpServiceName, *k.config.MetricProvider, *k.config.OtlpMetricExportProtocol, *k.config.OtlpMetricExportEndpoint)
 		if err != nil {
-			logging.LogForComponent("main").Fatalf("Error during creation of MetricsProvider %q: %s", *k.config.MetricProvider, err)
+			k.logger.Fatalf("Error during creation of MetricsProvider %q: %s", *k.config.MetricProvider, err)
 		}
 
 		if err := provider.Configure(ctx); err != nil {
-			logging.LogForComponent("main").Fatalf("Error during configuration of MetricsProvider %q: %s", *k.config.MetricProvider, err.Error())
+			k.logger.Fatalf("Error during configuration of MetricsProvider %q: %s", *k.config.MetricProvider, err.Error())
 		}
 
 		return provider
@@ -254,11 +176,11 @@ func (k *Kelon) makeTelemetryTraceProvider(ctx context.Context) telemetry.TraceP
 	if k.config.TraceProvider != nil && *k.config.TraceProvider != "" {
 		provider, err := telemetry.NewTraceProvider(ctx, *k.config.OtlpServiceName, *k.config.OtlpTraceExportProtocol, *k.config.OtlpTraceExportEndpoint)
 		if err != nil {
-			logging.LogForComponent("main").Fatalf("Error during creation of TraceProvider %q: %s", *k.config.TraceProvider, err)
+			k.logger.Fatalf("Error during creation of TraceProvider %q: %s", *k.config.TraceProvider, err)
 		}
 
 		if err := provider.Configure(ctx); err != nil {
-			logging.LogForComponent("main").Fatalf("Error during configuration of TraceProvider %q: %s", *k.config.TraceProvider, err.Error())
+			k.logger.Fatalf("Error during configuration of TraceProvider %q: %s", *k.config.TraceProvider, err.Error())
 		}
 
 		return provider
@@ -297,7 +219,7 @@ func (k *Kelon) makeAuthenticators(ctx context.Context, configs map[string]*conf
 func (k *Kelon) loadCallOperands(appConfig *configs.AppConfig) {
 	ops, err := data.LoadAllCallOperands(appConfig.Datastores, k.config.OperandDir)
 	if err != nil {
-		logging.LogForComponent("main").Fatalln(err.Error())
+		k.logger.Fatalln(err.Error())
 	}
 	appConfig.CallOperands = ops
 }
@@ -306,17 +228,17 @@ func (k *Kelon) startNewRestProxy(ctx context.Context, appConfig *configs.AppCon
 	// Create Rest proxy and start
 	k.proxy = apiInt.NewRestProxy(*k.config.PathPrefix, int32(*k.config.Port))
 	if err := k.proxy.Configure(ctx, appConfig, serverConf); err != nil {
-		logging.LogForComponent("main").Fatalln(err.Error())
+		k.logger.Fatalln(err.Error())
 	}
 	// Start proxy
 	if err := k.proxy.Start(); err != nil {
-		logging.LogForComponent("main").Fatalln(err.Error())
+		k.logger.Fatalln(err.Error())
 	}
 }
 
 func (k *Kelon) startNewEnvoyProxy(ctx context.Context, appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
 	if *k.config.EnvoyPort == *k.config.Port {
-		logging.LogForComponent("main").Panic("Cannot start envoyProxy proxy and rest proxy on same port!")
+		k.logger.Panic("Cannot start envoyProxy proxy and rest proxy on same port!")
 	}
 
 	// Create Rest proxy and start
@@ -327,11 +249,11 @@ func (k *Kelon) startNewEnvoyProxy(ctx context.Context, appConfig *configs.AppCo
 		AccessDecisionLogLevel: *k.config.AccessDecisionLogLevel,
 	})
 	if err := k.envoyProxy.Configure(ctx, appConfig, serverConf); err != nil {
-		logging.LogForComponent("main").Fatalln(err.Error())
+		k.logger.Fatalln(err.Error())
 	}
 	// Start proxy
 	if err := k.envoyProxy.Start(); err != nil {
-		logging.LogForComponent("main").Fatalln(err.Error())
+		k.logger.Fatalln(err.Error())
 	}
 }
 
@@ -375,7 +297,7 @@ func (k *Kelon) stopOnSIGTERM() {
 	// Block until we receive our signal.
 	<-interruptChan
 
-	logging.LogForComponent("main").Infoln("Caught SIGTERM...")
+	k.logger.Infoln("Caught SIGTERM...")
 
 	// Cancel the main context
 	k.cancelCtx()
@@ -391,14 +313,14 @@ func (k *Kelon) stopOnSIGTERM() {
 	// Stop envoyProxy proxy if started
 	if k.envoyProxy != nil {
 		if err := k.envoyProxy.Stop(time.Second * 10); err != nil {
-			logging.LogForComponent("main").Warnln(err.Error())
+			k.logger.Warnln(err.Error())
 		}
 	}
 
 	// Stop rest proxy if started
 	if k.proxy != nil {
 		if err := k.proxy.Stop(time.Second * 10); err != nil {
-			logging.LogForComponent("main").Warnln(err.Error())
+			k.logger.Warnln(err.Error())
 		}
 	}
 	// Give components enough time for graceful shutdown
