@@ -30,16 +30,23 @@ type testConfiguration struct {
 func Test_e2e_kelon(t *testing.T) {
 	ctx := context.Background()
 
+	newDir, _ := os.Getwd()
+	err := os.Chdir(newDir + "/../..")
+	if err != nil {
+		t.Errorf("unable to change directory: %s", err)
+		t.FailNow()
+	}
+
 	config := testConfiguration{
 		e2eConfig: ContainerConfiguration{
 			exposePorts:    map[ServiceID][]string{},
 			waitStrategies: map[ServiceID]wait.Strategy{},
 		},
 		kelonPort:    8181,
-		configPath:   "../../examples/docker-compose/config/kelon.yml",
-		policiesPath: "../../examples/docker-compose/policies/",
-		callOpsPath:  "../../examples/docker-compose/call-operands",
-		requestPath:  "./test_config/requests.yml",
+		configPath:   "./examples/local/config/kelon.yml",
+		policiesPath: "./examples/local/policies/",
+		callOpsPath:  "./examples/local/call-operands",
+		requestPath:  "./test/e2e/test_config/requests.yml",
 		pathPrefix:   "/v1",
 	}
 
@@ -51,7 +58,7 @@ func Test_e2e_kelon(t *testing.T) {
 
 	env.waitForKelon()
 
-	env.runTests()
+	env.runTests(t)
 }
 
 type E2ETestEnvironment struct {
@@ -95,22 +102,22 @@ func NewTest(ctx context.Context, t *testing.T, name string, config *testConfigu
 	}
 }
 
-func (env *E2ETestEnvironment) runTests() {
+func (env *E2ETestEnvironment) runTests(t *testing.T) {
 	for _, request := range env.requests {
-		url := fmt.Sprintf(request.URL, "localhost", strconv.Itoa(int(env.kelonPort)))
+		t.Run(request.Name, func(t *testing.T) {
+			url := fmt.Sprintf(request.URL, "localhost", strconv.Itoa(int(env.kelonPort)))
 
-		//nolint:gosec,gocritic
-		resp, httpErr := http.Post(url, "application/json", bytes.NewBufferString(request.Body))
-		if httpErr != nil {
-			env.t.Errorf("%s: %s - %s", request.Name, url, httpErr.Error())
-			env.t.FailNow()
-		}
+			//nolint:gosec,gocritic
+			resp, httpErr := http.Post(url, "application/json", bytes.NewBufferString(request.BodyWithToken()))
+			if httpErr != nil {
+				t.Errorf("%s: %s - %s", request.Name, url, httpErr.Error())
+				t.FailNow()
+			}
 
-		_ = resp.Body.Close()
+			_ = resp.Body.Close()
 
-		fmt.Printf("Name: %s - Expect: %d - Got: %d\n", request.Name, request.StatusCode, resp.StatusCode)
-
-		assert.Equal(env.t, request.StatusCode, resp.StatusCode, "%s: asserting response status code", request.Name)
+			assert.Equal(t, request.StatusCode, resp.StatusCode, "%s: asserting response status code", request.Name)
+		})
 	}
 }
 

@@ -1,11 +1,12 @@
 package builtins
 
 import (
+	"slices"
+
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/topdown"
 	"github.com/open-policy-agent/opa/types"
-	"github.com/unbasical/kelon/internal/pkg/util"
 	"github.com/unbasical/kelon/pkg/authn"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 )
@@ -17,9 +18,8 @@ func makeJwtAuthFuncDecl() *rego.Function {
 	args := []types.Type{jwt, arr}
 
 	return &rego.Function{
-		Name:             "jwt_verify",
-		Decl:             types.NewFunction(args, types.B),
-		Nondeterministic: true,
+		Name: "jwt_verify",
+		Decl: types.NewFunction(args, types.B),
 	}
 }
 
@@ -39,13 +39,14 @@ func makeBuiltinJwtAuthFuncImpl(authenticators []authn.Authenticator) rego.Built
 		}
 
 		for _, a := range authenticators {
-			if util.SliceContains(aliases, a.Alias()) {
+			if slices.Contains(aliases, a.Alias()) {
 				valid, err := a.Authenticate(bctx.Context, jwt)
 				if err != nil {
-					logging.LogForComponent("builtin").WithError(err).Warnf("error occured during JWT validation in authenticator [%s]", a.Alias())
+					logging.LogForComponent("builtin").WithError(err).Warnf("error occurred during JWT validation in authenticator [%s]", a.Alias())
+					continue
 				}
 				if valid {
-					return ast.BooleanTerm(valid), nil
+					return ast.BooleanTerm(true), nil
 				}
 			}
 		}

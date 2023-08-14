@@ -2,9 +2,10 @@ package authn
 
 import (
 	"context"
-	"gopkg.in/square/go-jose.v2"
 	"net/url"
 	"strings"
+
+	"gopkg.in/square/go-jose.v2"
 )
 
 type Authenticator interface {
@@ -15,13 +16,13 @@ type Authenticator interface {
 }
 
 type KeyStore interface {
-	Register(u url.URL) error
-	ResolveKey(urls []url.URL, kid, use string) (*jose.JSONWebKey, error)
-	ResolveKeySet(u url.URL) (jose.JSONWebKeySet, error)
+	Register(u *url.URL) error
+	ResolveKey(urls []*url.URL, kid, use string) (*jose.JSONWebKey, error)
+	ResolveKeySet(u *url.URL) (jose.JSONWebKeySet, error)
 }
 
 type OIDCWellKnownResponse struct {
-	JwksUri url.URL `json:"jwks_uri"`
+	JwksURI *url.URL `json:"jwks_uri"`
 }
 
 // ScopeStrategy is a strategy for matching scopes.

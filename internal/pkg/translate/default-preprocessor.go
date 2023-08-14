@@ -8,7 +8,6 @@ import (
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/pkg/constants/logging"
-	"golang.org/x/exp/slices"
 )
 
 type preprocessedQuery struct {

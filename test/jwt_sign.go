@@ -1,19 +1,20 @@
-package integration
+package test
 
 import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
+	"fmt"
+	"net/url"
+	"reflect"
+
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/pkg/authn"
 	"gopkg.in/square/go-jose.v2"
-	"net/url"
-	"reflect"
-	"testing"
 )
 
-func key(store authn.KeyStore, src url.URL) (*jose.JSONWebKey, string, error) {
+func key(store authn.KeyStore, src *url.URL) (*jose.JSONWebKey, string, error) {
 	keys, err := store.ResolveKeySet(src)
 	if err != nil {
 		return nil, "", err
@@ -21,26 +22,26 @@ func key(store authn.KeyStore, src url.URL) (*jose.JSONWebKey, string, error) {
 
 	var pk jose.JSONWebKey
 	var kid string
-	for _, key := range keys.Keys {
-		switch key.Key.(type) {
+	for i := range keys.Keys {
+		switch keys.Keys[i].Key.(type) {
 		case ed25519.PrivateKey:
-			pk = key
+			pk = keys.Keys[i]
 		case ed25519.PublicKey:
-			kid = key.KeyID
+			kid = keys.Keys[i].KeyID
 
 		case *ecdsa.PrivateKey:
-			pk = key
+			pk = keys.Keys[i]
 		case *ecdsa.PublicKey:
-			kid = key.KeyID
+			kid = keys.Keys[i].KeyID
 
 		case *rsa.PrivateKey:
-			pk = key
+			pk = keys.Keys[i]
 		case *rsa.PublicKey:
-			kid = key.KeyID
+			kid = keys.Keys[i].KeyID
 
 		case []byte:
-			pk = key
-			kid = key.KeyID
+			pk = keys.Keys[i]
+			kid = keys.Keys[i].KeyID
 
 		default:
 			return nil, "", errors.Errorf("credentials: unknown key type '%s'", reflect.TypeOf(key))
@@ -62,7 +63,7 @@ func key(store authn.KeyStore, src url.URL) (*jose.JSONWebKey, string, error) {
 	return &pk, kid, nil
 }
 
-func sign(store authn.KeyStore, src url.URL, claims jwt.Claims) (string, error) {
+func Sign(store authn.KeyStore, src *url.URL, claims jwt.Claims) (string, error) {
 	k, id, err := key(store, src)
 	if err != nil {
 		return "", err
@@ -84,11 +85,10 @@ func sign(store authn.KeyStore, src url.URL, claims jwt.Claims) (string, error) 
 	return signed, nil
 }
 
-func mustSign(t *testing.T, store authn.KeyStore, src url.URL, claims jwt.Claims) string {
-	token, err := sign(store, src, claims)
+func MustSign(store authn.KeyStore, src *url.URL, claims jwt.Claims) string {
+	token, err := Sign(store, src, claims)
 	if err != nil {
-		t.Errorf("failed mustSign with: %s", err)
-		t.FailNow()
+		panic(fmt.Sprintf("failed mustSign with: %s", err))
 	}
 
 	return token

@@ -11,12 +11,14 @@ import (
 	"testing"
 
 	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/internal/pkg/builtins"
 	dataInt "github.com/unbasical/kelon/internal/pkg/data"
 	opa2 "github.com/unbasical/kelon/internal/pkg/opa"
 	requestInt "github.com/unbasical/kelon/internal/pkg/request"
 	translateInt "github.com/unbasical/kelon/internal/pkg/translate"
 	watcherInt "github.com/unbasical/kelon/internal/pkg/watcher"
 	"github.com/unbasical/kelon/pkg/api"
+	"github.com/unbasical/kelon/pkg/authn"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/data"
 	"github.com/unbasical/kelon/pkg/opa"
@@ -129,30 +131,32 @@ func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration)
 	for counter < len(requests.Requests) {
 		testName := requests.Requests[strconv.Itoa(counter)].Text
 
-		// create and http requests
-		bodyStr := requests.Requests[strconv.Itoa(counter)].Body
-		var requestBody map[string]interface{}
-		err = json.Unmarshal([]byte(bodyStr), &requestBody)
-		if err != nil {
-			t.Error(err)
-			t.FailNow()
-		}
-
-		_, respErr := testEnvironment.policyCompiler.Execute(context.Background(), requestBody)
-
-		// If error does not match expected success parameter -> fail
-		successExpected := requests.Requests[strconv.Itoa(counter)].Success
-		if (successExpected && respErr != nil) || (!successExpected && respErr == nil) {
-			if successExpected {
-				t.Errorf("Success expected, but go error [%s] in %s: %s", respErr, name, testName)
-			} else {
-				t.Errorf("Error expected but succeeded in %s: %s", name, testName)
+		t.Run(testName, func(t *testing.T) {
+			// create and http requests
+			bodyStr := requests.Requests[strconv.Itoa(counter)].Body
+			var requestBody map[string]interface{}
+			err = json.Unmarshal([]byte(bodyStr), &requestBody)
+			if err != nil {
+				t.Error(err)
+				t.FailNow()
 			}
 
-			t.FailNow()
-		}
-		counter++
-		logging.LogForComponent("mockedDatastoreExecuter").Infof("PASS: %s", testName)
+			_, respErr := testEnvironment.policyCompiler.Execute(context.Background(), requestBody)
+
+			// If error does not match expected success parameter -> fail
+			successExpected := requests.Requests[strconv.Itoa(counter)].Success
+			if (successExpected && respErr != nil) || (!successExpected && respErr == nil) {
+				if successExpected {
+					t.Errorf("Success expected, but go error [%s] in %s: %s", respErr, name, testName)
+				} else {
+					t.Errorf("Error expected but succeeded in %s: %s", name, testName)
+				}
+
+				t.FailNow()
+			}
+			counter++
+			logging.LogForComponent("mockedDatastoreExecuter").Infof("PASS: %s", testName)
+		})
 	}
 }
 
@@ -184,6 +188,8 @@ func (p *PolicyCompilerTestEnvironment) onConfigLoaded(change watcher.ChangeType
 			p.t.Error(err)
 			p.t.FailNow()
 		}
+
+		builtins.RegisterAuthenticatorFunction([]authn.Authenticator{})
 
 		if configErr := p.policyCompiler.Configure(config, &serverConf.PolicyCompilerConfig); configErr != nil {
 			p.t.Error(configErr)

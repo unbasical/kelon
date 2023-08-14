@@ -1,13 +1,13 @@
 package configs_test
 
 import (
-	"github.com/unbasical/kelon/internal/pkg/util"
 	"net/url"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/internal/pkg/util"
 )
 
 //nolint:gochecknoglobals,gocritic
@@ -92,9 +92,9 @@ var wantedExternalConfig = configs.ExternalConfig{
 			AllowedAlgorithms: []string{"HS256", "RS256"},
 			RequiredScopes:    []string{"scope-1"},
 			ScopeStrategy:     "exact",
-			JwksUrls: []url.URL{
-				*util.MustParseURL("file:///path/to/jwks.json"),
-				*util.MustParseURL("https://example.domain.com/.well-known/openid-configuration"),
+			JwksURLs: []*url.URL{
+				util.MustParseURL("file:///path/to/jwks.json"),
+				util.MustParseURL("https://example.domain.com/.well-known/openid-configuration"),
 			},
 		},
 	},

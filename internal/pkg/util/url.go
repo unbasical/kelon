@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func RelativeFileURLToAbsolute(u url.URL) url.URL {
+func RelativeFileURLToAbsolute(u *url.URL) *url.URL {
 	if u.Scheme == "file" {
 		s := strings.TrimPrefix(u.String(), "file://")
 		a, err := filepath.Abs(s)
@@ -15,7 +15,7 @@ func RelativeFileURLToAbsolute(u url.URL) url.URL {
 			panic(err)
 		}
 
-		return *MustParseURL(fmt.Sprintf("file://%s", a))
+		return MustParseURL(fmt.Sprintf("file://%s", a))
 	}
 	return u
 }

@@ -3,15 +3,17 @@ package integration
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"testing"
+	"time"
+
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/unbasical/kelon/configs"
 	authnint "github.com/unbasical/kelon/internal/pkg/authn"
 	"github.com/unbasical/kelon/internal/pkg/util"
 	"github.com/unbasical/kelon/pkg/authn"
-	"net/url"
-	"testing"
-	"time"
+	"github.com/unbasical/kelon/test"
 )
 
 const (
@@ -22,19 +24,19 @@ const (
 	RSASingle        = "rsa-single"
 )
 
+//nolint:gochecknoglobals,gocritic
 var (
-	UrlHs        = util.RelativeFileURLToAbsolute(*util.MustParseURL("file://config/jwks/jwks-hs.json"))
-	UrlRSASingle = util.RelativeFileURLToAbsolute(*util.MustParseURL("file://config/jwks/jwks-rsa-single.json"))
+	URLHs        = util.RelativeFileURLToAbsolute(util.MustParseURL("file://config/jwks/jwks-hs.json"))
+	URLRSASingle = util.RelativeFileURLToAbsolute(util.MustParseURL("file://config/jwks/jwks-rsa-single.json"))
 )
 
 func Test_integration_jwt(t *testing.T) {
-
 	authConfigs := map[string]configs.JwtAuthentication{
 		Empty: {
 			JwksMaxWait:   time.Millisecond * 100,
 			JwksTTL:       time.Minute * 30,
 			ScopeStrategy: "exact",
-			JwksUrls:      []url.URL{},
+			JwksURLs:      []*url.URL{},
 		},
 		Hs: {
 			JwksMaxWait:       time.Millisecond * 100,
@@ -43,7 +45,7 @@ func Test_integration_jwt(t *testing.T) {
 			TrustedIssuers:    []string{"iss-1", "iss-2"},
 			TargetAudience:    []string{"aud-1", "aud-2"},
 			ScopeStrategy:     "exact",
-			JwksUrls:          []url.URL{UrlHs},
+			JwksURLs:          []*url.URL{URLHs},
 		},
 		HsRequiredScopes: {
 			JwksMaxWait:       time.Millisecond * 100,
@@ -51,19 +53,19 @@ func Test_integration_jwt(t *testing.T) {
 			AllowedAlgorithms: []string{"HS256"},
 			RequiredScopes:    []string{"required"},
 			ScopeStrategy:     "exact",
-			JwksUrls:          []url.URL{UrlHs},
+			JwksURLs:          []*url.URL{URLHs},
 		},
 		HsNoStrategy: {
 			JwksMaxWait:       time.Millisecond * 100,
 			JwksTTL:           time.Minute * 30,
 			AllowedAlgorithms: []string{"HS256"},
-			JwksUrls:          []url.URL{UrlHs},
+			JwksURLs:          []*url.URL{URLHs},
 		},
 		RSASingle: {
 			JwksMaxWait:   time.Millisecond * 100,
 			JwksTTL:       time.Minute * 30,
 			ScopeStrategy: "exact",
-			JwksUrls:      []url.URL{UrlRSASingle},
+			JwksURLs:      []*url.URL{URLRSASingle},
 		},
 	}
 	auths := initAuths(t, authConfigs)
@@ -87,8 +89,8 @@ func Test_integration_jwt(t *testing.T) {
 			Config: Hs,
 			Name:   "should pass because JWT is valid",
 			Scopes: []string{"scope-1", "scope-2"},
-			Token: mustSign(t, retrieveKeyStore(t, auths, Hs),
-				UrlHs,
+			Token: test.MustSign(retrieveKeyStore(t, auths, Hs),
+				URLHs,
 				jwt.MapClaims{
 					"sub":   "sub",
 					"exp":   now.Add(time.Hour).Unix(),
@@ -102,8 +104,8 @@ func Test_integration_jwt(t *testing.T) {
 			Config: Hs,
 			Name:   "should pass even when scope is a string",
 			Scopes: []string{"scope-1", "scope-2"},
-			Token: mustSign(t, retrieveKeyStore(t, auths, Hs),
-				UrlHs,
+			Token: test.MustSign(retrieveKeyStore(t, auths, Hs),
+				URLHs,
 				jwt.MapClaims{
 					"sub":   "sub",
 					"exp":   now.Add(time.Hour).Unix(),
@@ -117,8 +119,8 @@ func Test_integration_jwt(t *testing.T) {
 			Config: Hs,
 			Name:   "should pass when scope is keyed as scp",
 			Scopes: []string{"scope-1", "scope-2"},
-			Token: mustSign(t, retrieveKeyStore(t, auths, Hs),
-				UrlHs,
+			Token: test.MustSign(retrieveKeyStore(t, auths, Hs),
+				URLHs,
 				jwt.MapClaims{
 					"sub": "sub",
 					"exp": now.Add(time.Hour).Unix(),
@@ -132,8 +134,8 @@ func Test_integration_jwt(t *testing.T) {
 			Config: Hs,
 			Name:   "should pass when scope is keyed as scopes",
 			Scopes: []string{"scope-1", "scope-2"},
-			Token: mustSign(t, retrieveKeyStore(t, auths, Hs),
-				UrlHs,
+			Token: test.MustSign(retrieveKeyStore(t, auths, Hs),
+				URLHs,
 				jwt.MapClaims{
 					"sub":    "sub",
 					"exp":    now.Add(time.Hour).Unix(),
@@ -146,8 +148,8 @@ func Test_integration_jwt(t *testing.T) {
 		{
 			Config: HsRequiredScopes,
 			Name:   "should pass with required scope",
-			Token: mustSign(t, retrieveKeyStore(t, auths, Hs),
-				UrlHs,
+			Token: test.MustSign(retrieveKeyStore(t, auths, Hs),
+				URLHs,
 				jwt.MapClaims{
 					"sub":    "sub",
 					"exp":    now.Add(time.Hour).Unix(),
@@ -160,8 +162,8 @@ func Test_integration_jwt(t *testing.T) {
 		{
 			Config: HsRequiredScopes,
 			Name:   "should fail with required scope missing",
-			Token: mustSign(t, retrieveKeyStore(t, auths, Hs),
-				UrlHs,
+			Token: test.MustSign(retrieveKeyStore(t, auths, Hs),
+				URLHs,
 				jwt.MapClaims{
 					"sub":    "sub",
 					"exp":    now.Add(time.Hour).Unix(),
@@ -175,8 +177,8 @@ func Test_integration_jwt(t *testing.T) {
 			Config: HsNoStrategy,
 			Name:   "should fail when scope validation was requested but no scope strategy is set",
 			Scopes: []string{"scope-1", "scope-2"},
-			Token: mustSign(t, retrieveKeyStore(t, auths, HsNoStrategy),
-				UrlHs,
+			Token: test.MustSign(retrieveKeyStore(t, auths, HsNoStrategy),
+				URLHs,
 				jwt.MapClaims{
 					"sub":   "sub",
 					"exp":   now.Add(time.Hour).Unix(),
@@ -190,8 +192,8 @@ func Test_integration_jwt(t *testing.T) {
 			Config: Hs,
 			Name:   "should fail when audience mismatches",
 			Scopes: []string{"scope-1", "scope-2"},
-			Token: mustSign(t, retrieveKeyStore(t, auths, Hs),
-				UrlHs,
+			Token: test.MustSign(retrieveKeyStore(t, auths, Hs),
+				URLHs,
 				jwt.MapClaims{
 					"sub":    "sub",
 					"exp":    now.Add(time.Hour).Unix(),
@@ -204,8 +206,8 @@ func Test_integration_jwt(t *testing.T) {
 		{
 			Config: Hs,
 			Name:   "should fail when iat in future",
-			Token: mustSign(t, retrieveKeyStore(t, auths, Hs),
-				UrlHs,
+			Token: test.MustSign(retrieveKeyStore(t, auths, Hs),
+				URLHs,
 				jwt.MapClaims{
 					"sub":    "sub",
 					"exp":    now.Add(time.Hour).Unix(),
@@ -219,8 +221,8 @@ func Test_integration_jwt(t *testing.T) {
 		{
 			Config: Hs,
 			Name:   "should fail when nbf in future",
-			Token: mustSign(t, retrieveKeyStore(t, auths, Hs),
-				UrlHs,
+			Token: test.MustSign(retrieveKeyStore(t, auths, Hs),
+				URLHs,
 				jwt.MapClaims{
 					"sub":    "sub",
 					"exp":    now.Add(time.Hour).Unix(),
@@ -234,8 +236,8 @@ func Test_integration_jwt(t *testing.T) {
 		{
 			Config: Hs,
 			Name:   "should fail when expired",
-			Token: mustSign(t, retrieveKeyStore(t, auths, Hs),
-				UrlHs,
+			Token: test.MustSign(retrieveKeyStore(t, auths, Hs),
+				URLHs,
 				jwt.MapClaims{
 					"sub":    "sub",
 					"exp":    now.Add(-time.Hour).Unix(),
@@ -248,8 +250,8 @@ func Test_integration_jwt(t *testing.T) {
 		{
 			Config: Hs,
 			Name:   "should fail when issuer mismatches",
-			Token: mustSign(t, retrieveKeyStore(t, auths, Hs),
-				UrlHs,
+			Token: test.MustSign(retrieveKeyStore(t, auths, Hs),
+				URLHs,
 				jwt.MapClaims{
 					"sub":    "sub",
 					"exp":    now.Add(-time.Hour).Unix(),
@@ -279,11 +281,13 @@ func Test_integration_jwt(t *testing.T) {
 func initAuths(t *testing.T, authConfigs map[string]configs.JwtAuthentication) map[string]authn.Authenticator {
 	auths := make(map[string]authn.Authenticator)
 
-	for alias, config := range authConfigs {
-		for i, u := range config.JwksUrls {
+	for alias := range authConfigs {
+		config := authConfigs[alias]
+
+		for i, u := range config.JwksURLs {
 			uu := util.RelativeFileURLToAbsolute(u)
 
-			config.JwksUrls[i] = uu
+			config.JwksURLs[i] = uu
 		}
 
 		auths[alias] = authnint.NewJwtAuthenticator()

@@ -5,13 +5,15 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"fmt"
+	"slices"
+	"strings"
+
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/ory/x/jwtx"
 	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/internal/pkg/util"
 	"github.com/unbasical/kelon/pkg/authn"
-	"strings"
 )
 
 type JwtAuthenticator struct {
@@ -55,10 +57,10 @@ func (a *JwtAuthenticator) Configure(ctx context.Context, config interface{}, al
 	a.config = &jwtConfig
 	a.keystore = NewDefaultKeyStore(ctx, a.config.JwksTTL, a.config.JwksMaxWait)
 
-	for _, jwksUrl := range a.config.JwksUrls {
-		err := a.keystore.Register(jwksUrl)
+	for _, jwksURL := range a.config.JwksURLs {
+		err := a.keystore.Register(jwksURL)
 		if err != nil {
-			return errors.Wrapf(err, "failed to register url [%s]", jwksUrl.String())
+			return errors.Wrapf(err, "failed to register url [%s]", jwksURL.String())
 		}
 	}
 
@@ -99,7 +101,7 @@ func (a *JwtAuthenticator) Authenticate(ctx context.Context, token string, scope
 	}
 
 	if len(a.config.TrustedIssuers) > 0 {
-		if !util.SliceContains(a.config.TrustedIssuers, parsedClaims.Issuer) {
+		if !slices.Contains(a.config.TrustedIssuers, parsedClaims.Issuer) {
 			return false, errors.Errorf("Token issuer does not match any trusted issuer [%s]. received issuers: [%s]", parsedClaims.Issuer, strings.Join(a.config.TrustedIssuers, ", "))
 		}
 	}
@@ -116,17 +118,15 @@ func (a *JwtAuthenticator) Authenticate(ctx context.Context, token string, scope
 				return false, errors.Errorf("JSON Web Token is missing required scope [%s]", sc)
 			}
 		}
-	} else {
-		if len(scopes) > 0 {
-			return false, errors.Errorf("Scope validation was requested but scope strategy is set to [none]")
-		}
+	} else if len(scopes) > 0 {
+		return false, errors.Errorf("Scope validation was requested but scope strategy is set to [none]")
 	}
 
 	return true, nil
 }
 
 func (a *JwtAuthenticator) keyFunc(token *jwt.Token) (interface{}, error) {
-	if !util.SliceContains(a.config.AllowedAlgorithms, fmt.Sprintf("%s", token.Header["alg"])) {
+	if !slices.Contains(a.config.AllowedAlgorithms, fmt.Sprintf("%s", token.Header["alg"])) {
 		return nil, errors.Errorf("JSON Web Token used signing method [%s] which is not allowed", token.Header["alg"])
 	}
 
@@ -135,7 +135,7 @@ func (a *JwtAuthenticator) keyFunc(token *jwt.Token) (interface{}, error) {
 		return nil, errors.New("The JSON Web Token must contain a kid header value but did not.")
 	}
 
-	key, err := a.keystore.ResolveKey(a.config.JwksUrls, kid, "sig")
+	key, err := a.keystore.ResolveKey(a.config.JwksURLs, kid, "sig")
 	if err != nil {
 		return nil, err
 	}
@@ -170,10 +170,9 @@ func (a *JwtAuthenticator) keyFunc(token *jwt.Token) (interface{}, error) {
 	return nil, errors.Errorf("The signing key algorithm does not match the algorithm from the token header")
 }
 
-func scope(claims map[string]interface{}) ([]string, string) {
+func scope(claims map[string]interface{}) (scopes []string, key string) {
 	var ok bool
 	var interim interface{}
-	var key string
 
 	for _, k := range []string{"scp", "scope", "scopes"} {
 		if interim, ok = claims[k]; ok {

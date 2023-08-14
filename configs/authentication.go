@@ -1,9 +1,11 @@
 package configs
 
 import (
-	"github.com/pkg/errors"
 	"net/url"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/unbasical/kelon/internal/pkg/util"
 )
 
 type JwtAuthentication struct {
@@ -16,7 +18,7 @@ type JwtAuthentication struct {
 	RequiredScopes    []string      `yaml:"required_scopes"`
 	ScopeStrategy     string        `yaml:"scope_strategy"`
 	TokenFrom         string        `yaml:"token_from"`
-	JwksUrls          []url.URL     `yaml:"-"`
+	JwksURLs          []*url.URL    `yaml:"-"`
 }
 
 func (c *JwtAuthentication) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -44,15 +46,15 @@ func (c *JwtAuthentication) UnmarshalYAML(unmarshal func(interface{}) error) err
 	c.AllowedAlgorithms = partial.AllowedAlgorithms
 	c.RequiredScopes = partial.RequiredScopes
 	c.ScopeStrategy = partial.ScopeStrategy
-	c.JwksUrls = make([]url.URL, 0, len(c.JwksStringURLs))
+	c.JwksURLs = make([]*url.URL, 0, len(c.JwksStringURLs))
 
-	for _, strUrl := range c.JwksStringURLs {
-		u, urlErr := url.Parse(strUrl)
+	for _, strURL := range c.JwksStringURLs {
+		u, urlErr := url.Parse(strURL)
 		if urlErr != nil {
-			return errors.Wrapf(err, "unable to parse [%s] to url", strUrl)
+			return errors.Wrapf(err, "unable to parse [%s] to url", strURL)
 		}
 
-		c.JwksUrls = append(c.JwksUrls, *u)
+		c.JwksURLs = append(c.JwksURLs, util.RelativeFileURLToAbsolute(u))
 	}
 
 	return nil

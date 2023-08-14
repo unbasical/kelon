@@ -3,8 +3,6 @@ package core
 import (
 	"context"
 	"encoding/json"
-	"github.com/unbasical/kelon/internal/pkg/authn"
-	authn2 "github.com/unbasical/kelon/pkg/authn"
 	"io"
 	"os"
 	"os/signal"
@@ -16,6 +14,7 @@ import (
 	"github.com/unbasical/kelon/configs"
 	apiInt "github.com/unbasical/kelon/internal/pkg/api"
 	"github.com/unbasical/kelon/internal/pkg/api/envoy"
+	"github.com/unbasical/kelon/internal/pkg/authn"
 	"github.com/unbasical/kelon/internal/pkg/builtins"
 	"github.com/unbasical/kelon/internal/pkg/data"
 	opaInt "github.com/unbasical/kelon/internal/pkg/opa"
@@ -23,6 +22,7 @@ import (
 	translateInt "github.com/unbasical/kelon/internal/pkg/translate"
 	watcherInt "github.com/unbasical/kelon/internal/pkg/watcher"
 	"github.com/unbasical/kelon/pkg/api"
+	authn2 "github.com/unbasical/kelon/pkg/authn"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/opa"
 	"github.com/unbasical/kelon/pkg/request"
@@ -200,14 +200,14 @@ func (k *Kelon) makeConfigWatcher(configLoader configs.FileConfigLoader, configW
 	}
 }
 
-func (k *Kelon) makeAuthenticators(ctx context.Context, configs map[string]*configs.JwtAuthentication) {
+func (k *Kelon) makeAuthenticators(ctx context.Context, authConfigs map[string]*configs.JwtAuthentication) {
 	var auths []authn2.Authenticator
 
-	for alias, config := range configs {
+	for alias, config := range authConfigs {
 		a := authn.NewJwtAuthenticator()
-		err := a.Configure(ctx, config, alias)
+		err := a.Configure(ctx, *config, alias)
 		if err != nil {
-			logging.LogForComponent("main").Fatalf("Error during creation of JwtAuthenticator [%s]: %s", alias, err)
+			k.logger.Fatalf("Error during creation of JwtAuthenticator [%s]: %s", alias, err)
 		}
 
 		auths = append(auths, a)

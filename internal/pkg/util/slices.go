@@ -1,17 +1,9 @@
 package util
 
-func SliceContains[T comparable](s []T, v T) bool {
-	for _, vs := range s {
-		if v == vs {
-			return true
-		}
-	}
-	return false
-}
+import "slices"
 
-func SliceContainsSlice[T comparable](as []T, bs []T) (bool, []T) {
+func SliceContainsSlice[T comparable](as, bs []T) (contains bool, notContained []T) {
 	hm := make(map[T]struct{}, len(as))
-	var notContained []T
 
 	for _, a := range as {
 		hm[a] = struct{}{}
@@ -26,13 +18,12 @@ func SliceContainsSlice[T comparable](as []T, bs []T) (bool, []T) {
 	return len(notContained) == 0, notContained
 }
 
-func SliceMerge[T comparable](as []T, bs []T) []T {
+func SliceMerge[T comparable](as, bs []T) []T {
 	m := make(map[T]struct{})
-	var merged []T
+	var merged = slices.Clone(as)
 
 	for _, a := range as {
 		m[a] = struct{}{}
-		merged = append(merged, a)
 	}
 
 	for _, b := range bs {
