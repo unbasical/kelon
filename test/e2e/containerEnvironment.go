@@ -100,7 +100,7 @@ func (env *ContainerEnvironment) Start(ctx context.Context) error {
 		postgres.ExposedPorts = ports
 	}
 
-	if cErr := env.startContainer(ctx, &postgres, ServicePostgreSQL); err != nil {
+	if cErr := env.startContainer(ctx, &postgres, ServicePostgreSQL); cErr != nil {
 		return cErr
 	}
 
@@ -131,7 +131,7 @@ func (env *ContainerEnvironment) Start(ctx context.Context) error {
 	if ports, ok := env.portsToExpose[ServiceMySQL]; ok {
 		mysql.ExposedPorts = ports
 	}
-	if cErr := env.startContainer(ctx, &mysql, ServiceMySQL); err != nil {
+	if cErr := env.startContainer(ctx, &mysql, ServiceMySQL); cErr != nil {
 		return cErr
 	}
 

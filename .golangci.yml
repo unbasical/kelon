@@ -51,7 +51,6 @@ linters:
   disable-all: true
   enable:
     - bodyclose
-    - depguard
     - dogsled
     - dupl
     - errcheck
@@ -77,8 +76,3 @@ linters:
     - unparam
     - unused
     - whitespace
-
-# golangci.com configuration
-# https://github.com/golangci/golangci/wiki/Configuration
-service:
-  golangci-lint-version: 1.50.x # use the fixed version to not introduce new linters unexpectedly
