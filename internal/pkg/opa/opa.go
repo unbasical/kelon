@@ -21,7 +21,9 @@ import (
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/storage"
 	"github.com/open-policy-agent/opa/storage/inmem"
+	"github.com/open-policy-agent/opa/topdown/print"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"gopkg.in/yaml.v3"
 )
@@ -147,6 +149,8 @@ func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query st
 			rego.Metrics(m),
 			rego.Query(query),
 			rego.Input(input),
+			rego.EnablePrintStatements(true),
+			rego.PrintHook(newPrintHook()),
 			rego.Compiler(opa.manager.GetCompiler()),
 			rego.Store(opa.manager.Store),
 			rego.Transaction(txn))...)
@@ -231,4 +235,17 @@ func loadPaths(paths []string, filter loader.Filter, asBundle bool) (*loadResult
 	}
 
 	return result, nil
+}
+
+type printHook struct {
+	logger *log.Entry
+}
+
+func newPrintHook() print.Hook {
+	return &printHook{logger: logging.LogForComponent("opa")}
+}
+
+func (h *printHook) Print(ctx print.Context, input string) error {
+	h.logger.WithField("location", ctx.Location.String()).Infof(input)
+	return nil
 }

@@ -73,7 +73,7 @@ func (env *ContainerEnvironment) Start(ctx context.Context) error {
 		return errors.Errorf("environment not configured")
 	}
 
-	postgresMntPath, err := filepath.Abs("../../examples/docker-compose/init/Init-Postgres.sql")
+	postgresMntPath, err := filepath.Abs("examples/docker-compose/init/Init-Postgres.sql")
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func (env *ContainerEnvironment) Start(ctx context.Context) error {
 		return cErr
 	}
 
-	mysqlMntPath, err := filepath.Abs("../../examples/docker-compose/init/Init-MySql.sql")
+	mysqlMntPath, err := filepath.Abs("examples/docker-compose/init/Init-MySql.sql")
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (env *ContainerEnvironment) Start(ctx context.Context) error {
 		return cErr
 	}
 
-	mongoMntPath, err := filepath.Abs("../../examples/docker-compose/init/Init-Mongo.js")
+	mongoMntPath, err := filepath.Abs("examples/docker-compose/init/Init-Mongo.js")
 	if err != nil {
 		return err
 	}

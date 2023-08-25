@@ -157,3 +157,27 @@
   url: "http://%s:%s/v1/data"
   body: '{ "input": { "method": "GET", "path": "/api/pure/apps/2", "user": "Nobody", "password": "pw_nobody" } }'
   statusCode: 403
+
+- name: "JWT: Other apps accessible with valid Token"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/authn/apps/2", "user": "Torben", "password": "pw_torben" } }'
+  token:
+    signKeyURL: "file://examples/local/jwks/jwks-hs.json"
+    claims:
+      sub: "sub"
+      aud: ["aud-1", "aud-2"]
+      iss: "iss-2"
+      scope: ["scope-1", "required"]
+  statusCode: 200
+
+- name: "JWT: Other apps not accessible with invalid Token (missing scope)"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/authn/apps/2", "user": "Torben", "password": "pw_torben" } }'
+  token:
+    signKeyURL: "file://examples/local/jwks/jwks-hs.json"
+    claims:
+      sub: "sub"
+      aud: [ "aud-1", "aud-2" ]
+      iss: "iss-2"
+      scope: ["scope-1"]
+  statusCode: 403

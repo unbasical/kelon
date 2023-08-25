@@ -12,6 +12,7 @@ services:
       - ./examples/docker-compose/config/:/conf
       - ./call-operands/:/call-operands
       - ./examples/docker-compose/policies/:/policies
+      - ./examples/docker-compose/jwks/:/jwks
     environment:
       - DATASTORE_CONF=/conf/datastore.yml
       - API_CONF=/conf/api.yml
