@@ -32,7 +32,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v0.39.0
 	go.opentelemetry.io/otel/trace v1.16.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230807174057-1744710a1577
-	google.golang.org/grpc v1.57.0
+	google.golang.org/grpc v1.58.3
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -56,7 +56,7 @@ require (
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker v24.0.5+incompatible // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/envoyproxy/protoc-gen-validate v1.0.1 // indirect
+	github.com/envoyproxy/protoc-gen-validate v1.0.2 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
@@ -107,7 +107,7 @@ require (
 	golang.org/x/sys v0.10.0 // indirect
 	golang.org/x/text v0.11.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.8.0 // indirect
+	golang.org/x/tools v0.10.0 // indirect
 	google.golang.org/genproto v0.0.0-20230803162519-f966b187b2e5 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230726155614-23370e0ffb3e // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
