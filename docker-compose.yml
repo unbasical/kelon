@@ -10,14 +10,13 @@ services:
       - "9191:9191"
     volumes:
       - ./examples/docker-compose/config/:/conf
-      - ./call-operands/:/call-operands
+      - ./examples/docker-compose/call-operands/:/call-operands
       - ./examples/docker-compose/policies/:/policies
     environment:
-      - DATASTORE_CONF=/conf/datastore.yml
-      - API_CONF=/conf/api.yml
-      - OPA_CONF=/conf/opa.yml
+      - KELON_CONF=/conf/kelon.yml
       - REGO_DIR=/policies
       - CONFIG_WATCHER_PATH=/policies
+      - CALL_OPERANDS_DIR=/call-operands
 
   mysql:
     image: mysql:8

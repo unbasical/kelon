@@ -1,5 +1,8 @@
 # build stage
 FROM golang as builder
+
+ARG CGO_ENABLED=0
+
 # Add dependencies
 WORKDIR /go/src/app
 ADD . /go/src/app
