@@ -1,6 +1,5 @@
 {
 	"info": {
-		"_postman_id": "daa7f8b7-7b1c-4da9-bd5d-11a1c38c5df7",
 		"name": "Kelon example E2E",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
@@ -14,11 +13,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "7f1f0099-7d57-423a-924c-ae8b466cf9a8",
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -65,11 +62,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "102d86e4-4363-4e7a-912a-2d5db316f76f",
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -88,7 +83,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": [\"api\", \"mysql\", \"apps\", \"2\"],\n        \"user\": \"Arnold\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Arnold\",\n        \"password\": \"pw_arnold\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -116,11 +111,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "102d86e4-4363-4e7a-912a-2d5db316f76f",
 								"exec": [
-									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(false);",
+									"pm.test(\"Response not allowed\", function () {",
+									"    pm.response.to.have.status(403);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -139,7 +132,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Anyone\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Anyone\",\n        \"password\": \"pw_anyone\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -167,11 +160,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "102d86e4-4363-4e7a-912a-2d5db316f76f",
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -190,7 +181,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Kevin\",\n        \"password\": \"pw_kevin\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -220,8 +211,7 @@
 							"script": {
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -240,7 +230,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Torben\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/2\",\n        \"user\": \"Torben\",\n        \"password\": \"pw_torben\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -268,11 +258,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "102d86e4-4363-4e7a-912a-2d5db316f76f",
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -291,7 +279,105 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/3\",\n        \"user\": \"Anyone\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/3\",\n        \"user\": \"Anyone\",\n        \"password\": \"pw_anyone\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "MySQL: Torben can access 5 start App",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mysql/apps/3\",\n        \"user\": \"Torben\",\n        \"password\": \"pw_torben\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "MySQL: Authentication Error",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": [\"api\", \"mysql\", \"apps\", \"2\"],\n        \"user\": \"Arnold\",\n        \"password\": \"incorrect\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -313,8 +399,7 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		},
 		{
 			"name": "PostgreSQL",
@@ -325,11 +410,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "7f1f0099-7d57-423a-924c-ae8b466cf9a8",
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -376,11 +459,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "102d86e4-4363-4e7a-912a-2d5db316f76f",
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -399,7 +480,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Arnold\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Arnold\",\n        \"password\": \"pw_arnold\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -427,11 +508,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "102d86e4-4363-4e7a-912a-2d5db316f76f",
 								"exec": [
-									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(false);",
+									"pm.test(\"Response not allowed\", function () {",
+									"    pm.response.to.have.status(403);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -450,7 +529,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Anyone\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Anyone\",\n        \"password\": \"pw_anyone\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -478,11 +557,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "102d86e4-4363-4e7a-912a-2d5db316f76f",
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -501,7 +578,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Kevin\",\n        \"password\": \"pw_kevin\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -531,8 +608,7 @@
 							"script": {
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -551,7 +627,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Torben\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/2\",\n        \"user\": \"Torben\",\n        \"password\": \"pw_torben\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -579,11 +655,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "102d86e4-4363-4e7a-912a-2d5db316f76f",
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -602,7 +676,105 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/3\",\n        \"user\": \"Anyone\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/3\",\n        \"user\": \"Anyone\",\n        \"password\": \"pw_anyone\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PostgreSQL: Torben can access 5 start App",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pg/apps/3\",\n        \"user\": \"Torben\",\n        \"password\": \"pw_torben\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PostgreSQL: Authentication Error",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": [\"api\", \"pg\", \"apps\", \"2\"],\n        \"user\": \"Arnold\",\n        \"password\": \"incorrect\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -624,8 +796,7 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		},
 		{
 			"name": "MongoDB",
@@ -636,11 +807,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "7f1f0099-7d57-423a-924c-ae8b466cf9a8",
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -687,11 +856,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "102d86e4-4363-4e7a-912a-2d5db316f76f",
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -710,7 +877,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Arnold\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Arnold\",\n        \"password\": \"pw_arnold\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -738,11 +905,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "102d86e4-4363-4e7a-912a-2d5db316f76f",
 								"exec": [
-									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(false);",
+									"pm.test(\"Response not allowed\", function () {",
+									"    pm.response.to.have.status(403);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -761,7 +926,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Anyone\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Anyone\",\n        \"password\": \"pw_anyone\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -789,11 +954,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "102d86e4-4363-4e7a-912a-2d5db316f76f",
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -812,7 +975,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Kevin\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Kevin\",\n        \"password\": \"pw_kevin\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -842,8 +1005,7 @@
 							"script": {
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -862,7 +1024,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Torben\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/2\",\n        \"user\": \"Torben\",\n        \"password\": \"pw_torben\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -890,11 +1052,9 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "102d86e4-4363-4e7a-912a-2d5db316f76f",
 								"exec": [
 									"pm.test(\"Response allowed\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.result).to.eql(true);",
+									"    pm.response.to.have.status(200);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -913,7 +1073,105 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/3\",\n        \"user\": \"Anyone\"\n    }\n}",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/3\",\n        \"user\": \"Anyone\",\n        \"password\": \"pw_anyone\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "MongoDB: Torben can access 5 start App",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mongo/apps/3\",\n        \"user\": \"Torben\",\n        \"password\": \"pw_torben\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "MongoDB: Authentication Error",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": [\"api\", \"mongo\", \"apps\", \"2\"],\n        \"user\": \"Arnold\",\n        \"password\": \"incorrect\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -935,9 +1193,458 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
+		},
+		{
+			"name": "Mixed",
+			"item": [
+				{
+					"name": "Mixed: First App visible for everyone",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mixed/apps/1\",\n        \"user\": \"Test\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mixed: Arnold can access his app",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mixed/apps/2\",\n        \"user\": \"Arnold\",\n        \"password\": \"pw_arnold\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mixed: Anyone can't access Arnold's app",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response not allowed\", function () {",
+									"    pm.response.to.have.status(403);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mixed/apps/2\",\n        \"user\": \"Anyone\",\n        \"password\": \"pw_anyone\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mixed: Kevin can access Arnold's app",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mixed/apps/2\",\n        \"user\": \"Kevin\",\n        \"password\": \"pw_kevin\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mixed: Torben can access Arnolds app",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mixed/apps/2\",\n        \"user\": \"Torben\",\n        \"password\": \"pw_torben\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mixed: Anyone can access app with 5 stars",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/mixed/apps/3\",\n        \"user\": \"Anyone\",\n        \"password\": \"pw_anyone\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "No Database (Pure)",
+			"item": [
+				{
+					"name": "Pure: First App visible for everyone",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pure/apps/1\",\n        \"user\": \"Nobody\",\n        \"password\": \"pw_nobody\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Pure: Other apps only accessible by Torben",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response allowed\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pure/apps/2\",\n        \"user\": \"Torben\",\n        \"password\": \"pw_torben\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Pure: Other apps not accessible for other than Torben",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Response not allowed\", function () {",
+									"    pm.response.to.have.status(403);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"input\": {\n        \"method\": \"GET\",\n        \"path\": \"/api/pure/apps/2\",\n        \"user\": \"Nobody\",\n        \"password\": \"pw_nobody\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8181/v1/data",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8181",
+							"path": [
+								"v1",
+								"data"
+							]
+						}
+					},
+					"response": []
+				}
+			]
 		}
-	],
-	"protocolProfileBehavior": {}
+	]
 }
