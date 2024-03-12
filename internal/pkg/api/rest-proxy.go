@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 
 	"github.com/gorilla/mux"
@@ -78,12 +79,14 @@ func (proxy *restProxy) Start() error {
 
 	ctx := context.Background()
 
-	endpointData := proxy.pathPrefix + "/data"
-	endpointPolicies := proxy.pathPrefix + "/policies"
+	endpointData := proxy.pathPrefix + constants.EndpointSuffixData
+	endpointForwardAuth := proxy.pathPrefix + constants.EndpointSuffixForwardAuth
+	endpointPolicies := proxy.pathPrefix + constants.EndpointSuffixPolicies
 
 	// Endpoints to validate queries
 	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataGet, endpointData)).Methods("GET")
 	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataPost, endpointData)).Methods("POST")
+	proxy.router.PathPrefix(endpointForwardAuth).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataForwardAuth, endpointForwardAuth)).Methods("GET")
 
 	// Endpoints to update policies and data
 	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataPut, endpointData)).Methods("PUT")
@@ -92,10 +95,10 @@ func (proxy *restProxy) Start() error {
 	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1PolicyPut, endpointPolicies)).Methods("PUT")
 	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1PolicyDelete, endpointPolicies)).Methods("DELETE")
 	if proxy.metricsHandler != nil {
-		logging.LogForComponent("restProxy").Infoln("Registered /metrics endpoint")
-		proxy.router.PathPrefix("/metrics").Handler(proxy.metricsHandler)
+		logging.LogForComponent("restProxy").Infof("Registered %s endpoint", constants.EndpointMetrics)
+		proxy.router.PathPrefix(constants.EndpointMetrics).Handler(proxy.metricsHandler)
 	}
-	proxy.router.PathPrefix("/health").Methods("GET").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	proxy.router.PathPrefix(constants.EndpointHealth).Methods("GET").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusOK)
 		_, _ = writer.Write([]byte("{\"status\": \"healthy\"}"))
 	})
