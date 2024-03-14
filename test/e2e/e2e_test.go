@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -100,7 +101,19 @@ func (env *E2ETestEnvironment) runTests() {
 		url := fmt.Sprintf(request.URL, "localhost", strconv.Itoa(int(env.kelonPort)))
 
 		//nolint:gosec,gocritic
-		resp, httpErr := http.Post(url, "application/json", bytes.NewBufferString(request.Body))
+		req, reqErr := http.NewRequest(strings.ToUpper(request.Method), url, bytes.NewBufferString(request.Body))
+		if reqErr != nil {
+			env.t.Errorf("%s: %s - %s", request.Name, url, reqErr.Error())
+			env.t.FailNow()
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+
+		for k, v := range request.Headers {
+			req.Header.Set(k, v)
+		}
+
+		resp, httpErr := http.DefaultClient.Do(req)
 		if httpErr != nil {
 			env.t.Errorf("%s: %s - %s", request.Name, url, httpErr.Error())
 			env.t.FailNow()
@@ -173,6 +186,12 @@ func parseTestData(t *testing.T, path string) []Request {
 		t.Errorf("error parsing file %s: %s", path, err.Error())
 		t.FailNow()
 	}
+
+	// set default values for each request
+	for r := range data {
+		data[r].Defaults()
+	}
+
 	return data
 }
 

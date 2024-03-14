@@ -157,3 +157,12 @@
   url: "http://%s:%s/v1/data"
   body: '{ "input": { "method": "GET", "path": "/api/pure/apps/2", "user": "Nobody", "password": "pw_nobody" } }'
   statusCode: 403
+
+
+- name: "ForwardAuth: Pure - First App visible for everyone"
+  method: "GET"
+  url: "http://%s:%s/v1/forward-auth"
+  header:
+    X-Forwarded-Method: "GET"
+    X-Forwarded-URI: "/api/pure/apps/1"
+  statusCode: 200
