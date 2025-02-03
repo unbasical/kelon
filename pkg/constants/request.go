@@ -6,12 +6,13 @@ type ContextKey string
 const ContextKeyRequestID = ContextKey("requestUID") // can be unexported
 const ContextKeyRegoPackage = ContextKey("regoPackage")
 
+const Input = "input"
+
 const HeaderXForwardedMethod = "X-Forwarded-Method"
 const HeaderXForwardedURI = "X-Forwarded-URI"
 const HeaderAuthorization = "Authorization"
 
 const EndpointSuffixData = "/data"
-const EndpointSuffixForwardAuth = "/forward-auth"
 const EndpointSuffixPolicies = "/policies"
 
 const EndpointHealth = "/health"

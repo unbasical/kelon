@@ -1,3 +1,10 @@
+global:
+  input:
+    header-mapping:
+      - name: Foo
+      - name: Bar
+        alias: Baz
+
 apis:
   # All api-mappings for datastore postgres
   - path-prefix: /api

@@ -9,6 +9,20 @@ import (
 
 //nolint:gochecknoglobals,gocritic
 var wantedExternalConfig = configs.ExternalConfig{
+	Global: configs.Global{
+		Input: configs.Input{
+			HeaderMapping: []*configs.HeaderMapping{
+				{
+					Name:  "Foo",
+					Alias: "Foo",
+				},
+				{
+					Name:  "Bar",
+					Alias: "Baz",
+				},
+			},
+		},
+	},
 	APIMappings: []*configs.DatastoreAPIMapping{
 		{
 			Prefix:         "/api",

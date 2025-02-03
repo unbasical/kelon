@@ -80,13 +80,11 @@ func (proxy *restProxy) Start() error {
 	ctx := context.Background()
 
 	endpointData := proxy.pathPrefix + constants.EndpointSuffixData
-	endpointForwardAuth := proxy.pathPrefix + constants.EndpointSuffixForwardAuth
 	endpointPolicies := proxy.pathPrefix + constants.EndpointSuffixPolicies
 
 	// Endpoints to validate queries
 	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataGet, endpointData)).Methods("GET")
 	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataPost, endpointData)).Methods("POST")
-	proxy.router.PathPrefix(endpointForwardAuth).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataForwardAuth, endpointForwardAuth)).Methods("GET")
 
 	// Endpoints to update policies and data
 	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataPut, endpointData)).Methods("PUT")
@@ -119,16 +117,6 @@ func (proxy *restProxy) Start() error {
 		}
 	}()
 	return nil
-}
-
-func (proxy *restProxy) applyHandlerMiddlewareIfSet(ctx context.Context, handlerFunc func(http.ResponseWriter, *http.Request), endpoint string) http.Handler {
-	var wrappedHandler http.Handler = http.HandlerFunc(handlerFunc)
-
-	wrappedHandler = proxy.appConf.MetricsProvider.WrapHTTPHandler(ctx, wrappedHandler)
-
-	wrappedHandler = proxy.appConf.TraceProvider.WrapHTTPHandler(ctx, wrappedHandler, endpoint)
-
-	return wrappedHandler
 }
 
 // See Stop() of api.ClientProxy

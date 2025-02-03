@@ -68,7 +68,12 @@ func (proxy *restProxy) handleV1DataGet(w http.ResponseWriter, r *http.Request) 
 		logging.LogForComponent("restProxy").Warnln("Received GET request without input: " + r.URL.String())
 	}
 
-	if trans, err := http.NewRequest("POST", r.URL.String(), strings.NewReader(body)); err == nil {
+	builder := strings.Builder{}
+	builder.WriteString(`{"input":`)
+	builder.WriteString(body)
+	builder.WriteRune('}')
+
+	if trans, err := http.NewRequest("POST", r.URL.String(), strings.NewReader(builder.String())); err == nil {
 		// Handle request like post
 		proxy.handleV1DataPost(w, trans)
 	} else {
@@ -109,13 +114,13 @@ func (proxy *restProxy) handleV1DataForwardAuth(w http.ResponseWriter, r *http.R
 	method := r.Header.Get(constants.HeaderXForwardedMethod)
 
 	inputBody := map[string]map[string]interface{}{
-		"input": {
+		constants.Input: {
 			"method": method,
 			"path":   path,
 		}}
 
 	if r.Header.Get(constants.HeaderAuthorization) != "" {
-		inputBody["input"]["token"] = r.Header.Get(constants.HeaderAuthorization)
+		inputBody[constants.Input]["token"] = r.Header.Get(constants.HeaderAuthorization)
 	}
 
 	body, err := json.Marshal(inputBody)

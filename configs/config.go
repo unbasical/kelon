@@ -19,6 +19,7 @@ type AppConfig struct {
 
 // ExternalConfig holds all externally configurable properties
 type ExternalConfig struct {
+	Global           Global                              `yaml:"global"`
 	APIMappings      []*DatastoreAPIMapping              `yaml:"apis"`
 	Datastores       map[string]*Datastore               `yaml:"datastores"`
 	DatastoreSchemas map[string]map[string]*EntitySchema `yaml:"entity_schemas"`
@@ -36,6 +37,10 @@ func (ec *ExternalConfig) Defaults() {
 }
 
 func (ec *ExternalConfig) Validate() error {
+	if err := ec.Global.Validate(); err != nil {
+		return errors.Wrap(err, "loaded invalid configuration")
+	}
+
 	for _, mapping := range ec.APIMappings {
 		if err := mapping.Validate(ec.DatastoreSchemas); err != nil {
 			return errors.Wrap(err, "loaded invalid configuration")

@@ -125,6 +125,7 @@ func (k *Kelon) onConfigLoaded(change watcher.ChangeType, loadedConf *configs.Ex
 		)
 
 		// Build config
+		config.Global = loadedConf.Global
 		config.APIMappings = loadedConf.APIMappings
 		config.DatastoreSchemas = loadedConf.DatastoreSchemas
 		config.Datastores = loadedConf.Datastores
