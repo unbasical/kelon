@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/open-policy-agent/opa/ast"
+	"github.com/unbasical/kelon/internal/pkg/util"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/data"
 	internalErrors "github.com/unbasical/kelon/pkg/errors"
@@ -18,7 +19,7 @@ type astProcessor struct {
 	conjunctions []data.Node
 	entities     map[string]interface{}
 	relations    []data.Node
-	operands     NodeStack
+	operands     util.Stack[[]data.Node]
 	errors       []string
 	skipUnknown  bool
 	validateMode bool
@@ -34,7 +35,7 @@ func (p *astProcessor) Process(ctx context.Context, query ast.Body) (data.Node, 
 	p.conjunctions = []data.Node{}
 	p.entities = make(map[string]interface{})
 	p.relations = []data.Node{}
-	p.operands = [][]data.Node{}
+	p.operands = util.Stack[[]data.Node]{}
 	p.errors = []string{}
 
 	// NEW ERA
@@ -117,13 +118,15 @@ func (p *astProcessor) translateExpr(node ast.Expr) ast.Visitor {
 	}
 
 	op := data.Operator{Value: node.Operator().String()}
-	p.operands = p.operands.Push([]data.Node{})
+	p.operands.Push([]data.Node{})
 	for _, term := range node.Operands() {
 		ast.Walk(p, term)
 	}
 
-	var functionOperands []data.Node
-	p.operands, functionOperands = p.operands.Pop()
+	functionOperands, err := p.operands.Pop()
+	if err != nil {
+		logging.LogForComponent("astProcessor").Panicf("Error popping operands: %s", err)
+	}
 	if len(p.entities) > 1 {
 		for _, entity := range keys(p.entities) {
 			p.link[entity] = true
@@ -145,13 +148,22 @@ func (p *astProcessor) translateExpr(node ast.Expr) ast.Visitor {
 func (p *astProcessor) translateTerm(node ast.Term) ast.Visitor {
 	switch v := node.Value.(type) {
 	case ast.Boolean:
-		p.operands.AppendToTop(makeConstant(v.String()))
+		err := util.AppendToTop(&p.operands, makeConstant(v.String()))
+		if err != nil {
+			logging.LogForComponent("astProcessor").Panicf("Error appending to top: %s", err)
+		}
 		return nil
 	case ast.String:
-		p.operands.AppendToTop(makeConstant(v.String()))
+		err := util.AppendToTop(&p.operands, makeConstant(v.String()))
+		if err != nil {
+			logging.LogForComponent("astProcessor").Panicf("Error appending to top: %s", err)
+		}
 		return nil
 	case ast.Number:
-		p.operands.AppendToTop(makeConstant(v.String()))
+		err := util.AppendToTop(&p.operands, makeConstant(v.String()))
+		if err != nil {
+			logging.LogForComponent("astProcessor").Panicf("Error appending to top: %s", err)
+		}
 		return nil
 	case ast.Ref:
 		if len(v) == 3 {
@@ -161,22 +173,30 @@ func (p *astProcessor) translateTerm(node ast.Term) ast.Visitor {
 				p.fromEntity = &entity
 			}
 			attribute := data.Attribute{Entity: entity, Name: normalizeString(v[2].Value.String())}
-			p.operands.AppendToTop(attribute)
+			err := util.AppendToTop(&p.operands, data.Node(attribute))
+			if err != nil {
+				logging.LogForComponent("astProcessor").Panicf("Error appending to top: %s", err)
+			}
 		}
 		return nil
 	case ast.Call:
 		op := data.Operator{Value: v[0].String()}
-		p.operands = p.operands.Push([]data.Node{})
+		p.operands.Push([]data.Node{})
 		for _, term := range v[1:] {
 			ast.Walk(p, term)
 		}
 
-		var functionOperands []data.Node
-		p.operands, functionOperands = p.operands.Pop()
-		p.operands.AppendToTop(data.Call{
+		functionOperands, err := p.operands.Pop()
+		if err != nil {
+			logging.LogForComponent("astProcessor").Panicf("Error popping operands: %s", err)
+		}
+		err = util.AppendToTop(&p.operands, data.Node(data.Call{
 			Operator: op,
 			Operands: functionOperands,
-		})
+		}))
+		if err != nil {
+			logging.LogForComponent("astProcessor").Panicf("Error appending to top: %s", err)
+		}
 		return nil
 	default:
 		if p.skipUnknown || p.validateMode {
@@ -190,11 +210,9 @@ func (p *astProcessor) translateTerm(node ast.Term) ast.Visitor {
 	return p
 }
 
-func makeConstant(value string) *data.Constant {
+func makeConstant(value string) data.Node {
 	// Convert "<Const>" to <Const>
-	value = strings.TrimFunc(value, func(r rune) bool {
-		return r == '"'
-	})
+	value = trimLeadingAndTrailing(value, '"')
 
 	// Const is int
 	if num, err := strconv.Atoi(value); err == nil {
@@ -229,6 +247,18 @@ func normalizeString(value string) string {
 	return strings.ReplaceAll(value, "\"", "")
 }
 
+func trimLeadingAndTrailing(s string, r rune) string {
+	if len(s) < 2 {
+		return s
+	}
+
+	if rune(s[0]) == r && rune(s[len(s)-1]) == r {
+		return s[1 : len(s)-1]
+	}
+
+	return s
+}
+
 func keys(input map[string]interface{}) []string {
 	i := 0
 	result := make([]string, len(input))
@@ -237,35 +267,4 @@ func keys(input map[string]interface{}) []string {
 		i++
 	}
 	return result
-}
-
-// Stack which is used for AST-transformation
-type NodeStack [][]data.Node
-
-// Push new element to stack
-func (s NodeStack) Push(v []data.Node) NodeStack {
-	logging.LogForComponent("NodeStack").Debugf("%30sOperands len(%d) PUSH(%+v)", "", len(s), v)
-	return append(s, v)
-}
-
-// Append new node to top element of the stack
-func (s NodeStack) AppendToTop(v data.Node) {
-	l := len(s)
-	if l <= 0 {
-		logging.LogForComponent("NodeStack").Panic("Stack is empty!")
-	}
-
-	s[l-1] = append(s[l-1], v)
-	logging.LogForComponent("NodeStack").Debugf("%30sOperands len(%d) APPEND |%+v <- TOP", "", len(s), s[l-1])
-}
-
-// Pop top element from Stack
-func (s NodeStack) Pop() (NodeStack, []data.Node) {
-	l := len(s)
-	if l <= 0 {
-		logging.LogForComponent("NodeStack").Panic("Stack is empty!")
-	}
-
-	logging.LogForComponent("NodeStack").Debugf("%30sOperands len(%d) POP()", "", len(s))
-	return s[:l-1], s[l-1]
 }
