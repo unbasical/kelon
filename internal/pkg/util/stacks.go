@@ -77,3 +77,10 @@ func AppendToTop[T any](s *Stack[[]T], v T) error {
 	logging.LogForComponent("Stack").Debugf("%30sStack len(%d) APPEND |%+v <- TOP", "", s.Size(), s.values[s.Size()-1])
 	return nil
 }
+
+func AppendToTopChecked[T any](component string, s *Stack[[]T], v T) {
+	err := AppendToTop(s, v)
+	if err != nil {
+		logging.LogForComponent(component).Panicf("Error appending to top: %s", err)
+	}
+}

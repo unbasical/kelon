@@ -30,7 +30,7 @@ func newAstProcessor(skipUnknown, validateMode bool) *astProcessor {
 }
 
 // See translate.AstTranslator.
-func (p *astProcessor) Process(ctx context.Context, query ast.Body) (data.Node, error) {
+func (p *astProcessor) Process(_ context.Context, query ast.Body) (data.Node, error) {
 	p.link = make(map[string]interface{})
 	p.conjunctions = []data.Node{}
 	p.entities = make(map[string]interface{})
@@ -80,10 +80,10 @@ func (p *astProcessor) Visit(v interface{}) ast.Visitor {
 		return p.translateQuery(*node)
 	case *ast.Expr:
 		logging.LogForComponent("astProcessor").Debugf("Expr: -> %+v", v)
-		return p.translateExpr(*node)
+		return p.translateExpr(node)
 	case *ast.Term:
 		logging.LogForComponent("astProcessor").Debugf("Term: -> %+v", v)
-		return p.translateTerm(*node)
+		return p.translateTerm(node)
 	default:
 		if p.skipUnknown || p.validateMode {
 			logging.LogForComponent("astProcessor").Warnf("Unexpectedly visiting children of: %T -> %+v", v, v)
@@ -112,7 +112,7 @@ func (p *astProcessor) translateQuery(q ast.Body) ast.Visitor {
 	return p
 }
 
-func (p *astProcessor) translateExpr(node ast.Expr) ast.Visitor {
+func (p *astProcessor) translateExpr(node *ast.Expr) ast.Visitor {
 	if !node.IsCall() {
 		return p
 	}
@@ -145,25 +145,16 @@ func (p *astProcessor) translateExpr(node ast.Expr) ast.Visitor {
 	return nil
 }
 
-func (p *astProcessor) translateTerm(node ast.Term) ast.Visitor {
+func (p *astProcessor) translateTerm(node *ast.Term) ast.Visitor {
 	switch v := node.Value.(type) {
 	case ast.Boolean:
-		err := util.AppendToTop(&p.operands, makeConstant(v.String()))
-		if err != nil {
-			logging.LogForComponent("astProcessor").Panicf("Error appending to top: %s", err)
-		}
+		util.AppendToTopChecked("astProcessor", &p.operands, makeConstant(v.String()))
 		return nil
 	case ast.String:
-		err := util.AppendToTop(&p.operands, makeConstant(v.String()))
-		if err != nil {
-			logging.LogForComponent("astProcessor").Panicf("Error appending to top: %s", err)
-		}
+		util.AppendToTopChecked("astProcessor", &p.operands, makeConstant(v.String()))
 		return nil
 	case ast.Number:
-		err := util.AppendToTop(&p.operands, makeConstant(v.String()))
-		if err != nil {
-			logging.LogForComponent("astProcessor").Panicf("Error appending to top: %s", err)
-		}
+		util.AppendToTopChecked("astProcessor", &p.operands, makeConstant(v.String()))
 		return nil
 	case ast.Ref:
 		if len(v) == 3 {
@@ -173,10 +164,7 @@ func (p *astProcessor) translateTerm(node ast.Term) ast.Visitor {
 				p.fromEntity = &entity
 			}
 			attribute := data.Attribute{Entity: entity, Name: normalizeString(v[2].Value.String())}
-			err := util.AppendToTop(&p.operands, data.Node(attribute))
-			if err != nil {
-				logging.LogForComponent("astProcessor").Panicf("Error appending to top: %s", err)
-			}
+			util.AppendToTopChecked("astProcessor", &p.operands, data.Node(attribute))
 		}
 		return nil
 	case ast.Call:
@@ -190,13 +178,10 @@ func (p *astProcessor) translateTerm(node ast.Term) ast.Visitor {
 		if err != nil {
 			logging.LogForComponent("astProcessor").Panicf("Error popping operands: %s", err)
 		}
-		err = util.AppendToTop(&p.operands, data.Node(data.Call{
+		util.AppendToTopChecked("astProcessor", &p.operands, data.Node(data.Call{
 			Operator: op,
 			Operands: functionOperands,
 		}))
-		if err != nil {
-			logging.LogForComponent("astProcessor").Panicf("Error appending to top: %s", err)
-		}
 		return nil
 	default:
 		if p.skipUnknown || p.validateMode {

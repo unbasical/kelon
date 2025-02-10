@@ -139,7 +139,7 @@ func (proxy *restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) 
 	} else if r.Header.Get("If-None-Match") == "*" {
 		engine.Store.Abort(ctx, txn)
 		logging.LogForComponent("restProxy").Infof("Update data with If-None-Match header at path: %s", path.String())
-		writer.Bytes(w, 304, nil)
+		w.WriteHeader(http.StatusNotModified)
 		return
 	}
 
@@ -232,7 +232,7 @@ func (proxy *restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Reques
 
 	// Write result
 	logging.LogForComponent("restProxy").Infof("Deleted Data at path: %s", path.String())
-	writer.Bytes(w, 204, nil)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 /*
@@ -508,7 +508,7 @@ func (proxy *restProxy) checkPathConflictsCommitAndRespond(ctx context.Context, 
 	}
 	// Write result
 	logging.LogForComponent("restProxy").Infof("Created Data at path: %s", path.String())
-	writer.Bytes(w, 204, nil)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Migration from github.com/open-policy-agent/opa/server/server.go
