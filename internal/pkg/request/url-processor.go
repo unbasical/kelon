@@ -69,7 +69,7 @@ func (processor urlProcessor) Process(input interface{}) (*request.PathProcessor
 	case *URLProcessorInput:
 		return processor.handleInput(in)
 	default:
-		return nil, errors.Errorf("UrlProcessor: Input of Process() was not of type *request.URLProcessorInput! Type was: " + reflect.TypeOf(input).String())
+		return nil, errors.Errorf("urlProcessor: Input of Process() was not of type *request.URLProcessorInput! Type was: %s", reflect.TypeOf(input).String())
 	}
 }
 

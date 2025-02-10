@@ -108,36 +108,6 @@ func (proxy *restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (proxy *restProxy) handleV1DataForwardAuth(w http.ResponseWriter, r *http.Request) {
-	// Build input body from traefik's forward auth request
-	path := r.Header.Get(constants.HeaderXForwardedURI)
-	method := r.Header.Get(constants.HeaderXForwardedMethod)
-
-	inputBody := map[string]map[string]interface{}{
-		constants.Input: {
-			"method": method,
-			"path":   path,
-		}}
-
-	if r.Header.Get(constants.HeaderAuthorization) != "" {
-		inputBody[constants.Input]["token"] = r.Header.Get(constants.HeaderAuthorization)
-	}
-
-	body, err := json.Marshal(inputBody)
-	if err != nil {
-		proxy.handleError(r.Context(), w, wrapErrorInLoggingContext(err))
-		return
-	}
-
-	endpointData := proxy.pathPrefix + constants.EndpointSuffixData
-	if trans, err := http.NewRequest("POST", endpointData, bytes.NewReader(body)); err == nil {
-		// Handle request like post
-		proxy.handleV1DataPost(w, trans)
-	} else {
-		logging.LogForComponent("restProxy").Fatal("Unable to map GET request to POST: ", err.Error())
-	}
-}
-
 // Migration from github.com/open-policy-agent/opa/server/server.go
 func (proxy *restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -482,7 +452,7 @@ func (proxy *restProxy) prepareV1PatchSlice(root string, ops []types.PatchV1) (r
 
 		// Construct patch path.
 		path := strings.Trim(op.Path, "/")
-		if len(path) > 0 {
+		if path != "" {
 			if root == "/" {
 				path = root + path
 			} else {

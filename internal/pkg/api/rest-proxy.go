@@ -17,7 +17,7 @@ import (
 
 type restProxy struct {
 	pathPrefix string
-	port       int32
+	port       uint32
 	configured bool
 	appConf    *configs.AppConfig
 	config     *api.ClientProxyConfig
@@ -28,7 +28,7 @@ type restProxy struct {
 }
 
 // Implements api.ClientProxy by providing OPA's Data-REST-API.
-func NewRestProxy(pathPrefix string, port int32) api.ClientProxy {
+func NewRestProxy(pathPrefix string, port uint32) api.ClientProxy {
 	return &restProxy{
 		pathPrefix: pathPrefix,
 		port:       port,
@@ -40,7 +40,7 @@ func NewRestProxy(pathPrefix string, port int32) api.ClientProxy {
 }
 
 // See Configure() of api.ClientProxy
-func (proxy *restProxy) Configure(ctx context.Context, appConf *configs.AppConfig, serverConf *api.ClientProxyConfig) error {
+func (proxy *restProxy) Configure(_ context.Context, appConf *configs.AppConfig, serverConf *api.ClientProxyConfig) error {
 	// Exit if already configured
 	if proxy.configured {
 		return nil

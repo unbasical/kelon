@@ -78,7 +78,7 @@ func (mapper pathMapper) Map(input interface{}) (*request.MapperOutput, error) {
 		}
 		return mapper.handleInput(in)
 	default:
-		return nil, errors.Errorf("PathMapper: Input of Process() was not of type *request.pathMapperInput! Type was: " + reflect.TypeOf(input).String())
+		return nil, errors.Errorf("pathMapper: Input of Process() was not of type *request.pathMapperInput! Type was: %s", reflect.TypeOf(input).String())
 	}
 }
 
@@ -128,7 +128,7 @@ func (mapper *pathMapper) generateMappings() error {
 		for _, mapping := range dsMapping.Mappings {
 			endpointsRegex := "[(GET)|(POST)|(PUT)|(DELETE)|(PATCH)]"
 			endpointsCount := 0
-			if mapping.Methods != nil && len(mapping.Methods) > 0 {
+			if len(mapping.Methods) > 0 {
 				endpointsCount = len(mapping.Methods)
 				anchoredMappings := make([]string, endpointsCount)
 				for i, method := range mapping.Methods {
@@ -139,7 +139,7 @@ func (mapper *pathMapper) generateMappings() error {
 
 			queriesRegex := ""
 			queriesCount := 0
-			if mapping.Queries != nil && len(mapping.Queries) > 0 {
+			if len(mapping.Queries) > 0 {
 				queriesRegex = fmt.Sprintf("?%s=.*?", strings.Join(mapping.Queries, "=.*?"))
 				queriesCount = len(mapping.Queries)
 			}
