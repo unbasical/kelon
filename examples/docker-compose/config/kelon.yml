@@ -1,3 +1,12 @@
+global:
+  input:
+    header-mapping:
+      - name: X-Forwarded-Method
+        alias: method
+      - name: X-Forwarded-URI
+        alias: path
+      - name: Foo
+
 apis:
   # Route all requests starting with /api/mysql to mysql database
   - path-prefix: /api/mysql
@@ -26,6 +35,8 @@ apis:
     authentication: false
     mappings:
       - path: /apps/.*
+        package: applications.pure
+      - path: /header.*
         package: applications.pure
   # Route all requests starting with /api/mixed to MongoDB and Postgres
   - path-prefix: /api/mixed
@@ -125,6 +136,7 @@ entity_schemas:
               entities:
                 - name: user
                   alias: users
+
 
 opa:
   labels:

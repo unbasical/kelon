@@ -98,32 +98,34 @@ func NewTest(ctx context.Context, t *testing.T, name string, config *testConfigu
 
 func (env *E2ETestEnvironment) runTests() {
 	for _, request := range env.requests {
-		url := fmt.Sprintf(request.URL, "localhost", strconv.Itoa(int(env.kelonPort)))
+		env.t.Run(request.Name, func(t *testing.T) {
+			url := fmt.Sprintf(request.URL, "localhost", strconv.Itoa(int(env.kelonPort)))
 
-		//nolint:gosec,gocritic
-		req, reqErr := http.NewRequest(strings.ToUpper(request.Method), url, bytes.NewBufferString(request.Body))
-		if reqErr != nil {
-			env.t.Errorf("%s: %s - %s", request.Name, url, reqErr.Error())
-			env.t.FailNow()
-		}
+			//nolint:gosec,gocritic
+			req, reqErr := http.NewRequest(strings.ToUpper(request.Method), url, bytes.NewBufferString(request.Body))
+			if reqErr != nil {
+				env.t.Errorf("%s: %s - %s", request.Name, url, reqErr.Error())
+				env.t.FailNow()
+			}
 
-		req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Content-Type", "application/json")
 
-		for k, v := range request.Headers {
-			req.Header.Set(k, v)
-		}
+			for k, v := range request.Headers {
+				req.Header.Set(k, v)
+			}
 
-		resp, httpErr := http.DefaultClient.Do(req)
-		if httpErr != nil {
-			env.t.Errorf("%s: %s - %s", request.Name, url, httpErr.Error())
-			env.t.FailNow()
-		}
+			resp, httpErr := http.DefaultClient.Do(req)
+			if httpErr != nil {
+				env.t.Errorf("%s: %s - %s", request.Name, url, httpErr.Error())
+				env.t.FailNow()
+			}
 
-		_ = resp.Body.Close()
+			_ = resp.Body.Close()
 
-		fmt.Printf("Name: %s - Expect: %d - Got: %d\n", request.Name, request.StatusCode, resp.StatusCode)
+			fmt.Printf("Name: %s - Expect: %d - Got: %d\n", request.Name, request.StatusCode, resp.StatusCode)
 
-		assert.Equal(env.t, request.StatusCode, resp.StatusCode, "%s: asserting response status code", request.Name)
+			assert.Equal(env.t, request.StatusCode, resp.StatusCode, "%s: asserting response status code", request.Name)
+		})
 	}
 }
 
@@ -272,7 +274,7 @@ func configureExposablePorts(t *testing.T, config *testConfiguration) {
 	for serivce, ds := range data.Datastores {
 		id, idErr := serviceFromString(serivce)
 		if idErr != nil {
-			t.Errorf("error extracting ports from config: %s", err.Error())
+			t.Errorf("error extracting ports from config: %s", idErr.Error())
 			t.FailNow()
 		}
 

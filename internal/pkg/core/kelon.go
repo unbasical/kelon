@@ -125,6 +125,7 @@ func (k *Kelon) onConfigLoaded(change watcher.ChangeType, loadedConf *configs.Ex
 		)
 
 		// Build config
+		config.Global = loadedConf.Global
 		config.APIMappings = loadedConf.APIMappings
 		config.DatastoreSchemas = loadedConf.DatastoreSchemas
 		config.Datastores = loadedConf.Datastores
@@ -203,7 +204,7 @@ func (k *Kelon) loadCallOperands(appConfig *configs.AppConfig) {
 
 func (k *Kelon) startNewRestProxy(ctx context.Context, appConfig *configs.AppConfig, serverConf *api.ClientProxyConfig) {
 	// Create Rest proxy and start
-	k.proxy = apiInt.NewRestProxy(*k.config.PathPrefix, int32(*k.config.Port))
+	k.proxy = apiInt.NewRestProxy(*k.config.PathPrefix, *k.config.Port)
 	if err := k.proxy.Configure(ctx, appConfig, serverConf); err != nil {
 		k.logger.Fatalln(err.Error())
 	}

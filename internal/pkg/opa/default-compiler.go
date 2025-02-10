@@ -75,6 +75,11 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 	return nil
 }
 
+// Execute expects a map with the following structure:
+//
+// - input
+//   - method: match policy on HTTP method
+//   - path: match policy on HTTP path
 func (compiler policyCompiler) Execute(ctx context.Context, requestBody map[string]interface{}) (*opa.Decision, error) {
 	// Validate if policy compiler was configured correctly
 	if !compiler.configured {
@@ -88,7 +93,7 @@ func (compiler policyCompiler) Execute(ctx context.Context, requestBody map[stri
 		}
 	}
 
-	rawInput, exists := requestBody["input"]
+	rawInput, exists := requestBody[constants.Input]
 	if !exists {
 		return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Incoming requestBody had no field 'input'!"}
 	}

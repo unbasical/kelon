@@ -158,11 +158,24 @@
   body: '{ "input": { "method": "GET", "path": "/api/pure/apps/2", "user": "Nobody", "password": "pw_nobody" } }'
   statusCode: 403
 
-
 - name: "ForwardAuth: Pure - First App visible for everyone"
   method: "GET"
-  url: "http://%s:%s/v1/forward-auth"
+  url: "http://%s:%s/v1/data"
   header:
     X-Forwarded-Method: "GET"
     X-Forwarded-URI: "/api/pure/apps/1"
+  statusCode: 200
+
+- name: "Header Inclusion: GET Query - Pure - Foo header should not be aliased"
+  method: "GET"
+  url: 'http://%s:%s/v1/data?input=%%7B%%22method%%22%%3A%%22GET%%22%%2C%%22path%%22%%3A%%22%%2Fapi%%2Fpure%%2Fheader%%22%%7D'
+  header:
+    Foo: "bar"
+  statusCode: 200
+
+- name: "Header Inclusion: POST Body - Pure - Foo header should not be aliased"
+  url: "http://%s:%s/v1/data"
+  body: '{ "input": { "method": "GET", "path": "/api/pure/header"} }'
+  header:
+    Foo: "bar"
   statusCode: 200

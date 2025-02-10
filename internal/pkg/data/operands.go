@@ -160,7 +160,7 @@ func loadDatastoreCallOpsBytes(input []byte, dsFunctions map[string]int) ([]data
 	loadedConf := callHandlers{}
 	// Load call operands
 	if err := yaml.Unmarshal(input, &loadedConf); err != nil {
-		return nil, errors.Errorf("GenericCallOpMapper: Unable to parse datastore call-operands config: " + err.Error())
+		return nil, errors.Wrap(err, "unable to parse datastore call-operands config")
 	}
 
 	result := make([]data.CallOpMapper, len(loadedConf.CallOperands))

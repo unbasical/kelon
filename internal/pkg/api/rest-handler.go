@@ -68,7 +68,12 @@ func (proxy *restProxy) handleV1DataGet(w http.ResponseWriter, r *http.Request) 
 		logging.LogForComponent("restProxy").Warnln("Received GET request without input: " + r.URL.String())
 	}
 
-	if trans, err := http.NewRequest("POST", r.URL.String(), strings.NewReader(body)); err == nil {
+	builder := strings.Builder{}
+	builder.WriteString(`{"input":`)
+	builder.WriteString(body)
+	builder.WriteRune('}')
+
+	if trans, err := http.NewRequest("POST", r.URL.String(), strings.NewReader(builder.String())); err == nil {
 		// Handle request like post
 		proxy.handleV1DataPost(w, trans)
 	} else {
@@ -103,36 +108,6 @@ func (proxy *restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (proxy *restProxy) handleV1DataForwardAuth(w http.ResponseWriter, r *http.Request) {
-	// Build input body from traefik's forward auth request
-	path := r.Header.Get(constants.HeaderXForwardedURI)
-	method := r.Header.Get(constants.HeaderXForwardedMethod)
-
-	inputBody := map[string]map[string]interface{}{
-		"input": {
-			"method": method,
-			"path":   path,
-		}}
-
-	if r.Header.Get(constants.HeaderAuthorization) != "" {
-		inputBody["input"]["token"] = r.Header.Get(constants.HeaderAuthorization)
-	}
-
-	body, err := json.Marshal(inputBody)
-	if err != nil {
-		proxy.handleError(r.Context(), w, wrapErrorInLoggingContext(err))
-		return
-	}
-
-	endpointData := proxy.pathPrefix + constants.EndpointSuffixData
-	if trans, err := http.NewRequest("POST", endpointData, bytes.NewReader(body)); err == nil {
-		// Handle request like post
-		proxy.handleV1DataPost(w, trans)
-	} else {
-		logging.LogForComponent("restProxy").Fatal("Unable to map GET request to POST: ", err.Error())
-	}
-}
-
 // Migration from github.com/open-policy-agent/opa/server/server.go
 func (proxy *restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -164,7 +139,7 @@ func (proxy *restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) 
 	} else if r.Header.Get("If-None-Match") == "*" {
 		engine.Store.Abort(ctx, txn)
 		logging.LogForComponent("restProxy").Infof("Update data with If-None-Match header at path: %s", path.String())
-		writer.Bytes(w, 304, nil)
+		w.WriteHeader(http.StatusNotModified)
 		return
 	}
 
@@ -257,7 +232,7 @@ func (proxy *restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Reques
 
 	// Write result
 	logging.LogForComponent("restProxy").Infof("Deleted Data at path: %s", path.String())
-	writer.Bytes(w, 204, nil)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 /*
@@ -477,7 +452,7 @@ func (proxy *restProxy) prepareV1PatchSlice(root string, ops []types.PatchV1) (r
 
 		// Construct patch path.
 		path := strings.Trim(op.Path, "/")
-		if len(path) > 0 {
+		if path != "" {
 			if root == "/" {
 				path = root + path
 			} else {
@@ -533,7 +508,7 @@ func (proxy *restProxy) checkPathConflictsCommitAndRespond(ctx context.Context, 
 	}
 	// Write result
 	logging.LogForComponent("restProxy").Infof("Created Data at path: %s", path.String())
-	writer.Bytes(w, 204, nil)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Migration from github.com/open-policy-agent/opa/server/server.go

@@ -15,3 +15,11 @@ allow {
 allow {
 	input.user == "Torben"
 }
+
+# Path: GET /api/pure/header
+# Foo header must be set to bar
+allow {
+	input.method == "GET"
+	input.path == ["api", "pure", "header"]
+	input.Foo == "bar"
+}
