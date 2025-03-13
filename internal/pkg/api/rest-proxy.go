@@ -83,15 +83,15 @@ func (proxy *restProxy) Start() error {
 	endpointPolicies := proxy.pathPrefix + constants.EndpointSuffixPolicies
 
 	// Endpoints to validate queries
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataGet, endpointData)).Methods("GET")
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataPost, endpointData)).Methods("POST")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddleware(ctx, endpointData, proxy.handleV1DataGet, withHeaderExtraction(true))).Methods("GET")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddleware(ctx, endpointData, proxy.handleV1DataPost, withHeaderExtraction(true))).Methods("POST")
 
 	// Endpoints to update policies and data
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataPut, endpointData)).Methods("PUT")
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataPatch, endpointData)).Methods("PATCH")
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1DataDelete, endpointData)).Methods("DELETE")
-	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1PolicyPut, endpointPolicies)).Methods("PUT")
-	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddlewareIfSet(ctx, proxy.handleV1PolicyDelete, endpointPolicies)).Methods("DELETE")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddleware(ctx, endpointData, proxy.handleV1DataPut)).Methods("PUT")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddleware(ctx, endpointData, proxy.handleV1DataPatch)).Methods("PATCH")
+	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddleware(ctx, endpointData, proxy.handleV1DataDelete)).Methods("DELETE")
+	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddleware(ctx, endpointPolicies, proxy.handleV1PolicyPut)).Methods("PUT")
+	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddleware(ctx, endpointPolicies, proxy.handleV1PolicyDelete)).Methods("DELETE")
 	if proxy.metricsHandler != nil {
 		logging.LogForComponent("restProxy").Infof("Registered %s endpoint", constants.EndpointMetrics)
 		proxy.router.PathPrefix(constants.EndpointMetrics).Handler(proxy.metricsHandler)

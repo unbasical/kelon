@@ -12,10 +12,36 @@ import (
 	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
-func (proxy *restProxy) applyHandlerMiddlewareIfSet(ctx context.Context, handlerFunc func(http.ResponseWriter, *http.Request), endpoint string) http.Handler {
-	var wrappedHandler http.Handler = http.HandlerFunc(handlerFunc)
+type middlewareOption = func(options *middlewareOptions)
 
-	wrappedHandler = proxy.inputHeaderMappingMiddleware(wrappedHandler)
+type middlewareOptions struct {
+	headerExtraction bool
+}
+
+func defaultMiddlewareOptions() *middlewareOptions {
+	return &middlewareOptions{
+		headerExtraction: false,
+	}
+}
+
+func withHeaderExtraction(enable bool) middlewareOption {
+	return func(options *middlewareOptions) {
+		options.headerExtraction = enable
+	}
+}
+
+func (proxy *restProxy) applyHandlerMiddleware(ctx context.Context, endpoint string, handlerFunc http.HandlerFunc, options ...middlewareOption) http.Handler {
+	ops := defaultMiddlewareOptions()
+	for _, option := range options {
+		option(ops)
+	}
+
+	var wrappedHandler http.Handler = handlerFunc
+
+	if ops.headerExtraction {
+		wrappedHandler = proxy.inputHeaderMappingMiddleware(wrappedHandler)
+	}
+
 	wrappedHandler = proxy.appConf.MetricsProvider.WrapHTTPHandler(ctx, wrappedHandler)
 	wrappedHandler = proxy.appConf.TraceProvider.WrapHTTPHandler(ctx, wrappedHandler, endpoint)
 
