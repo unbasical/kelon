@@ -15,28 +15,12 @@ import (
 type middlewareOption = func(options *middlewareOptions)
 
 type middlewareOptions struct {
-	metrics          bool
-	trace            bool
 	headerExtraction bool
 }
 
 func defaultMiddlewareOptions() *middlewareOptions {
 	return &middlewareOptions{
-		metrics:          true,
-		trace:            true,
 		headerExtraction: false,
-	}
-}
-
-func withMetrics(enable bool) middlewareOption {
-	return func(options *middlewareOptions) {
-		options.metrics = enable
-	}
-}
-
-func withTrace(enable bool) middlewareOption {
-	return func(options *middlewareOptions) {
-		options.trace = enable
 	}
 }
 
@@ -57,12 +41,9 @@ func (proxy *restProxy) applyHandlerMiddleware(ctx context.Context, endpoint str
 	if ops.headerExtraction {
 		wrappedHandler = proxy.inputHeaderMappingMiddleware(wrappedHandler)
 	}
-	if ops.metrics {
-		wrappedHandler = proxy.appConf.MetricsProvider.WrapHTTPHandler(ctx, wrappedHandler)
-	}
-	if ops.trace {
-		wrappedHandler = proxy.appConf.TraceProvider.WrapHTTPHandler(ctx, wrappedHandler, endpoint)
-	}
+
+	wrappedHandler = proxy.appConf.MetricsProvider.WrapHTTPHandler(ctx, wrappedHandler)
+	wrappedHandler = proxy.appConf.TraceProvider.WrapHTTPHandler(ctx, wrappedHandler, endpoint)
 
 	return wrappedHandler
 }
