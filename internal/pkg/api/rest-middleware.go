@@ -12,12 +12,57 @@ import (
 	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
-func (proxy *restProxy) applyHandlerMiddlewareIfSet(ctx context.Context, handlerFunc func(http.ResponseWriter, *http.Request), endpoint string) http.Handler {
-	var wrappedHandler http.Handler = http.HandlerFunc(handlerFunc)
+type middlewareOption = func(options *middlewareOptions)
 
-	wrappedHandler = proxy.inputHeaderMappingMiddleware(wrappedHandler)
-	wrappedHandler = proxy.appConf.MetricsProvider.WrapHTTPHandler(ctx, wrappedHandler)
-	wrappedHandler = proxy.appConf.TraceProvider.WrapHTTPHandler(ctx, wrappedHandler, endpoint)
+type middlewareOptions struct {
+	metrics          bool
+	trace            bool
+	headerExtraction bool
+}
+
+func defaultMiddlewareOptions() *middlewareOptions {
+	return &middlewareOptions{
+		metrics:          true,
+		trace:            true,
+		headerExtraction: false,
+	}
+}
+
+func withMetrics(enable bool) middlewareOption {
+	return func(options *middlewareOptions) {
+		options.metrics = enable
+	}
+}
+
+func withTrace(enable bool) middlewareOption {
+	return func(options *middlewareOptions) {
+		options.trace = enable
+	}
+}
+
+func withHeaderExtraction(enable bool) middlewareOption {
+	return func(options *middlewareOptions) {
+		options.headerExtraction = enable
+	}
+}
+
+func (proxy *restProxy) applyHandlerMiddleware(ctx context.Context, endpoint string, handlerFunc http.HandlerFunc, options ...middlewareOption) http.Handler {
+	ops := defaultMiddlewareOptions()
+	for _, option := range options {
+		option(ops)
+	}
+
+	var wrappedHandler http.Handler = handlerFunc
+
+	if ops.headerExtraction {
+		wrappedHandler = proxy.inputHeaderMappingMiddleware(wrappedHandler)
+	}
+	if ops.metrics {
+		wrappedHandler = proxy.appConf.MetricsProvider.WrapHTTPHandler(ctx, wrappedHandler)
+	}
+	if ops.trace {
+		wrappedHandler = proxy.appConf.TraceProvider.WrapHTTPHandler(ctx, wrappedHandler, endpoint)
+	}
 
 	return wrappedHandler
 }
