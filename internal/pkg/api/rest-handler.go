@@ -66,6 +66,8 @@ func (proxy *restProxy) handleV1DataGet(w http.ResponseWriter, r *http.Request) 
 		r.URL.RawQuery = query.Encode()
 	} else {
 		logging.LogForComponent("restProxy").Warnln("Received GET request without input: " + r.URL.String())
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	builder := strings.Builder{}
