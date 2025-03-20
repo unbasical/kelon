@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
+	"github.com/unbasical/kelon/pkg/telemetry"
 )
 
 type middlewareOption = func(options *middlewareOptions)
@@ -37,6 +40,10 @@ func (proxy *restProxy) applyHandlerMiddleware(ctx context.Context, endpoint str
 	}
 
 	var wrappedHandler http.Handler = handlerFunc
+
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		wrappedHandler = proxy.applyLoggingMiddleware(wrappedHandler)
+	}
 
 	if ops.headerExtraction {
 		wrappedHandler = proxy.inputHeaderMappingMiddleware(wrappedHandler)
@@ -88,6 +95,24 @@ func (proxy *restProxy) inputHeaderMappingMiddleware(next http.Handler) http.Han
 
 		// Add header mapping here
 		next.ServeHTTP(w, r)
+	})
+}
+
+func (proxy *restProxy) applyLoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		pw := telemetry.NewPassThroughResponseWriter(w)
+		next.ServeHTTP(pw, r)
+
+		duration := time.Since(start)
+		logging.LogForComponent("restProxy").
+			WithField("method", r.Method).
+			WithField("url", r.URL.Path).
+			WithField("headers", r.Header).
+			WithField("status", pw.StatusCode()).
+			WithField("duration", duration.String()).
+			Debug("Request processed")
 	})
 }
 
