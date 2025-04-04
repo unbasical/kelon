@@ -6,13 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/unbasical/kelon/pkg/constants"
-	"github.com/unbasical/kelon/pkg/constants/logging"
-
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/pkg/api"
+	"github.com/unbasical/kelon/pkg/constants"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 )
 
 type restProxy struct {
@@ -79,19 +78,23 @@ func (proxy *restProxy) Start() error {
 
 	ctx := context.Background()
 
-	endpointData := proxy.pathPrefix + constants.EndpointSuffixData
-	endpointPolicies := proxy.pathPrefix + constants.EndpointSuffixPolicies
+	endpointDataWithParams := fmt.Sprintf("%s/{%s:.+}", constants.EndpointData, constants.URLParamID)
+	endpointPoliciesWithParams := fmt.Sprintf("%s/{%s:.+}", constants.EndpointPolicies, constants.URLParamID)
 
 	// Endpoints to validate queries
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddleware(ctx, endpointData, proxy.handleV1DataGet, withHeaderExtraction(true))).Methods("GET")
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddleware(ctx, endpointData, proxy.handleV1DataPost, withHeaderExtraction(true))).Methods("POST")
+	proxy.router.PathPrefix(proxy.pathPrefix).Path(constants.EndpointData).Handler(proxy.applyHandlerMiddleware(ctx, constants.EndpointData, proxy.handleV1DataGet, withHeaderExtraction(true))).Methods(http.MethodGet)
+	proxy.router.PathPrefix(proxy.pathPrefix).Path(constants.EndpointData).Handler(proxy.applyHandlerMiddleware(ctx, constants.EndpointData, proxy.handleV1DataPost, withHeaderExtraction(true))).Methods(http.MethodPost)
 
-	// Endpoints to update policies and data
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddleware(ctx, endpointData, proxy.handleV1DataPut)).Methods("PUT")
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddleware(ctx, endpointData, proxy.handleV1DataPatch)).Methods("PATCH")
-	proxy.router.PathPrefix(endpointData).Handler(proxy.applyHandlerMiddleware(ctx, endpointData, proxy.handleV1DataDelete)).Methods("DELETE")
-	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddleware(ctx, endpointPolicies, proxy.handleV1PolicyPut)).Methods("PUT")
-	proxy.router.PathPrefix(endpointPolicies).Handler(proxy.applyHandlerMiddleware(ctx, endpointPolicies, proxy.handleV1PolicyDelete)).Methods("DELETE")
+	// Endpoints to update data
+	proxy.router.PathPrefix(proxy.pathPrefix).Path(endpointDataWithParams).Handler(proxy.applyHandlerMiddleware(ctx, constants.EndpointData, proxy.handleV1DataPut)).Methods(http.MethodPut)
+	proxy.router.PathPrefix(proxy.pathPrefix).Path(endpointDataWithParams).Handler(proxy.applyHandlerMiddleware(ctx, constants.EndpointData, proxy.handleV1DataPatch)).Methods(http.MethodPatch)
+	proxy.router.PathPrefix(proxy.pathPrefix).Path(endpointDataWithParams).Handler(proxy.applyHandlerMiddleware(ctx, constants.EndpointData, proxy.handleV1DataDelete)).Methods(http.MethodDelete)
+	// Endpoint to update policies
+	proxy.router.PathPrefix(proxy.pathPrefix).Path(constants.EndpointPolicies).Handler(proxy.applyHandlerMiddleware(ctx, constants.EndpointPolicies, proxy.handleV1PolicyGetList)).Methods(http.MethodGet)
+	proxy.router.PathPrefix(proxy.pathPrefix).Path(endpointPoliciesWithParams).Handler(proxy.applyHandlerMiddleware(ctx, constants.EndpointPolicies, proxy.handleV1PolicyGet)).Methods(http.MethodGet)
+	proxy.router.PathPrefix(proxy.pathPrefix).Path(endpointPoliciesWithParams).Handler(proxy.applyHandlerMiddleware(ctx, constants.EndpointPolicies, proxy.handleV1PolicyPut)).Methods(http.MethodPut)
+	proxy.router.PathPrefix(proxy.pathPrefix).Path(endpointPoliciesWithParams).Handler(proxy.applyHandlerMiddleware(ctx, constants.EndpointPolicies, proxy.handleV1PolicyDelete)).Methods(http.MethodDelete)
+	// Endpoint for monitoring
 	if proxy.metricsHandler != nil {
 		logging.LogForComponent("restProxy").Infof("Registered %s endpoint", constants.EndpointMetrics)
 		proxy.router.PathPrefix(constants.EndpointMetrics).Handler(proxy.metricsHandler)
