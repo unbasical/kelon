@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
 	"github.com/open-policy-agent/opa/plugins"
@@ -242,6 +243,85 @@ func (proxy *restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Reques
  */
 
 // Migration from github.com/open-policy-agent/opa/server/server.go
+func (proxy *restProxy) handleV1PolicyGet(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	engine := (*proxy.config.Compiler).GetEngine()
+
+	// Parse Path
+	vars := mux.Vars(r)
+	path, ok := storage.ParsePathEscaped("/" + strings.Trim(vars[constants.URLParamID], "/"))
+	if !ok {
+		writeBadPath(w, r.URL.Path)
+		return
+	}
+
+	txn, err := engine.Store.NewTransaction(ctx)
+	if err != nil {
+		proxy.abortWithInternalServerError(ctx, engine, txn, w, err)
+		return
+	}
+	defer engine.Store.Abort(ctx, txn)
+
+	id := strings.TrimPrefix(path.String(), "/")
+	logging.LogForComponent("restProxy").Debugf("Listing policies for %s", id)
+	bs, err := engine.Store.GetPolicy(ctx, txn, id)
+	if err != nil {
+		proxy.abortWithInternalServerError(ctx, engine, txn, w, err)
+		return
+	}
+
+	compiler := engine.GetCompiler()
+	resp := types.PolicyGetResponseV1{
+		Result: types.PolicyV1{
+			ID:  id,
+			Raw: string(bs),
+			AST: compiler.Modules[id],
+		},
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// Migration from github.com/open-policy-agent/opa/server/server.go
+func (proxy *restProxy) handleV1PolicyGetList(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	engine := (*proxy.config.Compiler).GetEngine()
+
+	txn, err := engine.Store.NewTransaction(ctx)
+	if err != nil {
+		proxy.abortWithInternalServerError(ctx, engine, txn, w, err)
+		return
+	}
+	defer engine.Store.Abort(ctx, txn)
+
+	var policies []types.PolicyV1
+	compiler := engine.GetCompiler()
+
+	// Only return policies from the store, the compiler
+	ids, err := engine.Store.ListPolicies(ctx, txn)
+	if err != nil {
+		proxy.abortWithInternalServerError(ctx, engine, txn, w, err)
+		return
+	}
+	for _, id := range ids {
+		bs, err := engine.Store.GetPolicy(ctx, txn, id)
+		logging.LogForComponent("restProxy").Debugf("Listing policies for %s", id)
+		if err != nil {
+			proxy.abortWithInternalServerError(ctx, engine, txn, w, err)
+			return
+		}
+		policy := types.PolicyV1{
+			ID:  id,
+			Raw: string(bs),
+			AST: compiler.Modules[id],
+		}
+		policies = append(policies, policy)
+	}
+
+	writeJSON(w, http.StatusOK, types.PolicyListResponseV1{Result: policies})
+}
+
+// Migration from github.com/open-policy-agent/opa/server/server.go
 func (proxy *restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	engine := (*proxy.config.Compiler).GetEngine()
@@ -254,7 +334,8 @@ func (proxy *restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request
 	}
 
 	// Parse Path
-	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
+	vars := mux.Vars(r)
+	path, ok := storage.ParsePathEscaped("/" + strings.Trim(vars[constants.URLParamID], "/"))
 	if !ok {
 		writeBadPath(w, r.URL.Path)
 		return
@@ -268,7 +349,8 @@ func (proxy *restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request
 	}
 
 	// Parse module
-	parsedMod, err := ast.ParseModule(path.String(), string(buf))
+	id := strings.TrimPrefix(path.String(), "/")
+	parsedMod, err := ast.ParseModule(id, string(buf))
 	if err != nil {
 		proxy.abortWithBadRequest(ctx, engine, txn, w, err)
 		return
@@ -289,7 +371,7 @@ func (proxy *restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request
 		proxy.abortWithInternalServerError(ctx, engine, txn, w, err)
 		return
 	}
-	modules[path.String()] = parsedMod
+	modules[id] = parsedMod
 
 	// Compile module in combination with other modules
 	c := ast.NewCompiler().SetErrorLimit(1).WithPathConflictsCheck(storage.NonEmpty(ctx, engine.Store, txn))
@@ -300,7 +382,7 @@ func (proxy *restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request
 	}
 
 	// Upsert policy
-	if err := engine.Store.UpsertPolicy(ctx, txn, path.String(), buf); err != nil {
+	if err := engine.Store.UpsertPolicy(ctx, txn, id, buf); err != nil {
 		proxy.abortWithInternalServerError(ctx, engine, txn, w, err)
 		return
 	}
@@ -312,7 +394,7 @@ func (proxy *restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request
 	}
 
 	// Write result
-	logging.LogForComponent("restProxy").Debugf("Updated Policy at path: %s", path.String())
+	logging.LogForComponent("restProxy").Infof("Updated Policy at path: %s", id)
 	writeJSON(w, http.StatusOK, make(map[string]string))
 }
 
@@ -322,7 +404,8 @@ func (proxy *restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Requ
 	engine := (*proxy.config.Compiler).GetEngine()
 
 	// Parse Path
-	path, ok := storage.ParsePathEscaped("/" + strings.Trim(r.URL.Path, "/"))
+	vars := mux.Vars(r)
+	path, ok := storage.ParsePathEscaped("/" + strings.Trim(vars[constants.URLParamID], "/"))
 	if !ok {
 		writeBadPath(w, r.URL.Path)
 		return
@@ -336,7 +419,8 @@ func (proxy *restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Check policy scope
-	if err = proxy.checkPolicyIDScope(ctx, txn, path.String()); err != nil {
+	id := strings.TrimPrefix(path.String(), "/")
+	if err = proxy.checkPolicyIDScope(ctx, txn, id); err != nil {
 		proxy.abortWithInternalServerError(ctx, engine, txn, w, err)
 		return
 	}
@@ -347,7 +431,7 @@ func (proxy *restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Requ
 		proxy.abortWithInternalServerError(ctx, engine, txn, w, err)
 		return
 	}
-	delete(modules, path.String())
+	delete(modules, id)
 
 	// Compile module in combination with other modules
 	c := ast.NewCompiler().SetErrorLimit(1)
@@ -358,7 +442,7 @@ func (proxy *restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Delete policy
-	if err := engine.Store.DeletePolicy(ctx, txn, path.String()); err != nil {
+	if err := engine.Store.DeletePolicy(ctx, txn, id); err != nil {
 		proxy.abortWithInternalServerError(ctx, engine, txn, w, err)
 		return
 	}
@@ -370,7 +454,7 @@ func (proxy *restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Write result
-	logging.LogForComponent("restProxy").Infof("Deleted Policy at path: %s", path.String())
+	logging.LogForComponent("restProxy").Infof("Deleted Policy at path: %s", id)
 	writeJSON(w, http.StatusOK, make(map[string]string))
 }
 
