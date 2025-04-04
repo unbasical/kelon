@@ -197,7 +197,10 @@ func (p *astProcessor) translateTerm(node *ast.Term) ast.Visitor {
 
 func makeConstant(value string) data.Node {
 	// Convert "<Const>" to <Const>
-	value = trimLeadingAndTrailing(value, '"')
+	value, err := unquote(value)
+	if err != nil {
+		logging.LogForComponent("astProcessor").Panicf("Error triming surrounding quotes: %s", err)
+	}
 
 	// Const is int
 	if num, err := strconv.Atoi(value); err == nil {
@@ -232,16 +235,16 @@ func normalizeString(value string) string {
 	return strings.ReplaceAll(value, "\"", "")
 }
 
-func trimLeadingAndTrailing(s string, r rune) string {
+func unquote(s string) (string, error) {
 	if len(s) < 2 {
-		return s
+		return s, nil
 	}
 
-	if rune(s[0]) == r && rune(s[len(s)-1]) == r {
-		return s[1 : len(s)-1]
+	if rune(s[0]) == '"' && rune(s[len(s)-1]) == '"' {
+		return strconv.Unquote(s)
 	}
 
-	return s
+	return s, nil
 }
 
 func keys(input map[string]interface{}) []string {
