@@ -102,6 +102,7 @@ func (proxy *restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request)
 
 	if err != nil {
 		proxy.handleError(ctx, w, wrapErrorInLoggingContext(err))
+		return
 	}
 
 	if decision.Allow {
