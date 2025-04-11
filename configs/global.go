@@ -19,10 +19,12 @@ type HeaderMapping struct {
 	Alias string `yaml:"alias"`
 }
 
+// Validate checks if the provided Global config does not contain invalid options
 func (g *Global) Validate() error {
 	return g.Input.Validate()
 }
 
+// Validate checks if the provided Input config does not contain invalid options
 func (i *Input) Validate() error {
 	// Validate include header mappings
 	headerCache := make(map[string]struct{})

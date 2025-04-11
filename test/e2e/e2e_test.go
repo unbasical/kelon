@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -104,8 +105,8 @@ func (env *E2ETestEnvironment) runTests() {
 			//nolint:gosec,gocritic
 			req, reqErr := http.NewRequest(strings.ToUpper(request.Method), url, bytes.NewBufferString(request.Body))
 			if reqErr != nil {
-				env.t.Errorf("%s: %s - %s", request.Name, url, reqErr.Error())
-				env.t.FailNow()
+				t.Errorf("%s: %s - %s", request.Name, url, reqErr.Error())
+				t.FailNow()
 			}
 
 			req.Header.Set("Content-Type", "application/json")
@@ -116,15 +117,15 @@ func (env *E2ETestEnvironment) runTests() {
 
 			resp, httpErr := http.DefaultClient.Do(req)
 			if httpErr != nil {
-				env.t.Errorf("%s: %s - %s", request.Name, url, httpErr.Error())
-				env.t.FailNow()
+				t.Errorf("%s: %s - %s", request.Name, url, httpErr.Error())
+				t.FailNow()
 			}
 
 			_ = resp.Body.Close()
 
 			fmt.Printf("Name: %s - Expect: %d - Got: %d\n", request.Name, request.StatusCode, resp.StatusCode)
 
-			assert.Equal(env.t, request.StatusCode, resp.StatusCode, "%s: asserting response status code", request.Name)
+			assert.Equal(t, request.StatusCode, resp.StatusCode, "%s: asserting response status code", request.Name)
 		})
 	}
 }
@@ -240,7 +241,7 @@ func modifyDatastoreConfig(ctx context.Context, t *testing.T, containerEnv *Cont
 		t.FailNow()
 	}
 
-	defer file.Close()
+	defer func(closer io.Closer) { _ = closer.Close() }(file)
 
 	out, err := yaml.Marshal(data)
 	if err != nil {

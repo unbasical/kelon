@@ -1,0 +1,139 @@
+# For file adjustments, refer to the official golang-ci docs
+# https://golangci-lint.run/usage/configuration/#output-configuration
+
+# The author of this file recommends to use IDE-Plugins like "Awesome Console" for Jetbrins Goland.
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  issues-exit-code: 2
+
+output:
+  show-stats: true
+  formats:
+    - format: colored-tab
+      path: stdout
+  sort-results: true
+  sort-order:
+    - file
+    - linter
+
+linters:
+  disable-all: true
+  enable:
+    - gofmt # Gofmt checks whether code was gofmt-ed. By default this tool runs with -s option to check for code simplification.
+    - revive # Fast, configurable, extensible, flexible, and beautiful linter for Go. Drop-in replacement of golint.
+    - errcheck # Errcheck is a program for checking for unchecked errors in Go code. These unchecked errors can be critical bugs in some cases.
+    - gosimple  # Linter for Go source code that specializes in simplifying code.
+    - govet # Vet examines Go source code and reports suspicious constructs. It is roughly the same as 'go vet' and uses its passes.
+    - ineffassign # Detects when assignments to existing variables are not used.
+    - unused # Checks Go code for unused constants, variables, functions and types.
+    - dupl # Tool for code clone detection.
+    - bodyclose # Checks whether HTTP response body is closed successfully.
+    - exhaustive # Check exhaustiveness of enum switch statements.
+    - errorlint
+
+issues:
+  fix: true
+  exclude-use-default: false
+  max-issues-per-linter: 1000
+  exclude-files:
+    # Exclude generated protobuf files
+    - ".*\\.pb\\.go"
+  exclude-rules:
+    # Exclude some linters from running on tests files.
+    - path: _test\.go
+      linters:
+        - revive
+        - dupl
+
+linters-settings:
+  gofmt:
+    # Simplify code: gofmt with `-s` option.
+    # Default: true
+    simplify: false
+    # Apply the rewrite rules to the source before reformatting.
+    # https://pkg.go.dev/cmd/gofmt
+    # Default: []
+    rewrite-rules:
+      - pattern: 'interface{}'
+        replacement: 'any'
+      - pattern: 'a[b:len(a)]'
+        replacement: 'a[b:]'
+  # Config available at: https://golangci-lint.run/usage/linters/#dupl
+  dupl:
+    threshold: 400
+  # Config available at: https://golangci-lint.run/usage/linters/#exhaustive
+  exhaustive:
+    check-generated: false
+    default-signifies-exhaustive: true
+  # Config available at: https://github.com/mgechev/revive?tab=readme-ov-file#available-rules
+  revive:
+    enable-all-rules: false
+    ignore-generated-header: true
+    error-code: 0
+    warning-code: 0
+    confidence: 0.8
+    severity: warning
+    rules:
+      # ========================== COMPLEXITY ==========================
+      - name: argument-limit # Specifies the maximum number of arguments a function can receive
+        arguments: 8
+      - name: cyclomatic # Sets restriction for maximum Cyclomatic complexity.
+        # In his presentation "Software Quality Metrics to Identify Risk"[8] for the Department of Homeland Security, Tom McCabe introduced the following categorization of cyclomatic complexity:
+        # 1 - 10: Simple procedure, little risk
+        # 11 - 20: More complex, moderate risk
+        # 21 - 50: Complex, high risk
+        # > 50: Untestable code, very high risk
+        arguments: 20
+      - name: function-result-limit # Specifies the maximum number of results a function can return
+        arguments: 4
+      - name: cognitive-complexity # Sets restriction for maximum Cognitive complexity.
+        arguments: 15
+      - name: deep-exit # Looks for program exits in funcs other than main() or init()
+      - name: max-control-nesting # Sets restriction for maximum nesting of control structures.
+        arguments: 8
+
+      # ========================== FORMAT ==========================
+      - name: empty-block # Warns on empty code blocks
+      - name: empty-lines # Warns when there are heading or trailing newlines in a block
+
+      # ========================== CODE FLOW ==========================
+      - name: indent-error-flow # Prevents redundant else statements.
+      - name: superfluous-else # Prevents redundant else statements (extends indent-error-flow)
+        arguments: ["preserveScope"]
+      - name: unnecessary-stmt # Suggests removing or simplifying unnecessary statements
+      - name: early-return # Spots if-then-else statements where the predicate may be inverted to reduce nesting
+        arguments: ["preserveScope"]
+      - name: useless-break # Warns on useless break statements in case clauses
+
+      # ========================== STYLE ==========================
+      - name: unexported-return # Warns when a public return is from unexported type.
+      - name: errorf # Should replace errors.New(fmt.Sprintf()) with fmt.Errorf()
+      - name: error-return # The error return parameter should be last.
+      - name: unhandled-error
+        arguments: ["fmt.Printf", "myFunction"]
+      - name: var-declaration # Reduces redundancies around variable declaration.
+      - name: if-return # Redundant if when returning an error.
+      - name: range # Prevents redundant variables when iterating over a collection.
+      - name: confusing-results # Suggests to name potentially confusing function results
+      - name: unused-parameter # Suggests to rename or remove unused function parameters
+
+      # ========================== SECURITY ==========================
+      - name: modifies-value-receiver # Warns on assignments to value-passed method receivers
+      - name: unconditional-recursion # Warns on function calls that will lead to (direct) infinite recursion
+      - name: redefines-builtin-id # Warns on redefinitions of builtin identifiers
+      - name: range-val-in-closure # Warns if range value is used in a closure dispatched as goroutine
+      - name: identical-branches # Spots if-then-else statements with identical then and else branches
+      - name: datarace # Spots potential dataraces
+      - name: modifies-parameter # Warns on assignments to function parameters
+      - name: defer # Warns on some defer gotchas
+
+      # ========================== DOCS ==========================
+      - name: exported
+        exclude:
+          - "**/internal/**/*.go"
+      - name: comments-density
+        arguments: 10
+  errorlint:
+    errorf: true # make sure original errors get preserved when using fmt.Errorf

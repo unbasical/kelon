@@ -12,19 +12,14 @@ import (
 	"github.com/unbasical/kelon/pkg/data"
 )
 
-var (
-	//nolint:gochecknoglobals,gocritic
-	hostKey = "host"
-	//nolint:gochecknoglobals,gocritic
-	portKey = "port"
-	//nolint:gochecknoglobals,gocritic
-	dbKey = "database"
-	//nolint:gochecknoglobals,gocritic
-	userKey = "user"
-	//nolint:gochecknoglobals,gocritic
-	pwKey = "password"
-)
+const keyHost = "host"
+const keyPort = "port"
+const keyDB = "database"
+const keyUser = "user"
+const keyPassword = "password"
 
+// extractAndValidateDatastore tries to extract the datastore config via the provided alias
+// and validates the connection configuration for missing attributes
 func extractAndValidateDatastore(appConf *configs.AppConfig, alias string) (*configs.Datastore, error) {
 	if appConf == nil {
 		return nil, errors.Errorf("AppConfig not configured!")
@@ -47,6 +42,7 @@ func extractAndValidateDatastore(appConf *configs.AppConfig, alias string) (*con
 	return conf, nil
 }
 
+// pingUntilReachable tries to call the provided ping function until a stable connection is established
 func pingUntilReachable(alias string, ping func() error) error {
 	var pingFailure error
 	for i := 0; i < 20; i++ {
@@ -63,41 +59,44 @@ func pingUntilReachable(alias string, ping func() error) error {
 	return nil
 }
 
+// validateConnection checks whether all necessary config options are provided
 func validateConnection(alias string, conn map[string]string) error {
-	if _, ok := conn[hostKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", hostKey, alias)
+	if _, ok := conn[keyHost]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", keyHost, alias)
 	}
-	if _, ok := conn[portKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", portKey, alias)
+	if _, ok := conn[keyPort]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", keyPort, alias)
 	}
-	if _, ok := conn[dbKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", dbKey, alias)
+	if _, ok := conn[keyDB]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", keyDB, alias)
 	}
-	if _, ok := conn[userKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", userKey, alias)
+	if _, ok := conn[keyUser]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", keyUser, alias)
 	}
-	if _, ok := conn[pwKey]; !ok {
-		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", pwKey, alias)
+	if _, ok := conn[keyPassword]; !ok {
+		return errors.Errorf("SqlDatastore: Field %s is missing in configured connection with alias %s!", keyPassword, alias)
 	}
 	return nil
 }
 
+// getConnectionStringForPlatform builds a connection string from the connection options for a specific platform
 func getConnectionStringForPlatform(platform string, conn map[string]string) string {
-	host, port, user, password, dbname, options := extractAndSortConnectionParameters(conn)
+	params := extractAndSortConnectionParameters(conn)
 
 	switch platform {
 	case data.TypePostgres:
-		return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s%s", host, port, user, password, dbname, createConnOptionsString(options, " ", " "))
+		return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s%s", params.host, params.port, params.user, params.password, params.dbname, createConnOptionsString(params.options, " ", " "))
 	case data.TypeMysql:
-		return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", user, password, host, port, dbname, createConnOptionsString(options, "&", "?"))
+		return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", params.user, params.password, params.host, params.port, params.dbname, createConnOptionsString(params.options, "&", "?"))
 	case data.TypeMongo:
-		return fmt.Sprintf("mongodb://%s:%s@%s:%s/%s%s", user, password, host, port, dbname, createConnOptionsString(options, "&", "?"))
+		return fmt.Sprintf("mongodb://%s:%s@%s:%s/%s%s", params.user, params.password, params.host, params.port, params.dbname, createConnOptionsString(params.options, "&", "?"))
 	default:
 		logging.LogForComponent("datastore").Panic(fmt.Sprintf("Platform [%s] is not a supported DatastoreTranslator!", platform))
 		return ""
 	}
 }
 
+// getPreparePlaceholderForPlatform returns the platform specific placeholder for prepared statements
 func getPreparePlaceholderForPlatform(platform string, argCounter int) string {
 	switch platform {
 	case data.TypePostgres:
@@ -110,31 +109,41 @@ func getPreparePlaceholderForPlatform(platform string, argCounter int) string {
 	}
 }
 
+type connParams struct {
+	host     string
+	port     string
+	user     string
+	password string
+	dbname   string
+	options  []string
+}
+
 // Extract and sort all connection parameters by importance.
-// Output: host, port, user, password, dbname, []options
 // Each option has the format <key>=<value>
-// nolint:gocritic
-func extractAndSortConnectionParameters(conn map[string]string) (host, port, user, password, dbname string, options []string) {
+func extractAndSortConnectionParameters(conn map[string]string) connParams {
+	params := connParams{}
+
 	for key, value := range conn {
 		switch key {
-		case hostKey:
-			host = value
-		case portKey:
-			port = value
-		case userKey:
-			user = value
-		case pwKey:
-			password = value
-		case dbKey:
-			dbname = value
+		case keyHost:
+			params.host = value
+		case keyPort:
+			params.port = value
+		case keyUser:
+			params.user = value
+		case keyPassword:
+			params.password = value
+		case keyDB:
+			params.dbname = value
 		default:
-			options = append(options, fmt.Sprintf("%s=%s", key, value))
+			params.options = append(params.options, fmt.Sprintf("%s=%s", key, value))
 		}
 	}
 
-	return host, port, user, password, dbname, options
+	return params
 }
 
+// createConnOptionsString formats additional options for the database connection string
 func createConnOptionsString(options []string, delimiter, prefix string) string {
 	optionString := strings.Join(options, delimiter)
 	if len(options) > 0 {

@@ -14,10 +14,11 @@ import (
 )
 
 type astProcessor struct {
+	visitor      *ast.GenericVisitor
 	fromEntity   *data.Entity
-	link         map[string]interface{}
+	link         map[string]any
 	conjunctions []data.Node
-	entities     map[string]interface{}
+	entities     map[string]any
 	relations    []data.Node
 	operands     util.Stack[[]data.Node]
 	errors       []string
@@ -26,14 +27,17 @@ type astProcessor struct {
 }
 
 func newAstProcessor(skipUnknown, validateMode bool) *astProcessor {
-	return &astProcessor{skipUnknown: skipUnknown, validateMode: validateMode}
+	processor := &astProcessor{skipUnknown: skipUnknown, validateMode: validateMode}
+	processor.visitor = ast.NewGenericVisitor(processor.Visit)
+
+	return processor
 }
 
 // See translate.AstTranslator.
 func (p *astProcessor) Process(_ context.Context, query ast.Body) (data.Node, error) {
-	p.link = make(map[string]interface{})
+	p.link = make(map[string]any)
 	p.conjunctions = []data.Node{}
-	p.entities = make(map[string]interface{})
+	p.entities = make(map[string]any)
 	p.relations = []data.Node{}
 	p.operands = util.Stack[[]data.Node]{}
 	p.errors = []string{}
@@ -54,7 +58,7 @@ func (p *astProcessor) Process(_ context.Context, query ast.Body) (data.Node, er
 	// Cleanup
 	p.conjunctions = p.conjunctions[:0]
 	p.fromEntity = nil
-	p.link = make(map[string]interface{})
+	p.link = make(map[string]any)
 
 	// AST transformation did produce errors
 	if len(p.errors) > 0 {
@@ -64,7 +68,7 @@ func (p *astProcessor) Process(_ context.Context, query ast.Body) (data.Node, er
 	return clause, nil
 }
 
-func toDataLink(linkedEntities map[string]interface{}) data.Link {
+func toDataLink(linkedEntities map[string]any) data.Link {
 	entities := make([]data.Entity, len(linkedEntities))
 	for i, e := range keys(linkedEntities) {
 		entities[i] = data.Entity{Value: e}
@@ -72,8 +76,7 @@ func toDataLink(linkedEntities map[string]interface{}) data.Link {
 	return data.Link{Entities: entities}
 }
 
-// Implementation of the visitor pattern to crawl the AST.
-func (p *astProcessor) Visit(v interface{}) ast.Visitor {
+func (p *astProcessor) Visit(v any) bool {
 	switch node := v.(type) {
 	case *ast.Body:
 		logging.LogForComponent("astProcessor").Debugf("Body: -> %+v", v)
@@ -93,34 +96,34 @@ func (p *astProcessor) Visit(v interface{}) ast.Visitor {
 			p.errors = append(p.errors, fmt.Sprintf("Unexpectedly visiting children of: %T -> %+v", v, v))
 		}
 	}
-	return p
+	return false
 }
 
-func (p *astProcessor) translateQuery(q ast.Body) ast.Visitor {
+func (p *astProcessor) translateQuery(q ast.Body) bool {
 	logging.LogForComponent("astProcessor").Debugf("================= PROCESS QUERY: %+v", q)
 	for _, exp := range q {
-		ast.Walk(p, exp)
+		p.visitor.Walk(exp)
 	}
 
 	logging.LogForComponent("astProcessor").Debugf("%30sAppend to Conjunctions -> %+v", "", p.relations)
 	p.conjunctions = append(p.conjunctions, p.relations...)
 
 	logging.LogForComponent("astProcessor").Debugf("%30sClean entities and relations", "")
-	p.entities = make(map[string]interface{})
+	p.entities = make(map[string]any)
 	p.relations = p.relations[:0]
 
-	return p
+	return false
 }
 
-func (p *astProcessor) translateExpr(node *ast.Expr) ast.Visitor {
+func (p *astProcessor) translateExpr(node *ast.Expr) bool {
 	if !node.IsCall() {
-		return p
+		return true
 	}
 
 	op := data.Operator{Value: node.Operator().String()}
 	p.operands.Push([]data.Node{})
 	for _, term := range node.Operands() {
-		ast.Walk(p, term)
+		p.visitor.Walk(term)
 	}
 
 	functionOperands, err := p.operands.Pop()
@@ -141,21 +144,21 @@ func (p *astProcessor) translateExpr(node *ast.Expr) ast.Visitor {
 	logging.LogForComponent("astProcessor").Debugf("%30sRelations: %+v", "", p.relations)
 
 	// Cleanup
-	p.entities = make(map[string]interface{})
-	return nil
+	p.entities = make(map[string]any)
+	return true
 }
 
-func (p *astProcessor) translateTerm(node *ast.Term) ast.Visitor {
+func (p *astProcessor) translateTerm(node *ast.Term) bool {
 	switch v := node.Value.(type) {
 	case ast.Boolean:
 		util.AppendToTopChecked("astProcessor", &p.operands, makeConstant(v.String()))
-		return nil
+		return true
 	case ast.String:
 		util.AppendToTopChecked("astProcessor", &p.operands, makeConstant(v.String()))
-		return nil
+		return true
 	case ast.Number:
 		util.AppendToTopChecked("astProcessor", &p.operands, makeConstant(v.String()))
-		return nil
+		return true
 	case ast.Ref:
 		if len(v) == 3 {
 			entity := data.Entity{Value: normalizeString(v[1].Value.String())}
@@ -166,12 +169,12 @@ func (p *astProcessor) translateTerm(node *ast.Term) ast.Visitor {
 			attribute := data.Attribute{Entity: entity, Name: normalizeString(v[2].Value.String())}
 			util.AppendToTopChecked("astProcessor", &p.operands, data.Node(attribute))
 		}
-		return nil
+		return true
 	case ast.Call:
 		op := data.Operator{Value: v[0].String()}
 		p.operands.Push([]data.Node{})
 		for _, term := range v[1:] {
-			ast.Walk(p, term)
+			p.visitor.Walk(term)
 		}
 
 		functionOperands, err := p.operands.Pop()
@@ -182,7 +185,7 @@ func (p *astProcessor) translateTerm(node *ast.Term) ast.Visitor {
 			Operator: op,
 			Operands: functionOperands,
 		}))
-		return nil
+		return true
 	default:
 		if p.skipUnknown || p.validateMode {
 			logging.LogForComponent("astProcessor").Warnf("Unexpected term Node: %T -> %+v", v, v)
@@ -192,7 +195,7 @@ func (p *astProcessor) translateTerm(node *ast.Term) ast.Visitor {
 			p.errors = append(p.errors, fmt.Sprintf("Unexpected term Node: %T -> %+v", v, v))
 		}
 	}
-	return p
+	return false
 }
 
 func makeConstant(value string) data.Node {
@@ -247,7 +250,7 @@ func unquote(s string) (string, error) {
 	return s, nil
 }
 
-func keys(input map[string]interface{}) []string {
+func keys(input map[string]any) []string {
 	i := 0
 	result := make([]string, len(input))
 	for k := range input {

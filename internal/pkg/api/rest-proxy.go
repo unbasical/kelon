@@ -99,7 +99,7 @@ func (proxy *restProxy) Start() error {
 		logging.LogForComponent("restProxy").Infof("Registered %s endpoint", constants.EndpointMetrics)
 		proxy.router.PathPrefix(constants.EndpointMetrics).Handler(proxy.metricsHandler)
 	}
-	proxy.router.PathPrefix(constants.EndpointHealth).Methods("GET").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	proxy.router.PathPrefix(constants.EndpointHealth).Methods("GET").HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.WriteHeader(http.StatusOK)
 		_, _ = writer.Write([]byte("{\"status\": \"healthy\"}"))
 	})

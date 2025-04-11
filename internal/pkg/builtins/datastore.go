@@ -6,12 +6,14 @@ import (
 	"github.com/open-policy-agent/opa/types"
 )
 
-func makeBuiltinDatastoreFuncImpl() func(bctx rego.BuiltinContext, terms []*ast.Term) (*ast.Term, error) {
-	return func(bctx rego.BuiltinContext, terms []*ast.Term) (*ast.Term, error) {
+// makeBuiltinDatastoreFuncImpl creates a dummy buildin rego function for the call-operand datastore function
+func makeBuiltinDatastoreFuncImpl() func(_ rego.BuiltinContext, _ []*ast.Term) (*ast.Term, error) {
+	return func(_ rego.BuiltinContext, _ []*ast.Term) (*ast.Term, error) {
 		return ast.NullTerm(), nil
 	}
 }
 
+// makeBuiltinDatastoreFuncDecl creates the rego function definition for the datastore call-operand function
 func makeBuiltinDatastoreFuncDecl(name string, argc int) *rego.Function {
 	args := make([]types.Type, argc)
 	for i := 0; i < argc; i++ {

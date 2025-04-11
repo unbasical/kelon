@@ -76,7 +76,7 @@ func (ds *sqlDatastoreTranslator) Configure(appConf *configs.AppConfig, alias st
 	return nil
 }
 
-func (ds *sqlDatastoreTranslator) Execute(ctx context.Context, query data.Node) (data.DatastoreQuery, error) {
+func (ds *sqlDatastoreTranslator) Execute(_ context.Context, query data.Node) (data.DatastoreQuery, error) {
 	if !ds.configured {
 		return data.DatastoreQuery{}, errors.Errorf("SqlDatastoreTranslator: DatastoreTranslator was not configured! Please call Configure(). ")
 	}
@@ -94,7 +94,7 @@ func (ds *sqlDatastoreTranslator) Execute(ctx context.Context, query data.Node) 
 }
 
 // nolint:gocyclo,gocritic
-func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, params []interface{}, err error) {
+func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, params []any, err error) {
 	var query util.Stack[string]
 	var selects util.Stack[string]
 	var entities util.Stack[string]
@@ -104,7 +104,7 @@ func (ds *sqlDatastoreTranslator) translatePrepared(input data.Node) (q string, 
 	var operands util.Stack[[]string]
 
 	// Used for prepared statements
-	var values []interface{}
+	var values []any
 
 	// Walk input
 	err = input.Walk(func(q data.Node) error {

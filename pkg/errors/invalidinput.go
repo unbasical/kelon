@@ -2,7 +2,7 @@ package errors
 
 import "fmt"
 
-// Error thrown if any input is invalid
+// InvalidInput thrown if any input is invalid
 type InvalidInput struct {
 	Msg   string
 	Cause error

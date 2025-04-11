@@ -11,72 +11,89 @@ import (
 
 type noopMetricsProvider struct{}
 
+// NewNoopMetricProvider instantiates a MetricsProvider which does nothing. This impl is used if no metrics provided is configured
 func NewNoopMetricProvider() MetricsProvider {
 	logging.LogForComponent("MetricProvider").Info("Metrics not configured")
 	return &noopMetricsProvider{}
 }
 
-func (n *noopMetricsProvider) Configure(ctx context.Context) error {
+// Configure - see telemetry.MetricsProvider
+func (n *noopMetricsProvider) Configure(_ context.Context) error {
 	return nil
 }
 
-func (n *noopMetricsProvider) WrapHTTPHandler(ctx context.Context, handler http.Handler) http.Handler {
+// WrapHTTPHandler - see telemetry.MetricsProvider
+func (n *noopMetricsProvider) WrapHTTPHandler(_ context.Context, handler http.Handler) http.Handler {
 	return handler
 }
 
+// GetHTTPMetricsHandler - see telemetry.MetricsProvider
 func (n *noopMetricsProvider) GetHTTPMetricsHandler() (http.Handler, error) {
 	return nil, nil
 }
 
+// GetGrpcServerInterceptor - see telemetry.MetricsProvider
 func (n *noopMetricsProvider) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		return handler(ctx, req)
 	}
 }
 
-func (n *noopMetricsProvider) UpdateHistogramMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
+// UpdateHistogramMetric - see telemetry.MetricsProvider
+func (n *noopMetricsProvider) UpdateHistogramMetric(_ context.Context, _ constants.MetricInstrument, _ any, _ map[string]string) {
 }
 
-func (n *noopMetricsProvider) UpdateGaugeMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
+// UpdateGaugeMetric - see telemetry.MetricsProvider
+func (n *noopMetricsProvider) UpdateGaugeMetric(_ context.Context, _ constants.MetricInstrument, _ any, _ map[string]string) {
 }
 
-func (n *noopMetricsProvider) UpdateCounterMetric(ctx context.Context, metric constants.MetricInstrument, value interface{}, labels map[string]string) {
+// UpdateCounterMetric - see telemetry.MetricsProvider
+func (n *noopMetricsProvider) UpdateCounterMetric(_ context.Context, _ constants.MetricInstrument, _ any, _ map[string]string) {
 }
 
-func (n *noopMetricsProvider) Shutdown(ctx context.Context) {
+// Shutdown - see telemetry.MetricsProvider
+func (n *noopMetricsProvider) Shutdown(_ context.Context) {
 }
 
 type noopTraceProvider struct{}
 
+// NewNoopTraceProvider instantiates a TraceProvider which does nothing. This impl is used if tracing is not configured.
 func NewNoopTraceProvider() TraceProvider {
 	logging.LogForComponent("TraceProvider").Info("Tracing not configured")
 	return &noopTraceProvider{}
 }
 
-func (n *noopTraceProvider) Configure(ctx context.Context) error {
+// Configure - see telemetry.TraceProvider
+func (n *noopTraceProvider) Configure(_ context.Context) error {
 	return nil
 }
 
-func (n *noopTraceProvider) WrapHTTPHandler(ctx context.Context, handler http.Handler, spanName string) http.Handler {
+// WrapHTTPHandler - see telemetry.TraceProvider
+func (n *noopTraceProvider) WrapHTTPHandler(_ context.Context, handler http.Handler, _ string) http.Handler {
 	return handler
 }
 
+// GetGrpcServerInterceptor - see telemetry.TraceProvider
 func (n *noopTraceProvider) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		return handler(ctx, req)
 	}
 }
 
-func (n *noopTraceProvider) ExecuteWithRootSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
+// ExecuteWithRootSpan - see telemetry.TraceProvider
+func (n *noopTraceProvider) ExecuteWithRootSpan(ctx context.Context, function SpanFunction, _ string, _ map[string]string, args ...any) (any, error) {
 	return function(ctx, args...)
 }
 
-func (n *noopTraceProvider) ExecuteWithChildSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
+// ExecuteWithChildSpan - see telemetry.TraceProvider
+func (n *noopTraceProvider) ExecuteWithChildSpan(ctx context.Context, function SpanFunction, _ string, _ map[string]string, args ...any) (any, error) {
 	return function(ctx, args...)
 }
 
-func (n *noopTraceProvider) RecordError(ctx context.Context, err error) {
+// RecordError - see telemetry.TraceProvider
+func (n *noopTraceProvider) RecordError(_ context.Context, _ error) {
 }
 
-func (n *noopTraceProvider) Shutdown(ctx context.Context) {
+// Shutdown - see telemetry.TraceProvider
+func (n *noopTraceProvider) Shutdown(_ context.Context) {
 }

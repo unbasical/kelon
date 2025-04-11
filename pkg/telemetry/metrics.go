@@ -30,15 +30,20 @@ type metrics struct {
 	provider    *sdkmetric.MeterProvider
 	name        string
 	exportType  string
-	instruments map[constants.MetricInstrument]interface{}
+	instruments map[constants.MetricInstrument]any
 }
 
 const (
+	// ErrorInstrumentNotFound is the error msg template which will be used for invalid instrument IDs on updates
 	ErrorInstrumentNotFound string = "instrument with name %s not found"
-	ErrorValueNotCastable   string = "unable to cast to %T: %+v"
+	// ErrorValueNotCastable is the error msg template which will be used if an instrument is found, but it is
+	// of a different type than the expected one.
+	ErrorValueNotCastable string = "unable to cast to %T: %+v"
 
+	// UnitMilliseconds is the unit label for milliseconds
 	UnitMilliseconds = "ms"
-	UnitBytes        = "By"
+	// UnitBytes is the unit label for bytes
+	UnitBytes = "By"
 )
 
 // NewMetricsProvider creates a new metrics struct exporting metrics using the specified format and the protocol to use
@@ -46,7 +51,7 @@ const (
 func NewMetricsProvider(ctx context.Context, name, format, protocol, endpoint string) (MetricsProvider, error) {
 	m := &metrics{
 		name:        name,
-		instruments: make(map[constants.MetricInstrument]interface{}),
+		instruments: make(map[constants.MetricInstrument]any),
 	}
 
 	endpointWithoutProtocol := regexp.MustCompile(constants.ProtocolPrefixRe).ReplaceAllString(endpoint, "")
@@ -116,12 +121,14 @@ func (m *metrics) Configure(ctx context.Context) error {
 	return nil
 }
 
+// WrapHTTPHandler - see telemetry.MetricsProvider
 func (m *metrics) WrapHTTPHandler(ctx context.Context, handler http.Handler) http.Handler {
 	return m.instrumentHandlerActiveRequest(ctx,
 		m.instrumentHandlerDuration(ctx,
 			m.instrumentHandlerRequestSize(ctx, handler)))
 }
 
+// GetHTTPMetricsHandler - see telemetry.MetricsProvider
 func (m *metrics) GetHTTPMetricsHandler() (http.Handler, error) {
 	if m.exportType == constants.TelemetryPrometheus {
 		return promhttp.Handler(), nil
@@ -129,8 +136,8 @@ func (m *metrics) GetHTTPMetricsHandler() (http.Handler, error) {
 	return nil, nil
 }
 
-//nolint:dupl,gocritic
-func (m *metrics) UpdateHistogramMetric(ctx context.Context, instrument constants.MetricInstrument, value interface{}, labels map[string]string) {
+// UpdateHistogramMetric - see telemetry.MetricsProvider
+func (m *metrics) UpdateHistogramMetric(ctx context.Context, instrument constants.MetricInstrument, value any, labels map[string]string) {
 	histogram, ok := m.instruments[instrument].(metric.Int64Histogram)
 	if !ok {
 		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, instrument.String())
@@ -147,8 +154,8 @@ func (m *metrics) UpdateHistogramMetric(ctx context.Context, instrument constant
 	histogram.Record(ctx, val, metric.WithAttributes(attr...))
 }
 
-//nolint:dupl,gocritic
-func (m *metrics) UpdateGaugeMetric(ctx context.Context, instrument constants.MetricInstrument, value interface{}, labels map[string]string) {
+// UpdateGaugeMetric - see telemetry.MetricsProvider
+func (m *metrics) UpdateGaugeMetric(ctx context.Context, instrument constants.MetricInstrument, value any, labels map[string]string) {
 	gauge, ok := m.instruments[instrument].(metric.Int64UpDownCounter)
 	if !ok {
 		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, instrument.String())
@@ -165,8 +172,8 @@ func (m *metrics) UpdateGaugeMetric(ctx context.Context, instrument constants.Me
 	gauge.Add(ctx, val, metric.WithAttributes(attr...))
 }
 
-//nolint:dupl,gocritic
-func (m *metrics) UpdateCounterMetric(ctx context.Context, instrument constants.MetricInstrument, value interface{}, labels map[string]string) {
+// UpdateCounterMetric - see telemetry.MetricsProvider
+func (m *metrics) UpdateCounterMetric(ctx context.Context, instrument constants.MetricInstrument, value any, labels map[string]string) {
 	counter, ok := m.instruments[instrument].(metric.Int64Counter)
 	if !ok {
 		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, instrument.String())
@@ -183,13 +190,14 @@ func (m *metrics) UpdateCounterMetric(ctx context.Context, instrument constants.
 	counter.Add(ctx, val, metric.WithAttributes(attr...))
 }
 
+// Shutdown - see telemetry.MetricsProvider
 func (m *metrics) Shutdown(ctx context.Context) {
 	_ = m.provider.Shutdown(ctx)
 }
 
 // GetGrpcServerInterceptor Interceptor to gather rpc metrics
 func (m *metrics) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
-	fallback := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	fallback := func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		return handler(ctx, req)
 	}
 
@@ -205,7 +213,7 @@ func (m *metrics) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
 		return fallback
 	}
 
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		reqSize, err := approximateGrpcRequestSize(req)
 		if err != nil {
 			logging.LogForComponent("GetGrpcServerInterceptor").Error("Error determining the request size", err)
@@ -426,7 +434,7 @@ func approximateHTTPRequestSize(r *http.Request) int {
 	return s
 }
 
-func approximateGrpcRequestSize(req interface{}) (int, error) {
+func approximateGrpcRequestSize(req any) (int, error) {
 	var buff bytes.Buffer
 	enc := gob.NewEncoder(&buff)
 	err := enc.Encode(req)

@@ -33,6 +33,7 @@ func withHeaderExtraction(enable bool) middlewareOption {
 	}
 }
 
+// applyHandlerMiddleware applies monitoring middlewares and additionally configured middlewares like e.g. inputHeaderMappingMiddleware
 func (proxy *restProxy) applyHandlerMiddleware(ctx context.Context, endpoint string, handlerFunc http.HandlerFunc, options ...middlewareOption) http.Handler {
 	ops := defaultMiddlewareOptions()
 	for _, option := range options {
@@ -55,9 +56,12 @@ func (proxy *restProxy) applyHandlerMiddleware(ctx context.Context, endpoint str
 	return wrappedHandler
 }
 
+// inputHeaderMappingMiddleware tries to extract values from either the url query (for GET method) or the body and
+// adds available values to the request header before calling the next http.Handler.
+// The values which will be extracted can be configured via configs.Global
 func (proxy *restProxy) inputHeaderMappingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
+		var body map[string]any
 		var err error
 
 		if r.Method == http.MethodGet {
@@ -98,6 +102,8 @@ func (proxy *restProxy) inputHeaderMappingMiddleware(next http.Handler) http.Han
 	})
 }
 
+// applyLoggingMiddleware wraps the provided http.Handler with basic logging containing in addition to url and method
+// the request header, response status and the handling duration
 func (proxy *restProxy) applyLoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -116,12 +122,13 @@ func (proxy *restProxy) applyLoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func extractInputFromQuery(r *http.Request) (map[string]interface{}, error) {
-	body := map[string]interface{}{constants.Input: make(map[string]interface{})}
+// extractInputFromQuery tries to JSON parse the value for the url query parameter constants.Input
+func extractInputFromQuery(r *http.Request) (map[string]any, error) {
+	body := map[string]any{constants.Input: make(map[string]any)}
 	query := r.URL.Query()
 	if keys, ok := query[constants.Input]; ok && len(keys) == 1 {
 		// Assign body
-		var value map[string]interface{}
+		var value map[string]any
 		if err := json.Unmarshal([]byte(keys[0]), &value); err != nil {
 			return nil, errors.Wrapf(err, "Unable to parse input")
 		}
@@ -130,8 +137,9 @@ func extractInputFromQuery(r *http.Request) (map[string]interface{}, error) {
 	return body, nil
 }
 
-func extractInputFromBody(r *http.Request) (map[string]interface{}, error) {
-	var body map[string]interface{}
+// extractInputFromBody tries to JSON parse the request body
+func extractInputFromBody(r *http.Request) (map[string]any, error) {
+	var body map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		return nil, errors.Wrap(err, "Unable to parse input")
 	}
@@ -139,7 +147,9 @@ func extractInputFromBody(r *http.Request) (map[string]interface{}, error) {
 	return body, nil
 }
 
-func writeInputToQuery(r *http.Request, body map[string]interface{}) error {
+// writeInputToQuery writes the provided body as JSON to the http.Request url as query value for key constants.Input.
+// values other than constants.Input are ignored.
+func writeInputToQuery(r *http.Request, body map[string]any) error {
 	value, err := json.Marshal(body[constants.Input])
 	if err != nil {
 		return errors.Wrap(err, "Unable to marshal input")
@@ -152,7 +162,8 @@ func writeInputToQuery(r *http.Request, body map[string]interface{}) error {
 	return nil
 }
 
-func writeInputToBody(r *http.Request, body map[string]interface{}) error {
+// writeInputToBody writes the provided data as JSON to the request body
+func writeInputToBody(r *http.Request, body map[string]any) error {
 	enrichedMarshalled, err := json.Marshal(body)
 	if err != nil {
 		return errors.Wrap(err, "Unable to marshal input")
@@ -163,13 +174,13 @@ func writeInputToBody(r *http.Request, body map[string]interface{}) error {
 }
 
 // applyHeaderMappingsToInput inserts the Header (specified by the config) into the input
-func (proxy *restProxy) applyHeaderMappingsToInput(body map[string]interface{}, r *http.Request) (map[string]interface{}, error) {
-	var input map[string]interface{}
+func (proxy *restProxy) applyHeaderMappingsToInput(body map[string]any, r *http.Request) (map[string]any, error) {
+	var input map[string]any
 	value, ok := body[constants.Input]
 	if !ok {
 		// No input provided, create empty input
-		input = make(map[string]interface{})
-	} else if input, ok = value.(map[string]interface{}); !ok {
+		input = make(map[string]any)
+	} else if input, ok = value.(map[string]any); !ok {
 		return nil, errors.Errorf("Mismatched type for body[%s]. Expected %T but got %T", constants.Input, input, value)
 	}
 

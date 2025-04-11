@@ -37,9 +37,9 @@ func (ds *loggingDatastoreExecutor) Configure(appConf *configs.AppConfig, alias 
 	return nil
 }
 
-func (ds *loggingDatastoreExecutor) Execute(ctx context.Context, query data.DatastoreQuery) (bool, error) {
+func (ds *loggingDatastoreExecutor) Execute(_ context.Context, query data.DatastoreQuery) (bool, error) {
 	if ds.writer != nil {
-		queryData := make(map[string]interface{})
+		queryData := make(map[string]any)
 
 		queryData["query"] = query.Statement
 		queryData["parameter"] = query.Parameters

@@ -17,13 +17,13 @@ type urlProcessor struct {
 	configured bool
 }
 
-// Input needed to process a URL.
+// URLProcessorInput needed to process a URL.
 type URLProcessorInput struct {
 	Method string
 	URL    *url.URL
 }
 
-// Return a UrlProcessor instance implementing request.PathProcessor.
+// NewURLProcessor returns a UrlProcessor instance implementing request.PathProcessor.
 func NewURLProcessor() request.PathProcessor {
 	return &urlProcessor{
 		appConf:    nil,
@@ -32,7 +32,6 @@ func NewURLProcessor() request.PathProcessor {
 	}
 }
 
-// See request.PathProcessor.
 func (processor *urlProcessor) Configure(appConf *configs.AppConfig, processorConf *request.PathProcessorConfig) error {
 	// Exit if already configured
 	if processor.configured {
@@ -55,8 +54,7 @@ func (processor *urlProcessor) Configure(appConf *configs.AppConfig, processorCo
 	return nil
 }
 
-// See request.PathProcessor.
-func (processor urlProcessor) Process(input interface{}) (*request.PathProcessorOutput, error) {
+func (processor *urlProcessor) Process(input any) (*request.PathProcessorOutput, error) {
 	if !processor.configured {
 		return nil, errors.Errorf("UrlProcessor was not configured! Please call Configure(). ")
 	}
@@ -73,11 +71,11 @@ func (processor urlProcessor) Process(input interface{}) (*request.PathProcessor
 	}
 }
 
-func (processor urlProcessor) handleInput(input *URLProcessorInput) (*request.PathProcessorOutput, error) {
+func (processor *urlProcessor) handleInput(input *URLProcessorInput) (*request.PathProcessorOutput, error) {
 	// Parse base path
 	path := strings.Fields(strings.ReplaceAll(input.URL.Path, "/", " "))
 	// Process query parameters
-	queries := make(map[string]interface{})
+	queries := make(map[string]any)
 	queryParams := input.URL.Query()
 	for queryName := range queryParams {
 		// Build queries which are passed to OPA as part of the input object

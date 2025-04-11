@@ -38,7 +38,7 @@ type apiError struct {
 type patchImpl struct {
 	path  storage.Path
 	op    storage.PatchOp
-	value interface{}
+	value any
 }
 
 type decisionContext struct {
@@ -72,9 +72,9 @@ func (proxy *restProxy) handleV1DataGet(w http.ResponseWriter, r *http.Request) 
 	}
 
 	builder := strings.Builder{}
-	builder.WriteString(`{"input":`)
-	builder.WriteString(body)
-	builder.WriteRune('}')
+	_, _ = builder.WriteString(`{"input":`)
+	_, _ = builder.WriteString(body)
+	_, _ = builder.WriteRune('}')
 
 	if trans, err := http.NewRequest("POST", r.URL.String(), strings.NewReader(builder.String())); err == nil {
 		// Handle request like post
@@ -118,7 +118,7 @@ func (proxy *restProxy) handleV1DataPut(w http.ResponseWriter, r *http.Request) 
 	engine := (*proxy.config.Compiler).GetEngine()
 
 	// Parse input
-	var value interface{}
+	var value any
 	if err := util.NewJSONDecoder(r.Body).Decode(&value); err != nil {
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
 		return
@@ -482,7 +482,7 @@ func writeError(w http.ResponseWriter, status int, code string, err error) {
 	writeJSON(w, status, resp)
 }
 
-func writeJSON(w http.ResponseWriter, status int, x interface{}) {
+func writeJSON(w http.ResponseWriter, status int, x any) {
 	bs, _ := json.Marshal(x)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -698,8 +698,8 @@ func writeBadPath(w http.ResponseWriter, path string) {
 	writer.Error(w, http.StatusBadRequest, types.NewErrorV1(types.CodeInvalidParameter, "bad path: %s", path))
 }
 
-func (proxy *restProxy) parseRequestBody(req *http.Request) (map[string]interface{}, error) {
-	requestBody := make(map[string]interface{})
+func (proxy *restProxy) parseRequestBody(req *http.Request) (map[string]any, error) {
+	requestBody := make(map[string]any)
 	if log.GetLevel() == log.DebugLevel {
 		logging.LogForComponent("policyCompiler").Debugf("Received request: %+v", req)
 
@@ -730,14 +730,18 @@ func (proxy *restProxy) handleError(ctx context.Context, w http.ResponseWriter, 
 	logging.LogForComponent("PolicyCompiler").Errorf("Handle error response: %s", loggingInfo.Error)
 
 	// Write response
-	switch errors.Cause(loggingInfo.Error).(type) {
-	case request.PathAmbiguousError:
+	var pathAmbiguousError request.PathAmbiguousError
+	var pathNotFoundError request.PathNotFoundError
+	var invalidInput internalErrors.InvalidInput
+	var invalidRequestTranslation internalErrors.InvalidRequestTranslation
+	switch err := errors.Cause(loggingInfo.Error); {
+	case errors.As(err, &pathAmbiguousError):
 		writeError(w, http.StatusNotFound, types.CodeResourceNotFound, loggingInfo.Error)
-	case request.PathNotFoundError:
+	case errors.As(err, &pathNotFoundError):
 		writeError(w, http.StatusNotFound, types.CodeResourceNotFound, loggingInfo.Error)
-	case internalErrors.InvalidInput:
+	case errors.As(err, &invalidInput):
 		writeError(w, http.StatusBadRequest, types.CodeInvalidParameter, loggingInfo.Error)
-	case internalErrors.InvalidRequestTranslation:
+	case errors.As(err, &invalidRequestTranslation):
 		proxy.writeDenyError(ctx, w, loggingInfo)
 	default:
 		writeError(w, http.StatusInternalServerError, types.CodeInternal, loggingInfo.Error)
@@ -746,8 +750,10 @@ func (proxy *restProxy) handleError(ctx context.Context, w http.ResponseWriter, 
 
 func (proxy *restProxy) writeDenyError(ctx context.Context, w http.ResponseWriter, loggingInfo *decisionContext) {
 	proxy.writeDeny(ctx, w, loggingInfo)
-	switch err := loggingInfo.Error.(type) {
-	case internalErrors.InvalidRequestTranslation:
+
+	var err internalErrors.InvalidRequestTranslation
+	switch {
+	case errors.As(loggingInfo.Error, &err):
 		for _, e := range err.Causes {
 			logging.LogWithCorrelationID(loggingInfo.CorrelationID).Warn(e)
 		}

@@ -5,7 +5,7 @@ import "fmt"
 // Node is the abstract interface that every Node of the Query-AST implements.
 type Node interface {
 
-	// Get the current node as string representation (In case of a leave this will be the contained Value).
+	// String returns the current node as string representation (In case of a leave this will be the contained Value).
 	String() string
 
 	// Walk the current node (Buttom-Up, Left-to-Right).
@@ -29,7 +29,7 @@ type Link struct {
 	Entities []Entity
 }
 
-// A single root condition.
+// Condition is a single root condition.
 type Condition struct {
 	Clause Node
 }
@@ -56,7 +56,7 @@ type Attribute struct {
 	Name   string
 }
 
-// An Entity
+// Entity represents an entity
 type Entity struct {
 	Value string
 }
@@ -66,7 +66,7 @@ type Operator struct {
 	Value string
 }
 
-// A simple Constant.
+// Constant is a simple constant.
 type Constant struct {
 	Value     string
 	IsNumeric bool
@@ -76,42 +76,42 @@ type Constant struct {
 
 // Interface implementations
 
-// Implements data.Node
+// String Implements data.Node
 func (o Operator) String() string {
 	return o.Value
 }
 
-// Implements data.Node
+// Walk Implements data.Node
 func (o Operator) Walk(vis func(v Node) error) error {
 	return vis(o)
 }
 
-// Implements data.Node
+// String Implements data.Node
 func (c Constant) String() string {
 	return c.Value
 }
 
-// Implements data.Node
+// Walk Implements data.Node
 func (c Constant) Walk(vis func(v Node) error) error {
 	return vis(c)
 }
 
-// Implements data.Node
+// String Implements data.Node
 func (e Entity) String() string {
 	return e.Value
 }
 
-// Implements data.Node
+// Walk Implements data.Node
 func (e Entity) Walk(vis func(v Node) error) error {
 	return vis(e)
 }
 
-// Implements data.Node
+// String Implements data.Node
 func (a Attribute) String() string {
 	return fmt.Sprintf("att(%s.%s)", a.Entity.String(), a.Name)
 }
 
-// Implements data.Node
+// Walk Implements data.Node
 func (a Attribute) Walk(vis func(v Node) error) error {
 	if err := a.Entity.Walk(vis); err != nil {
 		return err
@@ -119,7 +119,7 @@ func (a Attribute) Walk(vis func(v Node) error) error {
 	return vis(a)
 }
 
-// Implements data.Node
+// String Implements data.Node
 func (c Call) String() string {
 	operands := make([]string, len(c.Operands))
 	for i, o := range c.Operands {
@@ -129,7 +129,7 @@ func (c Call) String() string {
 	return fmt.Sprintf("%s(%+v)", c.Operator.String(), operands)
 }
 
-// Implements data.Node
+// Walk Implements data.Node
 func (c Call) Walk(vis func(v Node) error) error {
 	if err := c.Operator.Walk(vis); err != nil {
 		return err
@@ -142,7 +142,7 @@ func (c Call) Walk(vis func(v Node) error) error {
 	return vis(c)
 }
 
-// Implements data.Node
+// String Implements data.Node
 func (c Conjunction) String() string {
 	clauses := make([]string, len(c.Clauses))
 	for i, o := range c.Clauses {
@@ -151,7 +151,7 @@ func (c Conjunction) String() string {
 	return fmt.Sprintf("conj(%+v)", clauses)
 }
 
-// Implements data.Node
+// Walk Implements data.Node
 func (c Conjunction) Walk(vis func(v Node) error) error {
 	for _, o := range c.Clauses {
 		if err := o.Walk(vis); err != nil {
@@ -161,7 +161,7 @@ func (c Conjunction) Walk(vis func(v Node) error) error {
 	return vis(c)
 }
 
-// Implements data.Node
+// String Implements data.Node
 func (d Disjunction) String() string {
 	relations := make([]string, len(d.Clauses))
 	for i, o := range d.Clauses {
@@ -170,7 +170,7 @@ func (d Disjunction) String() string {
 	return fmt.Sprintf("disj(%+v)", relations)
 }
 
-// Implements data.Node
+// Walk Implements data.Node
 func (d Disjunction) Walk(vis func(v Node) error) error {
 	for _, o := range d.Clauses {
 		if err := o.Walk(vis); err != nil {
@@ -185,7 +185,7 @@ func (c Condition) String() string {
 	return fmt.Sprintf("cond(%s)", c.Clause)
 }
 
-// Implements data.Node
+// Walk Implements data.Node
 func (c Condition) Walk(vis func(v Node) error) error {
 	if err := c.Clause.Walk(vis); err != nil {
 		return err
@@ -193,7 +193,7 @@ func (c Condition) Walk(vis func(v Node) error) error {
 	return vis(c)
 }
 
-// Implements data.Node
+// String Implements data.Node
 func (l Link) String() string {
 	links := make([]string, len(l.Entities))
 	for i, e := range l.Entities {
@@ -202,7 +202,7 @@ func (l Link) String() string {
 	return fmt.Sprintf("link(%+v)", links)
 }
 
-// Implements data.Node
+// Walk Implements data.Node
 func (l Link) Walk(vis func(v Node) error) error {
 	for _, e := range l.Entities {
 		if err := e.Walk(vis); err != nil {
@@ -212,12 +212,12 @@ func (l Link) Walk(vis func(v Node) error) error {
 	return vis(l)
 }
 
-// Implements data.Node
+// String Implements data.Node
 func (q Query) String() string {
 	return fmt.Sprintf("query(%s, %+v, %s)", q.From.String(), q.Link, q.Condition.String())
 }
 
-// Implements data.Node
+// Walk Implements data.Node
 func (q Query) Walk(vis func(v Node) error) error {
 	if err := q.Link.Walk(vis); err != nil {
 		return err
@@ -231,7 +231,7 @@ func (q Query) Walk(vis func(v Node) error) error {
 	return vis(q)
 }
 
-// Implements data.Node
+// String implements data.Node
 func (u Union) String() string {
 	clauses := make([]string, len(u.Clauses))
 	for i, o := range u.Clauses {
@@ -240,7 +240,7 @@ func (u Union) String() string {
 	return fmt.Sprintf("union(%+v)", clauses)
 }
 
-// Implements data.Node
+// Walk implements data.Node
 func (u Union) Walk(vis func(v Node) error) error {
 	for _, c := range u.Clauses {
 		if err := c.Walk(vis); err != nil {

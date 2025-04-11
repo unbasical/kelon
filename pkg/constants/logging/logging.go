@@ -5,30 +5,31 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Label for component logs
+// LabelComponent - Label for component logs
 const LabelComponent string = "component"
 
-// Label for decision path
+// LabelPath - Label for decision path
 const LabelPath string = "path"
 
-// Label for decision method
+// LabelMethod - Label for decision method
 const LabelMethod string = "method"
 
-// Label for decision duration
+// LabelDuration - Label for decision duration
 const LabelDuration string = "duration"
 
-// Label for decision decision
+// LabelDecision - Label for decision result
 const LabelDecision string = "decision"
 
-// Label for decision reason
+// LabelReason - Label for decision reason
 const LabelReason string = "reason"
 
-// Label for translation error
+// LabelError - Label for all errors
 const LabelError string = "error"
 
-// Label for multiline error logs
+// LabelCorrelation - Label for multiline error logs
 const LabelCorrelation = "correlationId"
 
+// LogAccessDecision formats the decision and logs it
 func LogAccessDecision(accessDecisionLogLevel, decision, component string, additionalFields log.Fields) {
 	if checkAccessDecisionLogLevel(accessDecisionLogLevel, decision) {
 		additionalFields[LabelComponent] = component
@@ -42,10 +43,13 @@ func checkAccessDecisionLogLevel(logLevel, decision string) bool {
 	return logLevel == "ALL" || decision == logLevel
 }
 
+// LogWithCorrelationID creates a new log entry which contains the correlation ID
+// Useful, if multiple lines should be logged, and it should be clear, that they belong together
 func LogWithCorrelationID(correlation uuid.UUID) *log.Entry {
 	return log.WithField(LabelCorrelation, correlation.String())
 }
 
+// LogForComponent creates a new log entry containing the component label
 func LogForComponent(component string) *log.Entry {
 	return log.WithField(LabelComponent, component)
 }

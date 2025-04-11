@@ -89,7 +89,7 @@ func (ds *sqlDatastoreExecutor) applyMetadataConfigs(conf *configs.Datastore, db
 	return nil
 }
 
-func (ds *sqlDatastoreExecutor) Execute(ctx context.Context, query data.DatastoreQuery) (bool, error) {
+func (ds *sqlDatastoreExecutor) Execute(_ context.Context, query data.DatastoreQuery) (bool, error) {
 	sqlStatement, ok := query.Statement.(string)
 	if !ok {
 		return false, errors.Errorf("Passed statement was not of type string but of type: %T", query.Statement)

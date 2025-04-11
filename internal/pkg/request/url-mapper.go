@@ -34,7 +34,7 @@ type pathMapperInput struct {
 	URL    *url.URL
 }
 
-// New instance of a request.PathMapper that handles REST-like paths.
+// NewPathMapper instantiates a request.PathMapper that handles REST-like paths.
 func NewPathMapper() request.PathMapper {
 	return &pathMapper{
 		appConf:    nil,
@@ -42,7 +42,6 @@ func NewPathMapper() request.PathMapper {
 	}
 }
 
-// See request.PathMapper.
 func (mapper *pathMapper) Configure(appConf *configs.AppConfig) error {
 	// Exit if already configured
 	if mapper.configured {
@@ -61,8 +60,7 @@ func (mapper *pathMapper) Configure(appConf *configs.AppConfig) error {
 	return nil
 }
 
-// See request.PathMapper
-func (mapper pathMapper) Map(input interface{}) (*request.MapperOutput, error) {
+func (mapper *pathMapper) Map(input any) (*request.MapperOutput, error) {
 	if !mapper.configured {
 		return nil, errors.Errorf("PathMapper was not configured! Please call Configure(). ")
 	}
@@ -82,7 +80,7 @@ func (mapper pathMapper) Map(input interface{}) (*request.MapperOutput, error) {
 	}
 }
 
-func (mapper pathMapper) handleInput(input *pathMapperInput) (*request.MapperOutput, error) {
+func (mapper *pathMapper) handleInput(input *pathMapperInput) (*request.MapperOutput, error) {
 	var matches []*compiledMapping
 	requestString := fmt.Sprintf("%s-%s", input.Method, input.URL.Path)
 	for _, mapping := range mapper.mappings {

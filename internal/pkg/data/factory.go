@@ -8,6 +8,8 @@ import (
 	"github.com/unbasical/kelon/pkg/data"
 )
 
+// MakeDatastores instantiates a new datastores instances based on the provided configuration.
+// If loggingMode is enabled, a logging variant will be created
 func MakeDatastores(config *configs.ExternalConfig, dsLoggingWriter io.Writer, loggingMode bool) map[string]*data.Datastore {
 	if loggingMode {
 		return makeLoggingDatastores(config, dsLoggingWriter)
@@ -15,6 +17,7 @@ func MakeDatastores(config *configs.ExternalConfig, dsLoggingWriter io.Writer, l
 	return makeExecutingDatastores(config)
 }
 
+// makeExecutingDatastores instantiates database type specific datastore backends
 func makeExecutingDatastores(config *configs.ExternalConfig) map[string]*data.Datastore {
 	result := make(map[string]*data.Datastore)
 	for dsName, ds := range config.Datastores {
@@ -34,6 +37,7 @@ func makeExecutingDatastores(config *configs.ExternalConfig) map[string]*data.Da
 	return result
 }
 
+// makeLoggingDatastores instantiates database type specific datastore logging backends
 func makeLoggingDatastores(config *configs.ExternalConfig, dsLoggingWriter io.Writer) map[string]*data.Datastore {
 	result := make(map[string]*data.Datastore)
 	for dsName, ds := range config.Datastores {

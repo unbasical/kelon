@@ -131,7 +131,7 @@ func runPolicyCompilerTest(t *testing.T, name string, config *testConfiguration)
 
 		// create and http requests
 		bodyStr := requests.Requests[strconv.Itoa(counter)].Body
-		var requestBody map[string]interface{}
+		var requestBody map[string]any
 		err = json.Unmarshal([]byte(bodyStr), &requestBody)
 		if err != nil {
 			t.Error(err)

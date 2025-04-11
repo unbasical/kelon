@@ -22,7 +22,7 @@ import (
 type PolicyCompilerConfig struct {
 	RegoDir       *string
 	Prefix        *string
-	OPAConfig     interface{}
+	OPAConfig     any
 	PathProcessor *request.PathProcessor
 	Translator    *translate.AstTranslator
 	ConfigWatcher *watcher.ConfigWatcher
@@ -31,6 +31,7 @@ type PolicyCompilerConfig struct {
 	AccessDecisionLogLevel string
 }
 
+// Decision represents a policy decision
 type Decision struct {
 	Verify  bool
 	Allow   bool
@@ -49,14 +50,15 @@ type Decision struct {
 // As a result, two PolicyCompilers should be able to run in parallel.
 type PolicyCompiler interface {
 
-	// Configure() first triggers the Configure method of all sub-components and afterwards configures the PolicyCompiler itself.
-	// Please note that Configure has to be called once before the component can be used (Otherwise Process() will return an error)!
+	// Configure first triggers the Configure method of all sub-components and afterwards configures the PolicyCompiler itself.
+	// Please note that Configure has to be called once before the component can be used (Otherwise Execute will return an error)!
 	//
 	// If any sub-component or the PolicyCompiler itself fails during this process, the encountered error will be returned (otherwise nil).
 	Configure(appConfig *configs.AppConfig, compConfig *PolicyCompilerConfig) error
 
-	// Get the underlying open policy agent which is running inside the PolicyCompiler.
+	// GetEngine returns the underlying open policy agent which is running inside the PolicyCompiler.
 	GetEngine() *plugins.Manager
 
-	Execute(ctx context.Context, request map[string]interface{}) (*Decision, error)
+	// Execute partially evaluates the Rego query and transpiles the unknowns to database queries and executes them.
+	Execute(ctx context.Context, request map[string]any) (*Decision, error)
 }

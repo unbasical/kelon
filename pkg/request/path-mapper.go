@@ -13,31 +13,31 @@ import (
 // with the datastore as unknowns.
 type PathMapper interface {
 
-	// Configure() configures the PathMapper and returns nil or any encountered error during processors configuration.
+	// Configure the PathMapper and returns nil or any encountered error during processors configuration.
 	// Please note that Configure has to be called once before the component can be used (Otherwise Map() will return an error)!
 	Configure(appConf *configs.AppConfig) error
 
-	// Maps an incoming path to a Datastore and a Package.
+	// Map an incoming path to a Datastore and a Package.
 	//
 	// To make the implementation more flexible, the PathMapper itself decides which type of input it needs.
-	// Therefore an appropriate interface like request.pathMapperInput should be used to transport the needed information
+	// Therefore, an appropriate interface like request.pathMapperInput should be used to transport the needed information
 	// for path mapping.
-	Map(interface{}) (*MapperOutput, error)
+	Map(any) (*MapperOutput, error)
 }
 
-// Error thrown if there are more then one path mapping in the api.yaml-config that match the incoming path.
+// PathAmbiguousError is the Error thrown if there are more than one path mapping in the api.yaml-config that match the incoming path.
 type PathAmbiguousError struct {
 	RequestURL string
 	FirstMatch string
 	OtherMatch string
 }
 
-// Error thrown if there is no mapping in the api.yaml-config matching the incoming path.
+// PathNotFoundError is the Error thrown if there is no mapping in the api.yaml-config matching the incoming path.
 type PathNotFoundError struct {
 	RequestURL string
 }
 
-// Output returned by the RequestMapper.
+// MapperOutput returned by the RequestMapper.
 type MapperOutput struct {
 	Datastores     []string
 	Package        string

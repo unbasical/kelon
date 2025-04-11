@@ -33,7 +33,7 @@ func newAstPreprocessor() *astPreprocessor {
 // Refs are rewritten to correspond directly to SQL tables and columns.
 // Specifically, refs of the form data.foo[var].bar are rewritten as data.foo.bar. Similarly, if var is
 // dereferenced later in the query, e.g., var.baz, that will be rewritten as data.foo.baz.
-func (processor *astPreprocessor) Process(ctx context.Context, queries []ast.Body, datastores []string) ([]preprocessedQuery, error) {
+func (processor *astPreprocessor) Process(_ context.Context, queries []ast.Body, datastores []string) ([]preprocessedQuery, error) {
 	transformedQueries := make([]preprocessedQuery, len(queries))
 	processor.datastorePool = datastores
 
@@ -70,7 +70,7 @@ func (processor *astPreprocessor) Process(ctx context.Context, queries []ast.Bod
 	return transformedQueries, nil
 }
 
-func (processor *astPreprocessor) transformRefs(value interface{}) (interface{}, error) {
+func (processor *astPreprocessor) transformRefs(value any) (any, error) {
 	trans := func(node ast.Ref) (ast.Value, error) {
 		// Skip scalars (TODO: check there is a more elegant way to do this)
 		if len(node) == 1 {
@@ -91,11 +91,10 @@ func (processor *astPreprocessor) transformRefs(value interface{}) (interface{},
 
 		// if no datastore was configured yet, set one
 		if processor.expectedDatastore == "" {
-			if slices.Contains(processor.datastorePool, dsNode) {
-				processor.expectedDatastore = dsNode
-			} else {
+			if !slices.Contains(processor.datastorePool, dsNode) {
 				return nil, errors.Errorf("Invalid reference: expected one of %+v, but got [%s]", processor.datastorePool, node[1].String())
 			}
+			processor.expectedDatastore = dsNode
 		}
 
 		// Validate if datastore prefix is present
@@ -150,11 +149,11 @@ func (processor *astPreprocessor) substituteVars(terms []*ast.Term) ([]*ast.Term
 			continue
 		}
 
-		if sub, ok := processor.localVars[v.String()]; ok {
-			transformedTerms = append(transformedTerms, sub)
-		} else {
+		sub, subOk := processor.localVars[v.String()]
+		if !subOk {
 			return nil, errors.Errorf("Undefined variable %s", v.String())
 		}
+		transformedTerms = append(transformedTerms, sub)
 	}
 	return transformedTerms, nil
 }

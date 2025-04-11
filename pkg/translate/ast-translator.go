@@ -30,13 +30,13 @@ type AstTranslatorConfig struct {
 // root node of type data.node. This intermediate ast should be then translated into a datastore-native query by the datastore itself.
 type AstTranslator interface {
 
-	// Configure() first triggers the Configure method of all sub-components and afterwards configures the AstTranslator itself.
+	// Configure first triggers the Configure method of all sub-components and afterwards configures the AstTranslator itself.
 	// Please note that Configure has to be called once before the component can be used (Otherwise Process() will return an error)!
 	//
 	// If any sub-component or the AstTranslator itself fails during this process, the encountered error will be returned (otherwise nil).
 	Configure(appConf *configs.AppConfig, transConf *AstTranslatorConfig) error
 
-	// Process() evaluates a list of partial evaluated OPA-queries by generally translating them to a AST with root-node of type data.Node.
+	// Process evaluates a list of partial evaluated OPA-queries by generally translating them to a AST with root-node of type data.Node.
 	// This AST is then handed over to a DatastoreTranslator to be translated into a datastore-native query which will be executed and interpreted as a final decision (Allow/Deny).
 	//
 	// If any error occurred during the translation or the datastore access, the error will be returned.
