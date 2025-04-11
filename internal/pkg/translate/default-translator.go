@@ -2,6 +2,10 @@ package translate
 
 import (
 	"context"
+	"encoding/json"
+	stdErrors "errors"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/open-policy-agent/opa/rego"
@@ -13,6 +17,7 @@ import (
 	"github.com/unbasical/kelon/pkg/translate"
 )
 
+const EnvHugeQueryPrint = "HUGE_QUERY_PRINT"
 const spanNameDatastoreQuery string = "datastore.query"
 
 type astTranslator struct {
@@ -64,10 +69,15 @@ func (trans *astTranslator) Process(ctx context.Context, response *rego.PartialQ
 		return false, errors.Errorf("AstTranslator was not configured! Please call Configure(). ")
 	}
 
+	debugCtx := map[string]interface{}{}
+	debugCtx["regoQueries"] = fmt.Sprintf("%v", response.Queries)
+
 	preprocessedQueries, preprocessErr := newAstPreprocessor().Process(ctx, response.Queries, datastores)
 	if preprocessErr != nil {
 		return false, errors.Wrap(preprocessErr, "AstTranslator: Error during preprocessing.")
 	}
+	preproQueries, _ := json.Marshal(preprocessedQueries)
+	debugCtx["preprocessedQueries"] = fmt.Sprintf("%v", preproQueries)
 
 	datastoreSpecificQueries := make(map[string]data.Node)
 	for _, preprocessed := range preprocessedQueries {
@@ -84,6 +94,7 @@ func (trans *astTranslator) Process(ctx context.Context, response *rego.PartialQ
 
 		datastoreSpecificQueries[preprocessed.datastore] = data.Union{Clauses: append(union.Clauses, processedQuery)}
 	}
+	debugCtx["datastoreSpecificQueries"] = datastoreSpecificQueries
 
 	for datastore, specificQuery := range datastoreSpecificQueries {
 		queryToExecute := specificQuery
@@ -99,6 +110,17 @@ func (trans *astTranslator) Process(ctx context.Context, response *rego.PartialQ
 				startTime := time.Now()
 				decision, err := (*targetDB).Execute(ctx, queryToExecute)
 				duration := time.Since(startTime)
+				if err != nil {
+					var qle data.QueryLengthError
+					if stdErrors.As(err, &qle) {
+						debugCtx["datastoreQuery"] = fmt.Sprintf("%v", qle.Query)
+
+						if os.Getenv(EnvHugeQueryPrint) != "" {
+							logging.LogForComponent("QUERY_DEBUG").WithFields(debugCtx).Error("Huge Query detected!")
+						}
+						err = nil
+					}
+				}
 
 				// Update Metrics
 				trans.appConf.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, duration.Milliseconds(), labels)

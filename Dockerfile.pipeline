@@ -1,3 +1,3 @@
 FROM gcr.io/distroless/base
-COPY --chmod=755 kelon /usr/local/bin/
+COPY --chmod=755 dist/kelon-linux-amd64 /usr/local/bin/kelon
 ENTRYPOINT ["kelon", "run"]

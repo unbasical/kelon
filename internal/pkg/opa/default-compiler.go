@@ -61,7 +61,7 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 	(*compConf.ConfigWatcher).Watch(func(changeType watcher.ChangeType, config *configs.ExternalConfig, e error) {
 		if changeType == watcher.ChangeRego {
 			if err := engine.LoadRegosFromPath(context.Background(), *compConf.RegoDir); err != nil {
-				logging.LogForComponent("policyCompiler").Error("Unable to reload regos on file change due to: ", err)
+				logging.LogForComponent("policyCompiler").Error("Unable to reload policies on file change due to: ", err)
 			}
 		}
 	})

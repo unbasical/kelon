@@ -79,9 +79,9 @@ func NewOPA(ctx context.Context, regosPath string, opts ...func(*OPA) error) (*O
 	}
 	opa.manager.Register("discovery", disc)
 
-	// Load regos
+	// Load policies
 	if err := opa.LoadRegosFromPath(ctx, regosPath); err != nil {
-		return nil, errors.Wrap(err, "NewOPA: Unable to load regos")
+		return nil, errors.Wrap(err, "NewOPA: Unable to load policies")
 	}
 
 	return opa, nil
@@ -95,7 +95,7 @@ func (opa *OPA) LoadRegosFromPath(ctx context.Context, regosPath string) error {
 
 	store := opa.manager.Store
 
-	logging.LogForComponent("OPA").Debugf("Loading regos from dir: %s", regosPath)
+	logging.LogForComponent("OPA").Debugf("Loading policies from dir: %s", regosPath)
 	filter := func(abspath string, info os.FileInfo, depth int) bool {
 		return !strings.HasSuffix(abspath, ".rego")
 	}

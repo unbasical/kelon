@@ -6,6 +6,7 @@ package data
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/unbasical/kelon/configs"
 )
@@ -20,6 +21,14 @@ const (
 type DatastoreQuery struct {
 	Statement  interface{}
 	Parameters []interface{}
+}
+
+type QueryLengthError struct {
+	Query DatastoreQuery
+}
+
+func (e QueryLengthError) Error() string {
+	return fmt.Sprintf("Query length exceeded limit of 1000: %v", e.Query)
 }
 
 // Datastore is the interface that maps a generic designed AST returned by translate.AstTranslator to a native query-statement using the passed data.DatastoreTranslator and execute by the passed data.DatastoreExecutor.

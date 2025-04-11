@@ -2,6 +2,9 @@ package data
 
 import (
 	"context"
+	"math"
+	"os"
+	"strconv"
 
 	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/configs"
@@ -9,12 +12,15 @@ import (
 	"github.com/unbasical/kelon/pkg/data"
 )
 
+const EnvHugeQuerySize = "HUGE_QUERY_SIZE"
+
 type defaultDatastore struct {
-	appConf    *configs.AppConfig
-	alias      string
-	configured bool
-	translator data.DatastoreTranslator
-	executor   data.DatastoreExecutor
+	appConf       *configs.AppConfig
+	alias         string
+	configured    bool
+	translator    data.DatastoreTranslator
+	executor      data.DatastoreExecutor
+	hugeQuerySize int
 }
 
 func NewDatastore(translator data.DatastoreTranslator, executor data.DatastoreExecutor) data.Datastore {
@@ -32,6 +38,14 @@ func (ds *defaultDatastore) Configure(appConf *configs.AppConfig, alias string) 
 	if ds.configured {
 		return nil
 	}
+
+	v := os.Getenv(EnvHugeQuerySize)
+	if val, err := strconv.ParseInt(v, 10, 64); err == nil {
+		ds.hugeQuerySize = int(val)
+	} else {
+		ds.hugeQuerySize = math.MaxInt
+	}
+	logging.LogForComponent("datastore").Infof("Setting huge query size to %d", ds.hugeQuerySize)
 
 	// Configure translator
 	if ds.translator == nil {
@@ -68,6 +82,11 @@ func (ds *defaultDatastore) Execute(ctx context.Context, astQuery data.Node) (bo
 		return false, err
 	}
 
-	// Execute native Query
-	return ds.executor.Execute(ctx, dsQuery)
+	res, err := ds.executor.Execute(ctx, dsQuery)
+	if query, ok := dsQuery.Statement.(string); ok {
+		if len(query) > ds.hugeQuerySize {
+			return res, data.QueryLengthError{Query: dsQuery}
+		}
+	}
+	return res, err
 }
