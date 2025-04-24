@@ -2,8 +2,6 @@ module github.com/unbasical/kelon
 
 go 1.23.6
 
-toolchain go1.24.0
-
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/docker/go-connections v0.5.0
