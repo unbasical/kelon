@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-// Error thrown if query db translation failed
+// InvalidRequestTranslation thrown if query db translation failed
 type InvalidRequestTranslation struct {
 	Msg    string
 	Causes []string

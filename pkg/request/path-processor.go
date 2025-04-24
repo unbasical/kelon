@@ -13,7 +13,7 @@ type PathProcessorConfig struct {
 	PathMapper *PathMapper
 }
 
-// Result of a successfully mapped path.
+// PathProcessorOutput is the result of a successfully mapped path.
 //
 // Datastore and package should be used to map the incoming request to unknowns and a target package for OPA's partial evaluation.
 // Extracted Query-Parameters mapped to their values can i.e. be attached to the input-field of the OPA-query.
@@ -24,23 +24,23 @@ type PathProcessorOutput struct {
 	Authorization  bool
 	Authentication bool
 	Path           []string
-	Queries        map[string]interface{}
+	Queries        map[string]any
 }
 
-// PathProcessor is the interface that processes an incoming path by parsing and afterwards mapping it to a Datastore and a Package.
+// PathProcessor is the interface that processes an incoming path by parsing and afterward mapping it to a Datastore and a Package.
 //
 // This should be enough for the opa.PolicyCompiler to fire a query for partial evaluation with the datastore as unknowns.
 // To separate concerns, the PathProcessor should focus on path parsing and leave the mapping to the request.PathMapper.
 type PathProcessor interface {
 
-	// Configure() configures the PathProcessor and returns nil or any encountered error during processors configuration.
+	// Configure configures the PathProcessor and returns nil or any encountered error during processors configuration.
 	// Please note that Configure has to be called once before the component can be used (Otherwise Process() will return an error)!
 	Configure(appConf *configs.AppConfig, processorConf *PathProcessorConfig) error
 
-	// Processes an incoming path by parsing and afterwards mapping it to a Datastore and a Package.
+	// Process processes an incoming path by parsing and afterward mapping it to a Datastore and a Package.
 	//
 	// To make the implementation more flexible, the PathMapper itself decides which type of input it needs.
-	// Therefore an appropriate interface like request.UrlProcessorInput should be used to transport the needed information
+	// Therefore, an appropriate interface like request.UrlProcessorInput should be used to transport the needed information
 	// for path processing.
-	Process(input interface{}) (*PathProcessorOutput, error)
+	Process(input any) (*PathProcessorOutput, error)
 }

@@ -27,6 +27,7 @@ type traces struct {
 	name     string
 }
 
+// NewTraceProvider tries to create a new trace provider using the provided protocol and push endpoint
 func NewTraceProvider(ctx context.Context, name, protocol, endpoint string) (TraceProvider, error) {
 	endpointWithoutProtocol := regexp.MustCompile(constants.ProtocolPrefixRe).ReplaceAllString(endpoint, "")
 	exporter, err := newOtlpTraceExporter(ctx, protocol, endpointWithoutProtocol)
@@ -55,20 +56,24 @@ func NewTraceProvider(ctx context.Context, name, protocol, endpoint string) (Tra
 	return &traces{provider: provider, name: name}, nil
 }
 
-func (t *traces) Configure(ctx context.Context) error {
+// Configure - see telemetry.TraceProvider
+func (t *traces) Configure(_ context.Context) error {
 	logging.LogForComponent("TraceProvider").Info("Tracing configured with exporter of type [otlp]")
 	return nil
 }
 
-func (t *traces) WrapHTTPHandler(ctx context.Context, handler http.Handler, spanName string) http.Handler {
+// WrapHTTPHandler - see telemetry.TraceProvider
+func (t *traces) WrapHTTPHandler(_ context.Context, handler http.Handler, spanName string) http.Handler {
 	return otelhttp.NewHandler(handler, spanName)
 }
 
+// GetGrpcServerInterceptor - see telemetry.TraceProvider
 func (t *traces) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
 	return otelgrpc.UnaryServerInterceptor()
 }
 
-func (t *traces) ExecuteWithRootSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
+// ExecuteWithRootSpan - see telemetry.TraceProvider
+func (t *traces) ExecuteWithRootSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...any) (any, error) {
 	tracer := t.provider.Tracer(t.name)
 
 	attr := labelsToAttributes(labels)
@@ -87,7 +92,8 @@ func (t *traces) ExecuteWithRootSpan(ctx context.Context, function SpanFunction,
 	return ret, err
 }
 
-func (t *traces) ExecuteWithChildSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...interface{}) (interface{}, error) {
+// ExecuteWithChildSpan - see telemetry.TraceProvider
+func (t *traces) ExecuteWithChildSpan(ctx context.Context, function SpanFunction, spanName string, labels map[string]string, args ...any) (any, error) {
 	tracer := t.provider.Tracer(t.name)
 
 	attr := labelsToAttributes(labels)
@@ -106,6 +112,7 @@ func (t *traces) ExecuteWithChildSpan(ctx context.Context, function SpanFunction
 	return ret, err
 }
 
+// Shutdown - see telemetry.TraceProvider
 func (t *traces) Shutdown(ctx context.Context) {
 	_ = t.provider.Shutdown(ctx)
 }

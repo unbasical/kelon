@@ -38,7 +38,7 @@ type loadResult struct {
 }
 
 // ConfigOPA sets the configuration file to use on the OPA instance.
-func ConfigOPA(conf interface{}) func(opa *OPA) error {
+func ConfigOPA(conf any) func(opa *OPA) error {
 	return func(opa *OPA) error {
 		configBytes, err := yaml.Marshal(conf)
 		if err != nil {
@@ -96,7 +96,7 @@ func (opa *OPA) LoadRegosFromPath(ctx context.Context, regosPath string) error {
 	store := opa.manager.Store
 
 	logging.LogForComponent("OPA").Debugf("Loading regos from dir: %s", regosPath)
-	filter := func(abspath string, info os.FileInfo, depth int) bool {
+	filter := func(abspath string, _ os.FileInfo, _ int) bool {
 		return !strings.HasSuffix(abspath, ".rego")
 	}
 	loaded, err := loadPaths([]string{regosPath}, filter, true)
@@ -135,8 +135,8 @@ func (opa *OPA) Start(ctx context.Context) error {
 	return opa.manager.Start(ctx)
 }
 
-// Bool returns a boolean policy decision.
-func (opa *OPA) PartialEvaluate(ctx context.Context, input interface{}, query string, opts ...func(*rego.Rego)) (*rego.PartialQueries, error) {
+// PartialEvaluate partially evaluates the query and returns any partial queries which needs additional data to eval
+func (opa *OPA) PartialEvaluate(ctx context.Context, input any, query string, opts ...func(*rego.Rego)) (*rego.PartialQueries, error) {
 	m := metrics.New()
 	var partialResult *rego.PartialQueries
 

@@ -260,9 +260,9 @@ func (k *Kelon) makeServerConfig(compiler opa.PolicyCompiler, parser request.Pat
 	return serverConf
 }
 
-func parseBodyFromString(input string) (map[string]interface{}, error) {
+func parseBodyFromString(input string) (map[string]any, error) {
 	in := []byte(input)
-	var raw map[string]interface{}
+	var raw map[string]any
 
 	err := json.Unmarshal(in, &raw)
 	return raw, err

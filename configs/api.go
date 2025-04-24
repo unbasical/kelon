@@ -32,6 +32,8 @@ type APIMapping struct {
 	Queries []string
 }
 
+// Validate checks if the provided DatastoreAPIMapping config does not contain invalid options
+// nolint:revive
 func (m *DatastoreAPIMapping) Validate(schema DatastoreSchemas) error {
 	duplicatesCache := make(map[string]struct {
 		path   string
@@ -68,6 +70,7 @@ func (m *DatastoreAPIMapping) Validate(schema DatastoreSchemas) error {
 	return nil
 }
 
+// Defaults sets default values for required properties, if they are not set
 func (m *DatastoreAPIMapping) Defaults() {
 	if m.Authorization == nil {
 		m.Authorization = &boolTrue

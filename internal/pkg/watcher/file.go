@@ -6,15 +6,14 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/unbasical/kelon/pkg/constants/logging"
-
 	"github.com/fsnotify/fsnotify"
 	log "github.com/sirupsen/logrus"
 	"github.com/unbasical/kelon/configs"
+	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/watcher"
 )
 
-// Implements pkg.watcher.ConfigWatcher by loading local files.
+// NewFileWatcher instantiates a new watcher.ConfigWatcher by loading local files.
 func NewFileWatcher(loader configs.ConfigLoader, watchPath string) watcher.ConfigWatcher {
 	newWatcher := fileConfigWatcher{
 		loader:    loader,
@@ -37,53 +36,62 @@ func (w *fileConfigWatcher) watchForChanges() {
 		logging.LogForComponent("fileConfigWatcher").Fatal(err)
 	}
 
-	go func() {
-		for {
-			select {
-			case event, ok := <-fileWatcher.Events:
-				if !ok {
-					logging.LogForComponent("fileConfigWatcher").Warnln("Received invalid event while watching files.")
-					return
-				}
-
-				// Gather information about event
-				writeEvent := event.Op&fsnotify.Write == fsnotify.Write
-				createEvent := event.Op&fsnotify.Create == fsnotify.Create
-				removeEvent := event.Op&fsnotify.Remove == fsnotify.Remove
-				isFile := false
-
-				// Check if current modified file is File
-				if !removeEvent {
-					if fileInfo, err := os.Stat(event.Name); err == nil {
-						isFile = !fileInfo.IsDir()
-					} else {
-						logging.LogForComponent("fileConfigWatcher").Warnf("Unable to get information about file %q", event.Name)
-					}
-				}
-
-				// Notify observers if a file was created, modified or deleted
-				if isFile && (createEvent || writeEvent || removeEvent) {
-					change := extractChangeType(event)
-
-					// Notify observers for changes
-					loaded, err := w.loader.Load()
-					for _, observer := range w.observers {
-						observer(change, loaded, err)
-					}
-				}
-			case err, ok := <-fileWatcher.Errors:
-				if !ok {
-					return
-				}
-				log.Println("error:", err)
-			}
-		}
-	}()
-
+	go w.watchRoutine(fileWatcher)
 	addWatchDirsRecursive(w, fileWatcher)
 	go closeWatcherOnSIGTERM(fileWatcher)
 }
 
+// watchRoutine reacts to file change events and triggers observer
+// nolint:revive
+func (w *fileConfigWatcher) watchRoutine(fileWatcher *fsnotify.Watcher) {
+	for {
+		select {
+		case event, ok := <-fileWatcher.Events:
+			if !ok {
+				logging.LogForComponent("fileConfigWatcher").Warnln("Received invalid event while watching files.")
+				return
+			}
+
+			// Notify observers if a file was created, modified or deleted
+			if isRelevantEvent(event) {
+				change := extractChangeType(event)
+
+				// Notify observers for changes
+				loaded, err := w.loader.Load()
+				for _, observer := range w.observers {
+					observer(change, loaded, err)
+				}
+			}
+		case err, ok := <-fileWatcher.Errors:
+			if !ok {
+				return
+			}
+			logging.LogForComponent("fileConfigWatcher").Warnf("fsnotify encountered an error: %s", err.Error())
+		}
+	}
+}
+
+// isRelevantEvent returns true if a file was created, modified or deleted
+func isRelevantEvent(event fsnotify.Event) bool {
+	// Gather information about event
+	writeEvent := event.Op&fsnotify.Write == fsnotify.Write
+	createEvent := event.Op&fsnotify.Create == fsnotify.Create
+	removeEvent := event.Op&fsnotify.Remove == fsnotify.Remove
+	isFile := false
+
+	// Check if current modified file is File
+	if !removeEvent {
+		if fileInfo, err := os.Stat(event.Name); err == nil {
+			isFile = !fileInfo.IsDir()
+		} else {
+			logging.LogForComponent("fileConfigWatcher").Warnf("Unable to get information about file %q", event.Name)
+		}
+	}
+
+	return isFile && (createEvent || writeEvent || removeEvent)
+}
+
+// extractChangeType maps file system changes to internal change types in order to ease observer trigger filter
 func extractChangeType(event fsnotify.Event) watcher.ChangeType {
 	var change watcher.ChangeType
 	extension := filepath.Ext(event.Name)
@@ -104,6 +112,7 @@ func extractChangeType(event fsnotify.Event) watcher.ChangeType {
 	return change
 }
 
+// closeWatcherOnSIGTERM watches OS signals and channels and closes the watcher on termination signals
 func closeWatcherOnSIGTERM(fileWatcher *fsnotify.Watcher) {
 	interruptChan := make(chan os.Signal, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
@@ -119,6 +128,7 @@ func closeWatcherOnSIGTERM(fileWatcher *fsnotify.Watcher) {
 	}
 }
 
+// addWatchDirsRecursive adds directories recursively to the watch list
 func addWatchDirsRecursive(configWatcher *fileConfigWatcher, fileWatcher *fsnotify.Watcher) {
 	err := filepath.Walk(configWatcher.watchPath,
 		func(path string, info os.FileInfo, err error) error {
@@ -140,7 +150,7 @@ func addWatchDirsRecursive(configWatcher *fileConfigWatcher, fileWatcher *fsnoti
 	}
 }
 
-// See pkg.watcher.ConfigWatcher
+// Watch - see watcher.ConfigWatcher
 func (w *fileConfigWatcher) Watch(callback func(watcher.ChangeType, *configs.ExternalConfig, error)) {
 	w.observers = append(w.observers, callback)
 	loaded, err := w.loader.Load()

@@ -11,14 +11,19 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+// ServiceID represents a service (container) required by the E2E tests
 type ServiceID string
 
 const (
+	// ServicePostgreSQL represents a PostgreSQL instance
 	ServicePostgreSQL ServiceID = "pg"
-	ServiceMySQL      ServiceID = "mysql"
-	ServiceMongoDB    ServiceID = "mongo"
+	// ServiceMySQL represents a MySQL instance
+	ServiceMySQL ServiceID = "mysql"
+	// ServiceMongoDB represents a MongoDB instance
+	ServiceMongoDB ServiceID = "mongo"
 )
 
+// serviceFromString checks the provided string is a known ServiceID
 func serviceFromString(value string) (ServiceID, error) {
 	switch value {
 	case string(ServiceMongoDB):
@@ -32,11 +37,13 @@ func serviceFromString(value string) (ServiceID, error) {
 	}
 }
 
+// ContainerConfiguration configures e.g. wait strategies and ports for the container
 type ContainerConfiguration struct {
 	waitStrategies map[ServiceID]wait.Strategy
 	exposePorts    map[ServiceID][]string
 }
 
+// ContainerEnvironment handles the container lifecycle for the E2E tests
 type ContainerEnvironment struct {
 	configured     bool
 	running        bool
@@ -57,6 +64,7 @@ func newE2EEnvironment() *ContainerEnvironment {
 	}
 }
 
+// Configure the environment but does not start it yet
 func (env *ContainerEnvironment) Configure(config ContainerConfiguration) {
 	env.waitStrategies = config.waitStrategies
 	env.portsToExpose = config.exposePorts
@@ -64,6 +72,7 @@ func (env *ContainerEnvironment) Configure(config ContainerConfiguration) {
 	env.configured = true
 }
 
+// Start starts all required container for the E2E tests (PostgreSQL, MongoDB, MySql) and waits for them to be up
 func (env *ContainerEnvironment) Start(ctx context.Context) error {
 	if env.running {
 		return nil
@@ -170,6 +179,7 @@ func (env *ContainerEnvironment) Start(ctx context.Context) error {
 	return nil
 }
 
+// Stop will terminate all running container
 func (env *ContainerEnvironment) Stop(ctx context.Context) {
 	if env.running {
 		for _, container := range env.container {
@@ -180,6 +190,7 @@ func (env *ContainerEnvironment) Stop(ctx context.Context) {
 	}
 }
 
+// Host tries to get host where the container port is exposed
 func (env *ContainerEnvironment) Host(ctx context.Context, service ServiceID) (string, error) {
 	c, ok := env.container[service]
 	if !ok {
@@ -189,6 +200,7 @@ func (env *ContainerEnvironment) Host(ctx context.Context, service ServiceID) (s
 	return c.Host(ctx)
 }
 
+// Port tries get externally mapped port for a container port
 func (env *ContainerEnvironment) Port(ctx context.Context, service ServiceID, port string) (string, error) {
 	c, ok := env.container[service]
 	if !ok {
@@ -203,6 +215,7 @@ func (env *ContainerEnvironment) Port(ctx context.Context, service ServiceID, po
 	return strings.Split(string(p), "/")[0], nil
 }
 
+// startContainer starts a single container and exposes requested ports
 func (env *ContainerEnvironment) startContainer(ctx context.Context, req *tc.ContainerRequest, name ServiceID) error {
 	c, err := tc.GenericContainer(ctx, tc.GenericContainerRequest{
 		ContainerRequest: *req,

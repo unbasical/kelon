@@ -58,14 +58,14 @@ func (c mockCompiler) GetEngine() *plugins.Manager {
 	panic("implement me")
 }
 
-func (c mockCompiler) Configure(appConfig *configs.AppConfig, compConfig *opa.PolicyCompilerConfig) error {
+func (c mockCompiler) Configure(_ *configs.AppConfig, _ *opa.PolicyCompilerConfig) error {
 	if c.failOnConfigure {
 		return errors.Errorf("Mock config failure ")
 	}
 	return nil
 }
 
-func (c mockCompiler) Execute(ctx context.Context, request map[string]interface{}) (*opa.Decision, error) {
+func (c mockCompiler) Execute(_ context.Context, _ map[string]any) (*opa.Decision, error) {
 	if c.failOnProcess {
 		return &opa.Decision{Allow: false}, errors.Errorf("dummy error")
 	}
@@ -88,8 +88,7 @@ func TestCheckAllow(t *testing.T) {
 	})
 
 	//nolint:gosimple,gocritic
-	var compiler opa.PolicyCompiler
-	compiler = mockCompiler{
+	var compiler opa.PolicyCompiler = mockCompiler{
 		failOnConfigure: false,
 		failOnProcess:   false,
 		decision:        true,

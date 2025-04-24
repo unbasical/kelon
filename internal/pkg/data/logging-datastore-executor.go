@@ -10,6 +10,8 @@ import (
 	"github.com/unbasical/kelon/pkg/data"
 )
 
+// loggingDatastoreExecutor implements the DatastoreExecutor interface by logging the data.DatastoreQuery
+// instead of executing it against a database.
 type loggingDatastoreExecutor struct {
 	alias      string
 	writer     io.Writer
@@ -17,6 +19,8 @@ type loggingDatastoreExecutor struct {
 	appConf    *configs.AppConfig
 }
 
+// NewLoggingDatastoreExecutor instantiates a new DatastoreExecutor, which logs the queries instead of
+// executing it against a database.
 func NewLoggingDatastoreExecutor(writer io.Writer) data.DatastoreExecutor {
 	return &loggingDatastoreExecutor{
 		writer:  writer,
@@ -24,23 +28,23 @@ func NewLoggingDatastoreExecutor(writer io.Writer) data.DatastoreExecutor {
 	}
 }
 
+// Configure -- see data.DatastoreExecutor
 func (ds *loggingDatastoreExecutor) Configure(appConf *configs.AppConfig, alias string) error {
 	if ds.configured {
 		return nil
 	}
 
 	ds.appConf = appConf
-
 	ds.alias = alias
-
 	ds.configured = true
+
 	return nil
 }
 
-func (ds *loggingDatastoreExecutor) Execute(ctx context.Context, query data.DatastoreQuery) (bool, error) {
+// Execute -- see data.DatastoreExecutor
+func (ds *loggingDatastoreExecutor) Execute(_ context.Context, query data.DatastoreQuery) (bool, error) {
 	if ds.writer != nil {
-		queryData := make(map[string]interface{})
-
+		queryData := make(map[string]any)
 		queryData["query"] = query.Statement
 		queryData["parameter"] = query.Parameters
 

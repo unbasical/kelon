@@ -21,7 +21,7 @@ type astTranslator struct {
 	configured bool
 }
 
-// Create a new instance of the default translate.AstTranslator.
+// NewAstTranslator creates a new instance of the default translate.AstTranslator.
 func NewAstTranslator() translate.AstTranslator {
 	return &astTranslator{
 		appConf:    nil,
@@ -30,7 +30,7 @@ func NewAstTranslator() translate.AstTranslator {
 	}
 }
 
-// See translate.AstTranslator.
+// Configure - see translate.AstTranslator.
 func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *translate.AstTranslatorConfig) error {
 	// Exit if already configured
 	if trans.configured {
@@ -58,7 +58,7 @@ func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *tra
 	return nil
 }
 
-// See translate.AstTranslator.
+// Process - see translate.AstTranslator
 func (trans *astTranslator) Process(ctx context.Context, response *rego.PartialQueries, datastores []string) (bool, error) {
 	if !trans.configured {
 		return false, errors.Errorf("AstTranslator was not configured! Please call Configure(). ")
@@ -86,35 +86,35 @@ func (trans *astTranslator) Process(ctx context.Context, response *rego.PartialQ
 	}
 
 	for datastore, specificQuery := range datastoreSpecificQueries {
-		queryToExecute := specificQuery
-		if targetDB, ok := trans.config.Datastores[datastore]; ok {
-			pkg := ctx.Value(constants.ContextKeyRegoPackage).(string)
-
-			labels := map[string]string{
-				constants.LabelRegoPackage: pkg,
-				constants.LabelDBPoolName:  datastore,
-			}
-
-			function := func(ctx context.Context, args ...interface{}) (interface{}, error) {
-				startTime := time.Now()
-				decision, err := (*targetDB).Execute(ctx, queryToExecute)
-				duration := time.Since(startTime)
-
-				// Update Metrics
-				trans.appConf.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, duration.Milliseconds(), labels)
-				return decision, err
-			}
-
-			res, err := trans.appConf.TraceProvider.ExecuteWithChildSpan(ctx, function, spanNameDatastoreQuery, labels)
-			if err != nil {
-				return false, err
-			}
-
-			if res.(bool) {
-				return true, nil
-			}
-		} else {
+		targetDB, ok := trans.config.Datastores[datastore]
+		if !ok {
 			return false, errors.Errorf("AstTranslator: Unable to find datastore: %s", datastore)
+		}
+
+		pkg := ctx.Value(constants.ContextKeyRegoPackage).(string)
+		labels := map[string]string{
+			constants.LabelRegoPackage: pkg,
+			constants.LabelDBPoolName:  datastore,
+		}
+
+		queryToExecute := specificQuery
+		function := func(ctx context.Context, _ ...any) (any, error) {
+			startTime := time.Now()
+			decision, err := (*targetDB).Execute(ctx, queryToExecute)
+			duration := time.Since(startTime)
+
+			// Update Metrics
+			trans.appConf.MetricsProvider.UpdateHistogramMetric(ctx, constants.InstrumentDecisionDuration, duration.Milliseconds(), labels)
+			return decision, err
+		}
+
+		res, err := trans.appConf.TraceProvider.ExecuteWithChildSpan(ctx, function, spanNameDatastoreQuery, labels)
+		if err != nil {
+			return false, err
+		}
+
+		if res.(bool) {
+			return true, nil
 		}
 	}
 	return false, nil

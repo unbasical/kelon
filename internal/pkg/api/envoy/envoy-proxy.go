@@ -43,7 +43,7 @@ type envoyProxy struct {
 	envoy      *envoyExtAuthzGrpcServer
 }
 
-// Implements api.ClientProxy by providing OPA's Data-REST-API.
+// NewEnvoyProxy instantiates an api.ClientProxy implementation which provides OPA's Data-REST-API.
 func NewEnvoyProxy(config Config) api.ClientProxy {
 	if config.Port == 0 {
 		logging.LogForComponent("Config").Warnln("EnvoyProxy was initialized with default properties! You may have missed some arguments when creating it!")
@@ -66,8 +66,8 @@ func NewEnvoyProxy(config Config) api.ClientProxy {
 	}
 }
 
-// See Configure() of api.ClientProxy
-func (proxy *envoyProxy) Configure(ctx context.Context, appConf *configs.AppConfig, serverConf *api.ClientProxyConfig) error {
+// Configure - see api.ClientProxy
+func (proxy *envoyProxy) Configure(_ context.Context, appConf *configs.AppConfig, serverConf *api.ClientProxyConfig) error {
 	// Exit if already configured
 	if proxy.configured {
 		return nil
@@ -92,7 +92,7 @@ func (proxy *envoyProxy) Configure(ctx context.Context, appConf *configs.AppConf
 	return nil
 }
 
-// See Start() of api.ClientProxy
+// Start - see api.ClientProxy
 func (proxy *envoyProxy) Start() error {
 	if !proxy.configured {
 		return errors.Errorf("EnvoyProxy was not configured! Please call Configure(). ")
@@ -113,7 +113,7 @@ func (proxy *envoyProxy) Start() error {
 	return proxy.envoy.Start(context.Background())
 }
 
-// See Stop() of api.ClientProxy
+// Stop - see api.ClientProxy
 func (proxy *envoyProxy) Stop(deadline time.Duration) error {
 	if proxy.envoy.server == nil {
 		return errors.Errorf("EnvoyProxy has not bin started yet")
@@ -128,18 +128,18 @@ func (proxy *envoyProxy) Stop(deadline time.Duration) error {
 }
 
 // Start the underlying grpc-server
-func (p *envoyExtAuthzGrpcServer) Start(ctx context.Context) error {
+func (p *envoyExtAuthzGrpcServer) Start(_ context.Context) error {
 	go p.listen()
 	return nil
 }
 
 // Stop the underlying grpc-server
-func (p *envoyExtAuthzGrpcServer) Stop(ctx context.Context) {
+func (p *envoyExtAuthzGrpcServer) Stop(_ context.Context) {
 	p.server.Stop()
 }
 
 // Reconfigure the underlying grpc-server (Unused! Just to conform with the interface)
-func (p *envoyExtAuthzGrpcServer) Reconfigure(ctx context.Context, config interface{}) {
+func (p *envoyExtAuthzGrpcServer) Reconfigure(_ context.Context, _ any) {
 }
 
 func (p *envoyExtAuthzGrpcServer) listen() {
@@ -181,7 +181,7 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *extauthz.Check
 		token = tokenHeader
 	}
 
-	inputBody := make(map[string]interface{})
+	inputBody := make(map[string]any)
 	inputBody["method"] = r.GetMethod()
 	inputBody["path"] = path
 	inputBody["token"] = token

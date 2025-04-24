@@ -1,78 +1,133 @@
-linters-settings:
-  govet:
-    check-shadowing: true
-    settings:
-      printf:
-        funcs:
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
-  golint:
-    min-confidence: 0
-  gocyclo:
-    min-complexity: 15
-  maligned:
-    suggest-new: true
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  misspell:
-    locale: US
-  lll:
-    line-length: 140
-  goimports:
-    local-prefixes: github.com/golangci/golangci-lint
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - wrapperFunc
-      - dupImport # https://github.com/go-critic/go-critic/issues/845
-      - ifElseChain
-      - octalLiteral
-  funlen:
-    lines: 100
-    statements: 50
-  revive:
-    rules:
-      - name: error-strings
-        disabled: true
+# For file adjustments, refer to the official golang-ci docs
+# https://golangci-lint.run/usage/configuration/#output-configuration
+
+version: "2"
+
+run:
+  modules-download-mode: readonly
+  issues-exit-code: 2
+
+output:
+  formats:
+    tab:
+      path: stdout
+  sort-order:
+    - file
+    - linter
 
 linters:
-  # please, do not use `enable-all`: it's deprecated and will be removed soon.
-  # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
-  disable-all: true
+  default: none
   enable:
-    - bodyclose
-    - dogsled
+    - bodyclose # Checks whether HTTP response body is closed successfully.
     - dupl
-    - errcheck
-    - exportloopref
-    - gochecknoinits
-    - goconst
-    - gocritic
-    - gochecknoglobals
-    - gocyclo
-    - gofmt
-    - goimports
-    - gosec
-    - gosimple
+    - errcheck # Errcheck is a program for checking for unchecked errors in Go code. These unchecked errors can be critical bugs in some cases.
+    - errorlint
+    - exhaustive # Check exhaustiveness of enum switch statements.
     - govet
-    - ineffassign
-    - misspell
-    - nakedret
-    - revive
-    - staticcheck
-    - stylecheck
-    - typecheck
-    - unconvert
-    - unparam
+    - ineffassign # Detects when assignments to existing variables are not used.
+    - revive # Fast, configurable, extensible, flexible, and beautiful linter for Go. Drop-in replacement of golint.
     - unused
-    - whitespace
+
+  settings:
+    # Config available at: https://golangci-lint.run/usage/linters/#dupl
+    dupl:
+      threshold: 400
+
+    errorlint:
+      errorf: true
+    # Config available at: https://golangci-lint.run/usage/linters/#exhaustive
+    exhaustive:
+      default-signifies-exhaustive: true
+    # Config available at: https://github.com/mgechev/revive?tab=readme-ov-file#available-rules
+    revive:
+      confidence: 0.8
+      severity: warning
+      enable-all-rules: false
+      rules:
+        - name: argument-limit
+          arguments:
+            - 8
+        - name: cyclomatic
+          arguments:
+            - 20
+        - name: function-result-limit
+          arguments:
+            - 4
+        - name: cognitive-complexity
+          arguments:
+            - 15
+        - name: deep-exit
+        - name: max-control-nesting
+          arguments:
+            - 8
+        - name: empty-block
+        - name: empty-lines
+        - name: indent-error-flow
+        - name: superfluous-else
+          arguments:
+            - preserveScope
+        - name: unnecessary-stmt
+        - name: early-return
+          arguments:
+            - preserveScope
+        - name: useless-break
+        - name: unexported-return
+        - name: errorf
+        - name: error-return
+        - name: unhandled-error
+          arguments:
+            - fmt.Printf
+            - myFunction
+        - name: var-declaration
+        - name: if-return
+        - name: range
+        - name: confusing-results
+        - name: unused-parameter
+        - name: modifies-value-receiver
+        - name: unconditional-recursion
+        - name: redefines-builtin-id
+        - name: range-val-in-closure
+        - name: identical-branches
+        - name: datarace
+        - name: modifies-parameter
+        - name: defer
+        - name: exported
+          exclude:
+            - '**/internal/**/*.go'
+        - name: comments-density
+          arguments:
+            - 10
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - dupl
+          - revive
+        path: _test\.go
+    paths:
+      - .*\.pb\.go
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 1000
+  fix: true
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      simplify: false
+      rewrite-rules:
+        - pattern: interface{}
+          replacement: any
+        - pattern: a[b:len(a)]
+          replacement: a[b:]
+  exclusions:
+    generated: lax
+    paths:
+      - .*\.pb\.go
+      - third_party$
+      - builtin$
+      - examples$

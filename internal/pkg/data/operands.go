@@ -97,7 +97,7 @@ func (h *loadedCallHandler) Map(args ...string) (string, error) {
 
 	// Rearrange args if mapping is specified
 	mapLen := len(h.indexMapping)
-	rearangedArgs := make([]interface{}, argsLen)
+	rearangedArgs := make([]any, argsLen)
 	for i, arg := range args {
 		if i < mapLen {
 			rearangedArgs[i] = args[h.indexMapping[i]] // Rearrange

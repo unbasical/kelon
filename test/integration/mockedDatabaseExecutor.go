@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
 	"reflect"
 	"sort"
@@ -16,7 +17,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type MockedDatastoreExecuter struct {
+// MockedDatastoreExecutor is a data.DatastoreExecutor implementation, which gets database queries to expect and asserts
+// incoming queries match the pre-defined ones
+type MockedDatastoreExecutor struct {
 	mock.Mock
 	counter   int
 	responses DBTranslatorResponses
@@ -24,8 +27,9 @@ type MockedDatastoreExecuter struct {
 	testName  string
 }
 
-func NewMockedDatastoreExecuter(t *testing.T, dbQueriesPath, testName string) *MockedDatastoreExecuter {
-	mocked := new(MockedDatastoreExecuter)
+// NewMockedDatastoreExecuter creates a new mocking executer
+func NewMockedDatastoreExecuter(t *testing.T, dbQueriesPath, testName string) *MockedDatastoreExecutor {
+	mocked := new(MockedDatastoreExecutor)
 	mocked.testName = testName
 	mocked.On("Configure", mock.Anything, mock.Anything).Return(nil)
 	mocked.On("Execute", mock.Anything, mock.Anything).Return(true, nil)
@@ -51,53 +55,71 @@ func NewMockedDatastoreExecuter(t *testing.T, dbQueriesPath, testName string) *M
 	return mocked
 }
 
-func (m *MockedDatastoreExecuter) Execute(ctx context.Context, query data.DatastoreQuery) (bool, error) {
+// Execute - see data.DatastoreExecutor
+func (m *MockedDatastoreExecutor) Execute(_ context.Context, query data.DatastoreQuery) (bool, error) {
 	currentResponse := m.responses.Queries[strconv.Itoa(m.counter)]
 
 	// statement map check for mongo datastores, sql datastores have simple string statement
-	if reflect.ValueOf(query.Statement).Kind() == reflect.Map {
-		convertedStatement := query.Statement.(map[string]string)
-		for key, value := range convertedStatement {
-			expected, ok := currentResponse.Query[key]
-			if !ok {
-				m.t.Errorf("Testname: %s / Count %d : Did not expect a query with key [%s]", m.testName, m.counter, key)
-				m.t.FailNow()
-			}
-			if !m.assertStrings(expected, value) {
-				m.t.Errorf("Testname: %s / Count %d / Key %s : Query [%s] does not match expected result [%s]", m.testName, m.counter, key, value, expected)
-				m.t.FailNow()
-			}
-		}
-	} else if reflect.ValueOf(query.Statement).Kind() == reflect.String {
-		// convert params slice to single string
-		paramsString := ""
-		for _, value := range query.Parameters {
-			if paramsString == "" {
-				paramsString = value.(string)
-			} else {
-				paramsString = fmt.Sprintf("%s, %s", paramsString, value.(string))
-			}
-		}
+	var err error
+	switch reflect.ValueOf(query.Statement).Kind() {
+	case reflect.Map:
+		err = m.assertMongo(currentResponse, query)
+	case reflect.String:
+		err = m.assertSql(currentResponse, query)
+	default:
+		err = errors.Errorf("Testname: %s / Count %d : Unsupported Query type %T", m.testName, m.counter, query.Statement)
+	}
 
-		// assert statement and params
-		expected, ok := currentResponse.Query["sql"]
-		if !ok {
-			m.t.Errorf("Testname: %s / Count %d : Did expect a query with key [sql]", m.testName, m.counter)
-			m.t.FailNow()
-		}
-		if !m.assertStrings(expected, query.Statement.(string)) && !m.assertStrings(paramsString, currentResponse.Params) {
-			m.t.Errorf("Testname: %s / Count %d : Query [%s / %s] does not match expected result [%s / %s]", m.testName, m.counter, query.Statement, paramsString, currentResponse.Query, currentResponse.Params)
-			m.t.FailNow()
-		}
-	} else {
-		m.t.Errorf("Testname: %s / Count %d : Unsupported Query type %T", m.testName, m.counter, query.Statement)
+	// Check assertion didn't fail
+	if err != nil {
+		m.t.Error(err)
 		m.t.FailNow()
 	}
+
 	m.counter++
 	return true, nil
 }
 
-func (m *MockedDatastoreExecuter) assertStrings(expected, got string) bool {
+// assertMongo validates queries for MongoDB
+func (m *MockedDatastoreExecutor) assertMongo(currentResponse DBQuery, query data.DatastoreQuery) error {
+	convertedStatement := query.Statement.(map[string]string)
+	for key, value := range convertedStatement {
+		// assert statement and params
+		expected, ok := currentResponse.Query[key]
+		if !ok {
+			return errors.Errorf("Testname: %s / Count %d : Did not expect a query with key [%s]", m.testName, m.counter, key)
+		}
+		if !m.assertStrings(expected, value) {
+			return errors.Errorf("Testname: %s / Count %d / Key %s : Query [%s] does not match expected result [%s]", m.testName, m.counter, key, value, expected)
+		}
+	}
+	return nil
+}
+
+// assertSql validates queries for SQL based databases
+func (m *MockedDatastoreExecutor) assertSql(currentResponse DBQuery, query data.DatastoreQuery) error {
+	// convert params slice to single string
+	paramsString := ""
+	for _, value := range query.Parameters {
+		if paramsString == "" {
+			paramsString = value.(string)
+		} else {
+			paramsString = fmt.Sprintf("%s, %s", paramsString, value.(string))
+		}
+	}
+
+	// assert statement and params
+	expected, ok := currentResponse.Query["sql"]
+	if !ok {
+		return errors.Errorf("Testname: %s / Count %d : Did expect a query with key [sql]", m.testName, m.counter)
+	}
+	if !m.assertStrings(expected, query.Statement.(string)) && !m.assertStrings(paramsString, currentResponse.Params) {
+		return errors.Errorf("Testname: %s / Count %d : Query [%s / %s] does not match expected result [%s / %s]", m.testName, m.counter, query.Statement, paramsString, currentResponse.Query, currentResponse.Params)
+	}
+	return nil
+}
+
+func (m *MockedDatastoreExecutor) assertStrings(expected, got string) bool {
 	for _, specialRune := range strings.Split(",:;\"'()[]{}", "") {
 		expected = strings.ReplaceAll(expected, specialRune, "")
 		got = strings.ReplaceAll(got, specialRune, "")
@@ -120,7 +142,8 @@ func (m *MockedDatastoreExecuter) assertStrings(expected, got string) bool {
 	return true
 }
 
-func (m *MockedDatastoreExecuter) Configure(appConf *configs.AppConfig, alias string) error {
+// Configure - see data.DatastoreExecutor
+func (m *MockedDatastoreExecutor) Configure(appConf *configs.AppConfig, alias string) error {
 	args := m.Called(appConf, alias)
 	return args.Error(0)
 }

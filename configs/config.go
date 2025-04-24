@@ -23,9 +23,10 @@ type ExternalConfig struct {
 	APIMappings      []*DatastoreAPIMapping              `yaml:"apis"`
 	Datastores       map[string]*Datastore               `yaml:"datastores"`
 	DatastoreSchemas map[string]map[string]*EntitySchema `yaml:"entity_schemas"`
-	OPA              interface{}                         `yaml:"opa"`
+	OPA              any                                 `yaml:"opa"`
 }
 
+// Defaults sets default values for required properties, if they are not set
 func (ec *ExternalConfig) Defaults() {
 	for _, mapping := range ec.APIMappings {
 		mapping.Defaults()
@@ -36,6 +37,7 @@ func (ec *ExternalConfig) Defaults() {
 	}
 }
 
+// Validate checks if the provided ExternalConfig config does not contain invalid options
 func (ec *ExternalConfig) Validate() error {
 	if err := ec.Global.Validate(); err != nil {
 		return errors.Wrap(err, "loaded invalid configuration")
@@ -63,7 +65,7 @@ type ByteConfigLoader struct {
 }
 
 // Load implementation from ExternalLoader by using the properties of the ByteConfigLoader.
-func (l ByteConfigLoader) Load() (*ExternalConfig, error) {
+func (l *ByteConfigLoader) Load() (*ExternalConfig, error) {
 	if l.FileBytes == nil {
 		return nil, errors.Errorf("config bytes must not be nil! ")
 	}
@@ -97,15 +99,13 @@ func (l FileConfigLoader) Load() (*ExternalConfig, error) {
 	}
 
 	// Load configBy from file
-	var (
-		ioError        error
-		datastoreBytes []byte
-	)
-	if datastoreBytes, ioError = os.ReadFile(l.FilePath); ioError != nil {
+	datastoreBytes, ioError := os.ReadFile(l.FilePath)
+	if ioError != nil {
 		return nil, ioError
 	}
 
-	return ByteConfigLoader{
+	byteConf := &ByteConfigLoader{
 		FileBytes: datastoreBytes,
-	}.Load()
+	}
+	return byteConf.Load()
 }

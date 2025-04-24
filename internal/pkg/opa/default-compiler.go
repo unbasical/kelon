@@ -27,7 +27,7 @@ type policyCompiler struct {
 	engine     *OPA
 }
 
-// Return a new instance of the default implementation of the opa.PolicyCompiler.
+// NewPolicyCompiler returns a new instance of the default implementation of the opa.PolicyCompiler.
 func NewPolicyCompiler() opa.PolicyCompiler {
 	return &policyCompiler{
 		configured: false,
@@ -35,12 +35,12 @@ func NewPolicyCompiler() opa.PolicyCompiler {
 	}
 }
 
-// See GetEngine() from opa.PolicyCompiler
+// GetEngine - see GetEngine from opa.PolicyCompiler
 func (compiler *policyCompiler) GetEngine() *plugins.Manager {
 	return compiler.engine.manager
 }
 
-// See Configure() from opa.PolicyCompiler
+// Configure - see Configure from opa.PolicyCompiler
 func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *opa.PolicyCompilerConfig) error {
 	// Exit if already configured
 	if compiler.configured {
@@ -58,7 +58,7 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 	}
 
 	// Register watcher for rego changes
-	(*compConf.ConfigWatcher).Watch(func(changeType watcher.ChangeType, config *configs.ExternalConfig, e error) {
+	(*compConf.ConfigWatcher).Watch(func(changeType watcher.ChangeType, _ *configs.ExternalConfig, _ error) {
 		if changeType == watcher.ChangeRego {
 			if err := engine.LoadRegosFromPath(context.Background(), *compConf.RegoDir); err != nil {
 				logging.LogForComponent("policyCompiler").Error("Unable to reload regos on file change due to: ", err)
@@ -80,7 +80,7 @@ func (compiler *policyCompiler) Configure(appConf *configs.AppConfig, compConf *
 // - input
 //   - method: match policy on HTTP method
 //   - path: match policy on HTTP path
-func (compiler policyCompiler) Execute(ctx context.Context, requestBody map[string]interface{}) (*opa.Decision, error) {
+func (compiler *policyCompiler) Execute(ctx context.Context, requestBody map[string]any) (*opa.Decision, error) {
 	// Validate if policy compiler was configured correctly
 	if !compiler.configured {
 		return nil, errors.Errorf("PolicyCompiler was not configured! Please call Configure(). ")
@@ -98,7 +98,7 @@ func (compiler policyCompiler) Execute(ctx context.Context, requestBody map[stri
 		return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Incoming requestBody had no field 'input'!"}
 	}
 
-	input, ok := rawInput.(map[string]interface{})
+	input, ok := rawInput.(map[string]any)
 	if !ok {
 		return nil, internalErrors.InvalidInput{Msg: "PolicyCompiler: Field 'input' in requestBody body was no nested JSON object!"}
 	}
@@ -120,30 +120,29 @@ func (compiler policyCompiler) Execute(ctx context.Context, requestBody map[stri
 		return nil, err
 	}
 
-	var verify = true
-	var allow = true
-
 	// Authentication
-	if output.Authentication {
-		verify, err = compiler.evalFunction(ctx, "verify", input, output)
-		if err != nil {
-			return &opa.Decision{Verify: false, Allow: false, Package: output.Package, Method: method, Path: path.String()}, err
-		}
+	verify, err := compiler.authenticate(ctx, input, output)
+	if err != nil || !verify {
+		return &opa.Decision{Verify: verify, Allow: false, Package: output.Package, Method: method, Path: path.String()}, err
 	}
 
 	// Authorization
-	if verify {
-		if output.Authorization {
-			allow, err = compiler.evalFunction(ctx, "allow", input, output)
-			if err != nil {
-				return &opa.Decision{Verify: true, Allow: false, Package: output.Package, Method: method, Path: path.String()}, err
-			}
-		}
-	} else {
-		allow = false
-	}
+	allow, err := compiler.authorize(ctx, input, output)
+	return &opa.Decision{Verify: verify, Allow: allow, Package: output.Package, Method: method, Path: path.String()}, err
+}
 
-	return &opa.Decision{Verify: verify, Allow: allow, Package: output.Package, Method: method, Path: path.String()}, nil
+func (compiler *policyCompiler) authenticate(ctx context.Context, input map[string]any, output *request.PathProcessorOutput) (bool, error) {
+	if output.Authentication {
+		return compiler.evalFunction(ctx, "verify", input, output)
+	}
+	return true, nil
+}
+
+func (compiler *policyCompiler) authorize(ctx context.Context, input map[string]any, output *request.PathProcessorOutput) (bool, error) {
+	if output.Authorization {
+		return compiler.evalFunction(ctx, "allow", input, output)
+	}
+	return true, nil
 }
 
 func anyQuerySucceeded(queries *rego.PartialQueries) bool {
@@ -161,7 +160,7 @@ func anyQuerySucceeded(queries *rego.PartialQueries) bool {
 	return false
 }
 
-func (compiler policyCompiler) processPath(input map[string]interface{}) (*request.PathProcessorOutput, error) {
+func (compiler *policyCompiler) processPath(input map[string]any) (*request.PathProcessorOutput, error) {
 	inputURL, err := extractURLFromRequestBody(input)
 	if err != nil {
 		return nil, err
@@ -182,7 +181,7 @@ func (compiler policyCompiler) processPath(input map[string]interface{}) (*reque
 	return output, nil
 }
 
-func (compiler *policyCompiler) evalFunction(ctx context.Context, function string, input map[string]interface{}, output *request.PathProcessorOutput) (bool, error) {
+func (compiler *policyCompiler) evalFunction(ctx context.Context, function string, input map[string]any, output *request.PathProcessorOutput) (bool, error) {
 	// Compile mapped path
 	queries, err := compiler.opaCompile(ctx, input, function, output)
 	if err != nil {
@@ -202,7 +201,7 @@ func (compiler *policyCompiler) evalFunction(ctx context.Context, function strin
 	return (*compiler.config.Translator).Process(context.WithValue(ctx, constants.ContextKeyRegoPackage, output.Package), queries, output.Datastores)
 }
 
-func (compiler *policyCompiler) opaCompile(ctx context.Context, input map[string]interface{}, function string, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
+func (compiler *policyCompiler) opaCompile(ctx context.Context, input map[string]any, function string, output *request.PathProcessorOutput) (*rego.PartialQueries, error) {
 	// Extract parameters for partial evaluation
 	opts := compiler.extractOpaOpts(output)
 	extractedInput := extractOpaInput(output, input)
@@ -222,7 +221,7 @@ func (compiler *policyCompiler) opaCompile(ctx context.Context, input map[string
 	return nil, err
 }
 
-func extractMethodFromRequestBody(input map[string]interface{}) (string, error) {
+func extractMethodFromRequestBody(input map[string]any) (string, error) {
 	if inputMethod, ok := input["method"]; ok {
 		if m, ok := inputMethod.(string); ok {
 			return strings.ToUpper(m), nil
@@ -232,7 +231,7 @@ func extractMethodFromRequestBody(input map[string]interface{}) (string, error) 
 	return "", internalErrors.InvalidInput{Msg: "PolicyCompiler: Object 'input' of request body didn't contain a 'method'"}
 }
 
-func extractURLFromRequestBody(input map[string]interface{}) (*url.URL, error) {
+func extractURLFromRequestBody(input map[string]any) (*url.URL, error) {
 	sentPath, hasPath := input["path"]
 	if hasPath {
 		switch sentURL := sentPath.(type) {
@@ -242,7 +241,7 @@ func extractURLFromRequestBody(input map[string]interface{}) (*url.URL, error) {
 				return parsed, nil
 			}
 			return nil, internalErrors.InvalidInput{Cause: urlError, Msg: "PolicyCompiler: Field 'path' from request body is no valid URL"}
-		case []interface{}:
+		case []any:
 			stringedURL := make([]string, len(sentURL))
 			for i, v := range sentURL {
 				stringedURL[i] = fmt.Sprint(v)
@@ -270,8 +269,8 @@ func (compiler *policyCompiler) extractOpaOpts(output *request.PathProcessorOutp
 	}
 }
 
-func extractOpaInput(output *request.PathProcessorOutput, input map[string]interface{}) map[string]interface{} {
-	extracted := map[string]interface{}{
+func extractOpaInput(output *request.PathProcessorOutput, input map[string]any) map[string]any {
+	extracted := map[string]any{
 		"queries": output.Queries,
 	}
 	// Append custom fields to received body
@@ -298,13 +297,10 @@ func initDependencies(compConf *opa.PolicyCompilerConfig, appConf *configs.AppCo
 		return errors.Errorf("PolicyCompiler: Translator not configured!")
 	}
 	translator := *compConf.Translator
-	if err := translator.Configure(appConf, &compConf.AstTranslatorConfig); err != nil {
-		return err
-	}
-	return nil
+	return translator.Configure(appConf, &compConf.AstTranslatorConfig)
 }
 
-func startOPA(conf interface{}, regosPath string) (*OPA, error) {
+func startOPA(conf any, regosPath string) (*OPA, error) {
 	ctx := context.Background()
 	engine, err := NewOPA(ctx, regosPath, ConfigOPA(conf))
 	if err != nil {

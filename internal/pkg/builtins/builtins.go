@@ -5,6 +5,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// RegisterLoggingFunctions registers logging function as buildins for Rego
 func RegisterLoggingFunctions() {
 	rego.RegisterBuiltinDyn(logInfo, makeBuiltinLogFuncForLevel(log.InfoLevel))
 	rego.RegisterBuiltinDyn(logDebug, makeBuiltinLogFuncForLevel(log.DebugLevel))
@@ -13,6 +14,8 @@ func RegisterLoggingFunctions() {
 	rego.RegisterBuiltinDyn(logFatal, makeBuiltinLogFuncForLevel(log.FatalLevel))
 }
 
+// RegisterDatastoreFunction registers datastore specific functions as buildins.
+// These functions are configured as call-operands
 func RegisterDatastoreFunction(name string, argc int) {
 	rego.RegisterBuiltinDyn(makeBuiltinDatastoreFuncDecl(name, argc), makeBuiltinDatastoreFuncImpl())
 }
