@@ -124,38 +124,43 @@ func (mapper *pathMapper) generateMappings() error {
 	for _, dsMapping := range mapper.appConf.APIMappings {
 		pathPrefix := dsMapping.Prefix
 		for _, mapping := range dsMapping.Mappings {
-			endpointsRegex := "[(GET)|(POST)|(PUT)|(DELETE)|(PATCH)]"
-			endpointsCount := 0
-			if len(mapping.Methods) > 0 {
-				endpointsCount = len(mapping.Methods)
-				anchoredMappings := make([]string, endpointsCount)
-				for i, method := range mapping.Methods {
-					anchoredMappings[i] = fmt.Sprintf("(%s)", method)
-				}
-				endpointsRegex = strings.ToUpper(fmt.Sprintf("[%s]", strings.Join(anchoredMappings, "|")))
-			}
-
-			queriesRegex := ""
-			queriesCount := 0
-			if len(mapping.Queries) > 0 {
-				queriesRegex = fmt.Sprintf("?%s=.*?", strings.Join(mapping.Queries, "=.*?"))
-				queriesCount = len(mapping.Queries)
-			}
-
-			regex, err := regexp.Compile(fmt.Sprintf("%s-%s%s%s", endpointsRegex, pathPrefix, mapping.Path, queriesRegex))
+			regex, err := compileMappingRegex(pathPrefix, mapping)
 			if err != nil {
-				return errors.Wrap(err, "PathMapper: Error during parsing config")
+				return err
 			}
-
 			mapper.mappings = append(mapper.mappings, &compiledMapping{
 				matcher:        regex,
 				mapping:        mapping,
 				authentication: *dsMapping.Authentication,
 				authorization:  *dsMapping.Authorization,
-				importance:     len(pathPrefix) + len(mapping.Path) + queriesCount + endpointsCount,
+				importance:     len(pathPrefix) + len(mapping.Path) + len(mapping.Queries) + len(mapping.Methods),
 				datastores:     dsMapping.Datastores,
 			})
 		}
 	}
 	return nil
+}
+
+// compileMappingRegex compiles the regex used for the API Mapping based on the config, including Method and Query limitations
+func compileMappingRegex(pathPrefix string, mapping *configs.APIMapping) (*regexp.Regexp, error) {
+	endpointsRegex := "[(GET)|(POST)|(PUT)|(DELETE)|(PATCH)]"
+	if len(mapping.Methods) > 0 {
+		anchoredMappings := make([]string, len(mapping.Methods))
+		for i, method := range mapping.Methods {
+			anchoredMappings[i] = fmt.Sprintf("(%s)", method)
+		}
+		endpointsRegex = strings.ToUpper(fmt.Sprintf("[%s]", strings.Join(anchoredMappings, "|")))
+	}
+
+	queriesRegex := ""
+	if len(mapping.Queries) > 0 {
+		queriesRegex = fmt.Sprintf("?%s=.*?", strings.Join(mapping.Queries, "=.*?"))
+	}
+
+	regex, err := regexp.Compile(fmt.Sprintf("%s-%s%s%s", endpointsRegex, pathPrefix, mapping.Path, queriesRegex))
+	if err != nil {
+		return nil, errors.Wrap(err, "PathMapper: Error during parsing config")
+	}
+
+	return regex, nil
 }

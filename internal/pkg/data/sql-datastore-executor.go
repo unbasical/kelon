@@ -23,6 +23,7 @@ type sqlDatastoreExecutor struct {
 	appConf *configs.AppConfig
 }
 
+// NewSQLDatastoreExecutor instantiates a new DatastoreExecutor, which can be used for MySQL and PostgreSQL queries.
 func NewSQLDatastoreExecutor() data.DatastoreExecutor {
 	return &sqlDatastoreExecutor{
 		dbPool:  nil,
@@ -30,6 +31,7 @@ func NewSQLDatastoreExecutor() data.DatastoreExecutor {
 	}
 }
 
+// Configure -- see data.DatastoreExecutor
 func (ds *sqlDatastoreExecutor) Configure(appConf *configs.AppConfig, alias string) error {
 	// Validate config
 	conf, e := extractAndValidateDatastore(appConf, alias)
@@ -60,11 +62,12 @@ func (ds *sqlDatastoreExecutor) Configure(appConf *configs.AppConfig, alias stri
 	return nil
 }
 
+// applyMetadataConfigs sets optional connections meta configurations
 func (ds *sqlDatastoreExecutor) applyMetadataConfigs(conf *configs.Datastore, db *sql.DB) error {
 	if conf.Metadata == nil {
 		return nil
 	}
-	// Setup DatastoreTranslator
+	// max open connections
 	if maxOpenValue, ok := conf.Metadata[constants.MetaMaxOpenConnections]; ok {
 		maxOpen, err := strconv.Atoi(maxOpenValue)
 		if err != nil {
@@ -72,6 +75,7 @@ func (ds *sqlDatastoreExecutor) applyMetadataConfigs(conf *configs.Datastore, db
 		}
 		db.SetMaxOpenConns(maxOpen)
 	}
+	// max idle connections
 	if maxIdleValue, ok := conf.Metadata[constants.MetaMaxIdleConnections]; ok {
 		maxIdle, err := strconv.Atoi(maxIdleValue)
 		if err != nil {
@@ -79,6 +83,7 @@ func (ds *sqlDatastoreExecutor) applyMetadataConfigs(conf *configs.Datastore, db
 		}
 		db.SetMaxIdleConns(maxIdle)
 	}
+	// max connection lifetime
 	if maxLifetimeSecondsValue, ok := conf.Metadata[constants.MetaConnectionMaxLifetimeSeconds]; ok {
 		maxLifetimeSeconds, err := strconv.Atoi(maxLifetimeSecondsValue)
 		if err != nil {
@@ -89,12 +94,14 @@ func (ds *sqlDatastoreExecutor) applyMetadataConfigs(conf *configs.Datastore, db
 	return nil
 }
 
+// Execute -- see data.DatastoreExecutor
 func (ds *sqlDatastoreExecutor) Execute(_ context.Context, query data.DatastoreQuery) (bool, error) {
 	sqlStatement, ok := query.Statement.(string)
 	if !ok {
 		return false, errors.Errorf("Passed statement was not of type string but of type: %T", query.Statement)
 	}
 
+	// execute query against DB
 	rows, err := ds.dbPool.Query(sqlStatement, query.Parameters...)
 	if err != nil {
 		return false, errors.Wrap(err, "sqlDatastoreExecutor: Error while executing statement")
@@ -105,6 +112,7 @@ func (ds *sqlDatastoreExecutor) Execute(_ context.Context, query data.DatastoreQ
 		}
 	}()
 
+	// check result for non-zero result in count column
 	result := false
 	for rows.Next() {
 		var count int

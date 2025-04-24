@@ -33,7 +33,7 @@ func newAstProcessor(skipUnknown, validateMode bool) *astProcessor {
 	return processor
 }
 
-// See translate.AstTranslator.
+// Process --  See translate.AstTranslator.
 func (p *astProcessor) Process(_ context.Context, query ast.Body) (data.Node, error) {
 	p.link = make(map[string]any)
 	p.conjunctions = []data.Node{}
@@ -76,6 +76,8 @@ func toDataLink(linkedEntities map[string]any) data.Link {
 	return data.Link{Entities: entities}
 }
 
+// Visit tries to translate the node.
+// If the method returns true, the visitor will not walk over AST nodes under v.
 func (p *astProcessor) Visit(v any) bool {
 	switch node := v.(type) {
 	case *ast.Body:

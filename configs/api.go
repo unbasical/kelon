@@ -33,6 +33,7 @@ type APIMapping struct {
 }
 
 // Validate checks if the provided DatastoreAPIMapping config does not contain invalid options
+// nolint:revive
 func (m *DatastoreAPIMapping) Validate(schema DatastoreSchemas) error {
 	duplicatesCache := make(map[string]struct {
 		path   string

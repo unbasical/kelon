@@ -38,38 +38,49 @@ func (processor *astPreprocessor) Process(_ context.Context, queries []ast.Body,
 	processor.datastorePool = datastores
 
 	for i, q := range queries {
-		logging.LogForComponent("astPreprocessor").Debugf("================= PREPROCESS QUERY: %+v", q)
-		processor.tableNames = make(map[string]string)
-		processor.tableVars = make(map[string][]*ast.Term)
-		processor.localVars = make(map[string]*ast.Term)
-		processor.expectedDatastore = ""
-
-		var transformedExprs []*ast.Expr
-		for _, expr := range q {
-			// Only transform operands
-			terms := []*ast.Term{ast.NewTerm(expr.Operator())}
-			for _, o := range expr.Operands() {
-				trans, err := processor.transformRefs(o)
-				if err != nil {
-					return nil, errors.Wrapf(err, "Preprocessor: Error while preprocessing Operator %T -> [%+v] of expression [%+v]", o, o, expr)
-				}
-				terms = append(terms, ast.NewTerm(trans.(ast.Value)))
-			}
-
-			terms, err := processor.substituteVars(terms)
-			if err != nil {
-				return []preprocessedQuery{}, errors.Wrapf(err, "Preprocessor: Error while preprocessing Expression [%+v]", expr)
-			}
-
-			if terms != nil {
-				transformedExprs = append(transformedExprs, ast.NewExpr(terms))
-			}
+		transformed, err := processor.transformQuery(q)
+		if err != nil {
+			return nil, err
 		}
-		transformedQueries[i] = preprocessedQuery{query: ast.NewBody(transformedExprs...), datastore: processor.expectedDatastore}
+		transformedQueries[i] = transformed
 	}
 	return transformedQueries, nil
 }
 
+// transformQuery transforms a single query
+func (processor *astPreprocessor) transformQuery(q ast.Body) (preprocessedQuery, error) {
+	logging.LogForComponent("astPreprocessor").Debugf("================= PREPROCESS QUERY: %+v", q)
+	processor.tableNames = make(map[string]string)
+	processor.tableVars = make(map[string][]*ast.Term)
+	processor.localVars = make(map[string]*ast.Term)
+	processor.expectedDatastore = ""
+
+	var transformedExprs []*ast.Expr
+	for _, expr := range q {
+		// Only transform operands
+		terms := []*ast.Term{ast.NewTerm(expr.Operator())}
+		for _, o := range expr.Operands() {
+			trans, err := processor.transformRefs(o)
+			if err != nil {
+				return preprocessedQuery{}, errors.Wrapf(err, "Preprocessor: Error while preprocessing Operator %T -> [%+v] of expression [%+v]", o, o, expr)
+			}
+			terms = append(terms, ast.NewTerm(trans.(ast.Value)))
+		}
+
+		terms, err := processor.substituteVars(terms)
+		if err != nil {
+			return preprocessedQuery{}, errors.Wrapf(err, "Preprocessor: Error while preprocessing Expression [%+v]", expr)
+		}
+
+		if terms != nil {
+			transformedExprs = append(transformedExprs, ast.NewExpr(terms))
+		}
+	}
+
+	return preprocessedQuery{query: ast.NewBody(transformedExprs...), datastore: processor.expectedDatastore}, nil
+}
+
+// nolint:revive
 func (processor *astPreprocessor) transformRefs(value any) (any, error) {
 	trans := func(node ast.Ref) (ast.Value, error) {
 		// Skip scalars (TODO: check there is a more elegant way to do this)

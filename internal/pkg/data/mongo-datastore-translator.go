@@ -93,7 +93,7 @@ func (ds *mongoDatastoreTranslator) Execute(_ context.Context, query data.Node) 
 	logging.LogForComponent("mongoDatastoreTranslator").Debugf("TRANSLATING QUERY: ==================%+v==================", query.String())
 
 	// Translate to map: collection -> filter
-	t := newTranslator()
+	t := newMongoTranslator()
 	statement, err := t.Translate(query, ds.entityPaths, ds.callOps)
 	if err != nil {
 		return data.DatastoreQuery{}, err
@@ -110,7 +110,7 @@ type colFilter struct {
 	filter     string
 }
 
-type translator struct {
+type mongoTranslator struct {
 	result              map[string]string
 	filtersByCollection map[string][]string
 	filters             []colFilter
@@ -121,14 +121,14 @@ type translator struct {
 	callOps             callOperands
 }
 
-func newTranslator() *translator {
-	return &translator{
+func newMongoTranslator() *mongoTranslator {
+	return &mongoTranslator{
 		result:              make(map[string]string),
 		filtersByCollection: make(map[string][]string),
 	}
 }
 
-func (t *translator) Translate(input data.Node, entityPaths entityPaths, callOps callOperands) (map[string]string, error) {
+func (t *mongoTranslator) Translate(input data.Node, entityPaths entityPaths, callOps callOperands) (map[string]string, error) {
 	t.entityPaths = entityPaths
 	t.callOps = callOps
 
@@ -163,7 +163,7 @@ func (t *translator) Translate(input data.Node, entityPaths entityPaths, callOps
 	return t.result, err
 }
 
-func (t *translator) walkUnion() error {
+func (t *mongoTranslator) walkUnion() error {
 	// Sort collection filters by collection
 	for _, colF := range t.filters {
 		coll, exists := t.filtersByCollection[colF.collection]
@@ -211,7 +211,7 @@ func (t *translator) walkUnion() error {
 	return nil
 }
 
-func (t *translator) walkQuery() error {
+func (t *mongoTranslator) walkQuery() error {
 	// Expected stack: entities-top -> [singleEntity] relations-top -> [singleCondition]
 	var (
 		entity    string
@@ -243,17 +243,17 @@ func (t *translator) walkQuery() error {
 }
 
 // walkLink resets entities because mongo does not join, but can only access directly nested elements!
-func (t *translator) walkLink() error {
+func (t *mongoTranslator) walkLink() error {
 	t.entities.Clear()
 	return nil
 }
 
 // walkCondition simply skips the node
-func (t *translator) walkCondition() error {
+func (t *mongoTranslator) walkCondition() error {
 	return nil
 }
 
-func (t *translator) walkConjunction() error {
+func (t *mongoTranslator) walkConjunction() error {
 	// Expected stack: relations-top -> [conjunctions ...]
 	if !t.relations.IsEmpty() {
 		rels := t.relations.Values()
@@ -264,7 +264,7 @@ func (t *translator) walkConjunction() error {
 	return nil
 }
 
-func (t *translator) walkAttribute(a data.Attribute) error {
+func (t *mongoTranslator) walkAttribute(a data.Attribute) error {
 	// Expected stack:  top -> [entity, ...]
 	var entity string
 	entity, err := t.entities.Pop()
@@ -275,7 +275,7 @@ func (t *translator) walkAttribute(a data.Attribute) error {
 	return util.AppendToTop(&t.operands, fmt.Sprintf("\"{{%s.}}%s\"", entity, a.Name))
 }
 
-func (t *translator) walkCall() error {
+func (t *mongoTranslator) walkCall() error {
 	// Expected stack:  top -> [args..., call-op]
 	var ops []string
 	ops, err := t.operands.Pop()
@@ -323,17 +323,17 @@ func (t *translator) walkCall() error {
 	return nil
 }
 
-func (t *translator) walkOperator(o data.Operator) error {
+func (t *mongoTranslator) walkOperator(o data.Operator) error {
 	t.operands.Push([]string{})
 	return util.AppendToTop(&t.operands, o.String())
 }
 
-func (t *translator) walkEntity(e data.Entity) error {
+func (t *mongoTranslator) walkEntity(e data.Entity) error {
 	t.entities.Push(e.String())
 	return nil
 }
 
-func (t *translator) walkConstant(c data.Constant) error {
+func (t *mongoTranslator) walkConstant(c data.Constant) error {
 	if c.IsNumeric {
 		return util.AppendToTop(&t.operands, c.String())
 	}

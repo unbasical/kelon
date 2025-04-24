@@ -21,7 +21,7 @@ type astTranslator struct {
 	configured bool
 }
 
-// Create a new instance of the default translate.AstTranslator.
+// NewAstTranslator creates a new instance of the default translate.AstTranslator.
 func NewAstTranslator() translate.AstTranslator {
 	return &astTranslator{
 		appConf:    nil,
@@ -30,7 +30,7 @@ func NewAstTranslator() translate.AstTranslator {
 	}
 }
 
-// See translate.AstTranslator.
+// Configure - see translate.AstTranslator.
 func (trans *astTranslator) Configure(appConf *configs.AppConfig, transConf *translate.AstTranslatorConfig) error {
 	// Exit if already configured
 	if trans.configured {

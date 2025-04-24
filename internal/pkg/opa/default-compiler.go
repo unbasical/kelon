@@ -120,30 +120,29 @@ func (compiler *policyCompiler) Execute(ctx context.Context, requestBody map[str
 		return nil, err
 	}
 
-	var verify = true
-	var allow = true
-
 	// Authentication
-	if output.Authentication {
-		verify, err = compiler.evalFunction(ctx, "verify", input, output)
-		if err != nil {
-			return &opa.Decision{Verify: false, Allow: false, Package: output.Package, Method: method, Path: path.String()}, err
-		}
+	verify, err := compiler.authenticate(ctx, input, output)
+	if err != nil || !verify {
+		return &opa.Decision{Verify: verify, Allow: false, Package: output.Package, Method: method, Path: path.String()}, err
 	}
 
 	// Authorization
-	if verify {
-		if output.Authorization {
-			allow, err = compiler.evalFunction(ctx, "allow", input, output)
-			if err != nil {
-				return &opa.Decision{Verify: true, Allow: false, Package: output.Package, Method: method, Path: path.String()}, err
-			}
-		}
-	} else {
-		allow = false
-	}
+	allow, err := compiler.authorize(ctx, input, output)
+	return &opa.Decision{Verify: verify, Allow: allow, Package: output.Package, Method: method, Path: path.String()}, err
+}
 
-	return &opa.Decision{Verify: verify, Allow: allow, Package: output.Package, Method: method, Path: path.String()}, nil
+func (compiler *policyCompiler) authenticate(ctx context.Context, input map[string]any, output *request.PathProcessorOutput) (bool, error) {
+	if output.Authentication {
+		return compiler.evalFunction(ctx, "verify", input, output)
+	}
+	return true, nil
+}
+
+func (compiler *policyCompiler) authorize(ctx context.Context, input map[string]any, output *request.PathProcessorOutput) (bool, error) {
+	if output.Authorization {
+		return compiler.evalFunction(ctx, "allow", input, output)
+	}
+	return true, nil
 }
 
 func anyQuerySucceeded(queries *rego.PartialQueries) bool {

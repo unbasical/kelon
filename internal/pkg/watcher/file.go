@@ -42,6 +42,7 @@ func (w *fileConfigWatcher) watchForChanges() {
 }
 
 // watchRoutine reacts to file change events and triggers observer
+// nolint:revive
 func (w *fileConfigWatcher) watchRoutine(fileWatcher *fsnotify.Watcher) {
 	for {
 		select {
