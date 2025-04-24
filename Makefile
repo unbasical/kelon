@@ -12,12 +12,12 @@ dep: ## Get the dependencies
 
 lint-dep: ## Install linting dependencies
 	@echo "========== Performing lint-dep stage"
-	@sh -c "(cd /tmp && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)"
+	@sh -c "(cd /tmp && go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest)"
 
 lint: lint-dep ## Lint Golang files
-	@test -f .golangci.yaml || { echo ".golangci.yaml file is missing"; exit 1; }
+	@test -f .golangci.yml || { echo ".golangci.yml file is missing"; exit 1; }
 	@echo "========== Performing lint stage"
-	@$(shell go env GOPATH)/bin/golangci-lint -c .golangci.yaml run
+	@$(shell go env GOPATH)/bin/golangci-lint -c .golangci.yml run
 
 vet: ## Run go vet
 	@go vet ${PKG_LIST}

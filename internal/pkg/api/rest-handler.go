@@ -90,7 +90,7 @@ func (proxy *restProxy) handleV1DataPost(w http.ResponseWriter, r *http.Request)
 
 	ctx := r.Context()
 
-	// Parse body of request
+	// Parses body of request
 	requestBody, bodyErr := proxy.parseRequestBody(r)
 	if bodyErr != nil {
 		proxy.handleError(ctx, w, wrapErrorInLoggingContext(bodyErr))
@@ -234,7 +234,7 @@ func (proxy *restProxy) handleV1DataDelete(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Write result
+	// Writes result
 	logging.LogForComponent("restProxy").Infof("Deleted Data at path: %s", path.String())
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -394,7 +394,7 @@ func (proxy *restProxy) handleV1PolicyPut(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Write result
+	// Writes result
 	logging.LogForComponent("restProxy").Infof("Updated Policy at path: %s", id)
 	writeJSON(w, http.StatusOK, make(map[string]string))
 }
@@ -454,7 +454,7 @@ func (proxy *restProxy) handleV1PolicyDelete(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Write result
+	// Writes result
 	logging.LogForComponent("restProxy").Infof("Deleted Policy at path: %s", id)
 	writeJSON(w, http.StatusOK, make(map[string]string))
 }
@@ -537,7 +537,7 @@ func (proxy *restProxy) prepareV1PatchSlice(root string, ops []types.PatchV1) (r
 			return nil, types.BadPatchOperationErr(op.Op)
 		}
 
-		// Construct patch path.
+		// Constructs patch path.
 		path := strings.Trim(op.Path, "/")
 		if path != "" {
 			if root == "/" {
@@ -593,7 +593,7 @@ func (proxy *restProxy) checkPathConflictsCommitAndRespond(ctx context.Context, 
 		proxy.abortWithInternalServerError(ctx, engine, txn, w, err)
 		return
 	}
-	// Write result
+	// Writes result
 	logging.LogForComponent("restProxy").Infof("Created Data at path: %s", path.String())
 	w.WriteHeader(http.StatusNoContent)
 }

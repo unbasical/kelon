@@ -28,10 +28,10 @@ jobs:
         uses: actions/checkout@v3
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v7
         with:
           version: v1.64
-          args: --config=".golangci.yaml" --timeout=5m
+          args: --config=".golangci.yml" --timeout=5m
 
   test:
     name: Test & Scan

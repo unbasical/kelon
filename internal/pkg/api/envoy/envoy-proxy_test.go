@@ -88,8 +88,7 @@ func TestCheckAllow(t *testing.T) {
 	})
 
 	//nolint:gosimple,gocritic
-	var compiler opa.PolicyCompiler
-	compiler = mockCompiler{
+	var compiler opa.PolicyCompiler = mockCompiler{
 		failOnConfigure: false,
 		failOnProcess:   false,
 		decision:        true,

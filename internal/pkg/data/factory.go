@@ -21,12 +21,12 @@ func MakeDatastores(config *configs.ExternalConfig, dsLoggingWriter io.Writer, l
 func makeExecutingDatastores(config *configs.ExternalConfig) map[string]*data.Datastore {
 	result := make(map[string]*data.Datastore)
 	for dsName, ds := range config.Datastores {
-		switch {
-		case ds.Type == data.TypeMysql || ds.Type == data.TypePostgres:
+		switch ds.Type {
+		case data.TypeMysql, data.TypePostgres:
 			newDs := NewDatastore(NewSQLDatastoreTranslator(), NewSQLDatastoreExecutor())
 			logging.LogForComponent("factory").Infof("Init SqlDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
-		case ds.Type == data.TypeMongo:
+		case data.TypeMongo:
 			newDs := NewDatastore(NewMongoDatastoreTranslator(), NewMongoDatastoreExecuter())
 			logging.LogForComponent("factory").Infof("Init MongoDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
@@ -41,12 +41,12 @@ func makeExecutingDatastores(config *configs.ExternalConfig) map[string]*data.Da
 func makeLoggingDatastores(config *configs.ExternalConfig, dsLoggingWriter io.Writer) map[string]*data.Datastore {
 	result := make(map[string]*data.Datastore)
 	for dsName, ds := range config.Datastores {
-		switch {
-		case ds.Type == data.TypeMysql || ds.Type == data.TypePostgres:
+		switch ds.Type {
+		case data.TypeMysql, data.TypePostgres:
 			newDs := NewDatastore(NewSQLDatastoreTranslator(), NewLoggingDatastoreExecutor(dsLoggingWriter))
 			logging.LogForComponent("factory").Infof("Init DryRun SqlDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
-		case ds.Type == data.TypeMongo:
+		case data.TypeMongo:
 			newDs := NewDatastore(NewMongoDatastoreTranslator(), NewLoggingDatastoreExecutor(dsLoggingWriter))
 			logging.LogForComponent("factory").Infof("Init DryRun MongoDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
