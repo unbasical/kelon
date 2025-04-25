@@ -50,7 +50,7 @@ kos:
     working_dir: .
     base_image: cgr.dev/chainguard/static
     repositories:
-      - crmdrcloudshared001.azurecr.io
+      - kelonio/kelon
     platforms:
       - linux/amd64
       - linux/arm64
