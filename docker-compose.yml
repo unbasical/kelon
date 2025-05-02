@@ -1,7 +1,7 @@
-version: '3'
 services:
   kelon:
     build: .
+    command: run
     restart: always
     networks:
       - compose_network
