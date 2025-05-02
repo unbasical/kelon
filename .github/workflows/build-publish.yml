@@ -77,22 +77,26 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v3
 
-      - name: Login to DockerHub
-        run: docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build latest container image
-        run: docker build -t kelonio/kelon:${{ github.sha }} -t kelonio/kelon:latest .
+        run: docker build -t ghcr.io/${{ github.repository }}:${{ github.sha }} -t ghcr.io/${{ github.repository }}:latest .
         if: ${{ endsWith(github.ref, 'develop') }}
 
       - name: Build stable container image
-        run: docker build -t kelonio/kelon:${{ github.sha }} -t kelonio/kelon:stable .
+        run: docker build -t ghcr.io/${{ github.repository }}:${{ github.sha }} -t ghcr.io/${{ github.repository }}:stable .
         if: ${{ endsWith(github.ref, 'master') }}
 
       - name: Run Trivy vulnerability scanner
         # if: ${{ !github.base_ref }}
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'kelonio/kelon:${{ github.sha }}'
+          image-ref: 'ghcr.io/${{ github.repository }}:${{ github.sha }}'
           format: 'template'
           template: '@/contrib/sarif.tpl'
           output: 'trivy-results.sarif'
@@ -105,9 +109,9 @@ jobs:
           sarif_file: 'trivy-results.sarif'
 
       - name: Push latest images to DockerHub
-        run: echo kelonio/kelon:${{ github.sha }} kelonio/kelon:latest | xargs -n 1 docker push
+        run: echo ghcr.io/${{ github.repository }}:${{ github.sha }} ghcr.io/${{ github.repository }}:latest | xargs -n 1 docker push
         if: ${{ endsWith(github.ref, 'develop') }}
 
       - name: Push stable images to DockerHub
-        run: echo kelonio/kelon:${{ github.sha }} kelonio/kelon:stable | xargs -n 1 docker push
+        run: echo ghcr.io/${{ github.repository }}:${{ github.sha }} ghcr.io/${{ github.repository }}:stable | xargs -n 1 docker push
         if: ${{ endsWith(github.ref, 'master') }}
