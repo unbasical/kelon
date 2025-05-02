@@ -50,7 +50,7 @@ kos:
     working_dir: .
     base_image: cgr.dev/chainguard/static
     repositories:
-      - kelonio/kelon
+      - ghcr.io/unbasical/kelon
     platforms:
       - linux/amd64
       - linux/arm64
