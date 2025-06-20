@@ -7,7 +7,7 @@ package translate
 import (
 	"context"
 
-	"github.com/open-policy-agent/opa/rego"
+	"github.com/open-policy-agent/opa/v1/rego"
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/pkg/data"
 )

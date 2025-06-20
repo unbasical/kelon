@@ -3,11 +3,11 @@ package builtins
 import (
 	"strings"
 
-	"github.com/open-policy-agent/opa/ast"
-	"github.com/open-policy-agent/opa/rego"
-	"github.com/open-policy-agent/opa/topdown"
-	"github.com/open-policy-agent/opa/topdown/builtins"
-	"github.com/open-policy-agent/opa/types"
+	"github.com/open-policy-agent/opa/v1/ast"
+	"github.com/open-policy-agent/opa/v1/rego"
+	"github.com/open-policy-agent/opa/v1/topdown"
+	"github.com/open-policy-agent/opa/v1/topdown/builtins"
+	"github.com/open-policy-agent/opa/v1/types"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/unbasical/kelon/pkg/constants/logging"

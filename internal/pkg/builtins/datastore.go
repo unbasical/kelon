@@ -1,9 +1,9 @@
 package builtins
 
 import (
-	"github.com/open-policy-agent/opa/ast"
-	"github.com/open-policy-agent/opa/rego"
-	"github.com/open-policy-agent/opa/types"
+	"github.com/open-policy-agent/opa/v1/ast"
+	"github.com/open-policy-agent/opa/v1/rego"
+	"github.com/open-policy-agent/opa/v1/types"
 )
 
 // makeBuiltinDatastoreFuncImpl creates a dummy buildin rego function for the call-operand datastore function

@@ -1,7 +1,7 @@
 package builtins
 
 import (
-	"github.com/open-policy-agent/opa/rego"
+	"github.com/open-policy-agent/opa/v1/rego"
 	log "github.com/sirupsen/logrus"
 )
 

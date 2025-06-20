@@ -99,8 +99,8 @@ func (proxy *envoyProxy) Start() error {
 	}
 
 	// Init grpc server
-	interceptor := proxy.makeServerInterceptor()
-	proxy.envoy.server = grpc.NewServer(interceptor)
+	options := proxy.makeServerInterceptor()
+	proxy.envoy.server = grpc.NewServer(options...)
 	// Register Authorization Server
 	extauthz.RegisterAuthorizationServer(proxy.envoy.server, proxy.envoy)
 
@@ -241,16 +241,16 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *extauthz.Check
 	return resp, nil
 }
 
-func (proxy *envoyProxy) makeServerInterceptor() grpc.ServerOption {
-	var interceptors []grpc.UnaryServerInterceptor
+func (proxy *envoyProxy) makeServerInterceptor() []grpc.ServerOption {
+	var options []grpc.ServerOption
 
 	if proxy.appConf.MetricsProvider != nil {
-		interceptors = append(interceptors, proxy.appConf.MetricsProvider.GetGrpcServerInterceptor())
+		options = append(options, grpc.StatsHandler(proxy.appConf.MetricsProvider.GetGrpcInstrumentationHandler()))
 	}
 
 	if proxy.appConf.TraceProvider != nil {
-		interceptors = append(interceptors, proxy.appConf.TraceProvider.GetGrpcServerInterceptor())
+		options = append(options, grpc.StatsHandler(proxy.appConf.TraceProvider.GetGrpcInstrumentationHandler()))
 	}
 
-	return grpc.ChainUnaryInterceptor(interceptors...)
+	return options
 }

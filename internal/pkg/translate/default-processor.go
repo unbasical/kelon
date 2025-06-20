@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/open-policy-agent/opa/ast"
+	"github.com/open-policy-agent/opa/v1/ast"
 	"github.com/unbasical/kelon/internal/pkg/util"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/data"

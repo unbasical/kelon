@@ -1,10 +1,10 @@
 package applications.mongo
 
-verify {
+verify if {
 	input.path == ["api", "mongo", "apps", "1"]
 }
 
-verify {
+verify if {
 	some user
 
 	data.mongo.users[user].name == input.user
@@ -16,12 +16,12 @@ allow := false
 
 # Path: GET /api/mongo/apps/:app_id
 # Users with right 'OWNER' on app can access it always
-allow {
-	some app_id, app, right, user
+allow if {
 	input.method == "GET"
 	input.path = ["api", "mongo", "apps", app_id]
 
 	# This query fires against collection -> apps
+	some app, right, user
 	data.mongo.apps[app].id == app_id
 
 	# Nest elements
@@ -34,52 +34,47 @@ allow {
 
 # Path: GET /api/mongo/apps/:app_id
 # All apps with 5 stars are public
-allow {
-	some app, app_id
+allow if {
 	input.method == "GET"
 	input.path = ["api", "mongo", "apps", app_id]
 
-	# This query fires against collection -> apps
+	# This query fires against collection -> app
+	some app
 	data.mongo.apps[app].stars == 5
 	app.id == app_id
 }
 
 # Path: GET /api/mongo/apps/:app_id
 # The first app is public
-allow {
+allow if {
 	input.method == "GET"
 	input.path == ["api", "mongo", "apps", "1"]
 }
 
 # Path: GET <any>
 # All users that are a friends of Kevin are allowed see everything
-allow {
-	some user
+allow if {
 	input.method == "GET"
 
 	# This query fires against collection -> users
+	some user
 	data.mongo.users[user].name == input.user
 	old_or_kevin(user.age, user.friend)
 }
 
 # Path: GET /api/mongo/apps/:app_id
 # Test for count function
-allow {
-	some app
+allow if {
 	input.method == "GET"
 	input.path = ["api", "mongo", "apps", "4"]
 
 	# Get all apps with 5 starts
+	some app
 	data.mongo.apps[app].stars > 4
 
 	# If there is any one return true
 	count(app) > 0
 }
 
-old_or_kevin(age, friend) {
-	age == 42
-}
-
-old_or_kevin(age, friend) {
-	friend == "Kevin"
-}
+old_or_kevin(42, friend)
+old_or_kevin(age, "Kevin")

@@ -7,7 +7,7 @@ package opa
 import (
 	"context"
 
-	"github.com/open-policy-agent/opa/plugins"
+	"github.com/open-policy-agent/opa/v1/plugins"
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/pkg/request"
 	"github.com/unbasical/kelon/pkg/translate"
