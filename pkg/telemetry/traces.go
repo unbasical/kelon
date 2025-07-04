@@ -19,7 +19,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc"
+	"google.golang.org/grpc/stats"
 )
 
 type traces struct {
@@ -67,9 +67,9 @@ func (t *traces) WrapHTTPHandler(_ context.Context, handler http.Handler, spanNa
 	return otelhttp.NewHandler(handler, spanName)
 }
 
-// GetGrpcServerInterceptor - see telemetry.TraceProvider
-func (t *traces) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
-	return otelgrpc.UnaryServerInterceptor()
+// GetGrpcInstrumentationHandler - see telemetry.TraceProvider
+func (t *traces) GetGrpcInstrumentationHandler() stats.Handler {
+	return otelgrpc.NewServerHandler()
 }
 
 // ExecuteWithRootSpan - see telemetry.TraceProvider

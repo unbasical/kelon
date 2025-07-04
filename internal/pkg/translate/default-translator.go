@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/open-policy-agent/opa/rego"
+	"github.com/open-policy-agent/opa/v1/rego"
 	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/pkg/constants"

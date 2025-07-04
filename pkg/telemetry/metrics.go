@@ -1,10 +1,7 @@
 package telemetry
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
-	"encoding/gob"
 	"net/http"
 	"regexp"
 	"strings"
@@ -15,6 +12,7 @@ import (
 	"github.com/unbasical/kelon/common"
 	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	otelrun "go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -23,7 +21,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-	"google.golang.org/grpc"
+	"google.golang.org/grpc/stats"
 )
 
 type metrics struct {
@@ -195,44 +193,9 @@ func (m *metrics) Shutdown(ctx context.Context) {
 	_ = m.provider.Shutdown(ctx)
 }
 
-// GetGrpcServerInterceptor Interceptor to gather rpc metrics
-func (m *metrics) GetGrpcServerInterceptor() grpc.UnaryServerInterceptor {
-	fallback := func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-		return handler(ctx, req)
-	}
-
-	requestDuration, ok := m.instruments[constants.InstrumentRPCRequestDuration].(metric.Int64Histogram)
-	if !ok {
-		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentRPCRequestDuration.String())
-		return fallback
-	}
-
-	requestSize, ok := m.instruments[constants.InstrumentRPCRequestSize].(metric.Int64Histogram)
-	if !ok {
-		logging.LogForComponent("metrics").Errorf(ErrorInstrumentNotFound, constants.InstrumentRPCRequestSize.String())
-		return fallback
-	}
-
-	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-		reqSize, err := approximateGrpcRequestSize(req)
-		if err != nil {
-			logging.LogForComponent("GetGrpcServerInterceptor").Error("Error determining the request size", err)
-		}
-
-		attrs := []attribute.KeyValue{
-			attribute.Key(constants.LabelGrpcService).String(info.FullMethod),
-		}
-
-		now := time.Now()
-		resp, err := handler(ctx, req)
-
-		duration := time.Since(now).Milliseconds()
-
-		requestDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
-		requestSize.Record(ctx, int64(reqSize))
-
-		return resp, err
-	}
+// GetGrpcInstrumentationHandler - see telemetry.TraceProvider
+func (m *metrics) GetGrpcInstrumentationHandler() stats.Handler {
+	return otelgrpc.NewServerHandler()
 }
 
 // Initialize Instruments according to with OpenTelemetry Spec
@@ -432,15 +395,4 @@ func approximateHTTPRequestSize(r *http.Request) int {
 		s += int(r.ContentLength)
 	}
 	return s
-}
-
-func approximateGrpcRequestSize(req any) (int, error) {
-	var buff bytes.Buffer
-	enc := gob.NewEncoder(&buff)
-	err := enc.Encode(req)
-	if err != nil {
-		logging.LogForComponent("metrics").Errorf("encode error: %+v", err)
-		return 0, err
-	}
-	return binary.Size(buff.Bytes()), nil
 }

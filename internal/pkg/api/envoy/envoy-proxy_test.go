@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	extauthz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
-	"github.com/open-policy-agent/opa/plugins"
-	"github.com/open-policy-agent/opa/util"
+	"github.com/open-policy-agent/opa/v1/plugins"
+	"github.com/open-policy-agent/opa/v1/util"
 	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/pkg/api"

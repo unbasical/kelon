@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/open-policy-agent/opa/plugins"
-	"github.com/open-policy-agent/opa/rego"
+	"github.com/open-policy-agent/opa/v1/plugins"
+	"github.com/open-policy-agent/opa/v1/rego"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/unbasical/kelon/configs"

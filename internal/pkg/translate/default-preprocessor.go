@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/open-policy-agent/opa/ast"
+	"github.com/open-policy-agent/opa/v1/ast"
 	"github.com/pkg/errors"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 )
