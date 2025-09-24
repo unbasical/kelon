@@ -72,8 +72,9 @@ func (processor *urlProcessor) Process(input any) (*request.PathProcessorOutput,
 }
 
 func (processor *urlProcessor) handleInput(input *URLProcessorInput) (*request.PathProcessorOutput, error) {
-	// Parse base path
-	path := strings.Fields(strings.ReplaceAll(input.URL.Path, "/", " "))
+	// Parse base pathSegments
+	pathSegments := strings.Split(strings.Trim(input.URL.Path, "/"), "/")
+
 	// Process query parameters
 	queries := make(map[string]any)
 	queryParams := input.URL.Query()
@@ -81,9 +82,9 @@ func (processor *urlProcessor) handleInput(input *URLProcessorInput) (*request.P
 		// Build queries which are passed to OPA as part of the input object
 		queries[queryName] = queryParams.Get(queryName)
 	}
-	logging.LogForComponent("urlProcessor").Debugf("PathProcessor: Parsed path %+v with queries %+v", path, queries)
+	logging.LogForComponent("urlProcessor").Debugf("PathProcessor: Parsed path %+v with queries %+v", pathSegments, queries)
 
-	// Map path and return
+	// Map pathSegments and return
 	out, err := (*processor.config.PathMapper).Map(&pathMapperInput{
 		Method: input.Method,
 		URL:    input.URL,
@@ -96,7 +97,7 @@ func (processor *urlProcessor) handleInput(input *URLProcessorInput) (*request.P
 		Package:        out.Package,
 		Authentication: out.Authentication,
 		Authorization:  out.Authorization,
-		Path:           path,
+		Path:           pathSegments,
 		Queries:        queries,
 	}
 	return &output, nil
