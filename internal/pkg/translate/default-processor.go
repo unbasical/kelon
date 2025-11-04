@@ -33,7 +33,7 @@ func newAstProcessor(skipUnknown, validateMode bool) *astProcessor {
 	return processor
 }
 
-// Process --  See translate.AstTranslator.
+// Process -- See translate.AstTranslator.
 func (p *astProcessor) Process(_ context.Context, query ast.Body) (data.Node, error) {
 	p.link = make(map[string]any)
 	p.conjunctions = []data.Node{}
@@ -162,13 +162,13 @@ func (p *astProcessor) translateTerm(node *ast.Term) bool {
 		util.AppendToTopChecked("astProcessor", &p.operands, makeConstant(v.String()))
 		return true
 	case ast.Ref:
-		if len(v) == 3 {
+		if len(v) >= 3 {
 			entity := data.Entity{Value: normalizeString(v[1].Value.String())}
 			p.entities[entity.Value] = nil
 			if p.fromEntity == nil {
 				p.fromEntity = &entity
 			}
-			attribute := data.Attribute{Entity: entity, Name: normalizeString(v[2].Value.String())}
+			attribute := data.Attribute{Entity: entity, Name: normalizeString(v[len(v)-1].Value.String())}
 			util.AppendToTopChecked("astProcessor", &p.operands, data.Node(attribute))
 		}
 		return true

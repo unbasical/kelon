@@ -39,9 +39,9 @@ allow if {
 	input.path = ["api", "mongo", "apps", app_id]
 
 	# This query fires against collection -> app
-	some app
-	data.mongo.apps[app].stars == 5
-	app.id == app_id
+	some a in data.mongo.apps[_]
+	a.id == app_id
+	a.stars == 5
 }
 
 # Path: GET /api/mongo/apps/:app_id

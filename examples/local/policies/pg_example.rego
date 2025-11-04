@@ -35,9 +35,9 @@ allow if {
 	input.method == "GET"
 	input.path = ["api", "pg", "apps", app_id]
 
-	some app
-	data.pg.pg_apps[app].id == app_id
-	absolute(app.stars) == 5
+	some a in data.pg.pg_apps[_]
+	a.id == app_id
+	absolute(a.stars) == 5
 }
 
 # Path: GET /api/pg/apps/:app_id
