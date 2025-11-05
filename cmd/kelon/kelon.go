@@ -71,6 +71,8 @@ func main() {
 	setLogFormat()
 	// Set log level
 	setLogLevel()
+	// Log startup log with version
+	logging.LogForComponent("main").Infof("Kelon starting with version %s...", common.Version)
 
 	config := core.KelonConfiguration{
 		ConfigPath:               configurationPath,

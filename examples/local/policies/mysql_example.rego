@@ -35,8 +35,8 @@ allow if {
 	input.method == "GET"
 	input.path = ["api", "mysql", "apps", app_id]
 
-	some app
-	data.mysql.apps[app].id == app_id
+	some app in data.mysql.apps[_]
+	app.id == app_id
 	absolute(app.stars) == 5
 }
 
