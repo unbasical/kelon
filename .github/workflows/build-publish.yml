@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - master
+      - main
       - develop
     paths-ignore:
       - '**/*.md'
@@ -90,7 +90,7 @@ jobs:
 
       - name: Build stable container image
         run: docker build -t ghcr.io/${{ github.repository }}:${{ github.sha }} -t ghcr.io/${{ github.repository }}:stable .
-        if: ${{ endsWith(github.ref, 'master') }}
+        if: ${{ endsWith(github.ref, 'main') }}
 
       - name: Run Trivy vulnerability scanner
         # if: ${{ !github.base_ref }}
@@ -114,4 +114,4 @@ jobs:
 
       - name: Push stable images to DockerHub
         run: echo ghcr.io/${{ github.repository }}:${{ github.sha }} ghcr.io/${{ github.repository }}:stable | xargs -n 1 docker push
-        if: ${{ endsWith(github.ref, 'master') }}
+        if: ${{ endsWith(github.ref, 'main') }}
