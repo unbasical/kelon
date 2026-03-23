@@ -135,17 +135,14 @@ func (env *E2ETestEnvironment) startKelon() {
 		env.stopKelon()
 	})
 
-	var defaultAccessLogLevel = "ALL"
-	var astSkipUnknown = false
-
 	config := core.KelonConfiguration{
 		ConfigPath:             &env.configPath,
 		RegoDir:                &env.regoPath,
 		Port:                   &env.kelonPort,
 		OperandDir:             &env.callOpsPath,
 		PathPrefix:             &env.pathPrefix,
-		AccessDecisionLogLevel: &defaultAccessLogLevel,
-		AstSkipUnknown:         &astSkipUnknown,
+		AccessDecisionLogLevel: new("ALL"),
+		AstSkipUnknown:         new(false),
 	}
 
 	kelon := core.Kelon{}

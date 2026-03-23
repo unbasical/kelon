@@ -192,16 +192,12 @@ func (p *PolicyCompilerTestEnvironment) onConfigLoaded(change watcher.ChangeType
 	}
 }
 
-func (p *PolicyCompilerTestEnvironment) makeServerConfig(parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig {
-	pathPrefix := p.pathPrefix
-	regoDir := p.policiesPath
-
-	// Build server config
+func (p *PolicyCompilerTestEnvironment) makeServerConfig(parser request.PathProcessor, mapper request.PathMapper, translator translate.AstTranslator, loadedConf *configs.ExternalConfig) api.ClientProxyConfig { // Build server config
 	serverConf := api.ClientProxyConfig{
 		Compiler: &p.policyCompiler,
 		PolicyCompilerConfig: opa.PolicyCompilerConfig{
-			Prefix:        &pathPrefix,
-			RegoDir:       &regoDir,
+			Prefix:        new(p.pathPrefix),
+			RegoDir:       new(p.policiesPath),
 			ConfigWatcher: &p.configWatcher,
 			PathProcessor: &parser,
 			PathProcessorConfig: request.PathProcessorConfig{
