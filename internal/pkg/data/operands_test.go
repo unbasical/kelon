@@ -23,8 +23,7 @@ func Test_Operands_LoadDefault(t *testing.T) {
 }
 
 func Test_Operands_LoadExternal(t *testing.T) {
-	dirpath := "./testdata"
-	handlers, err := LoadAllCallOperands(dummyDatastoreConf, &dirpath)
+	handlers, err := LoadAllCallOperands(dummyDatastoreConf, new("./testdata"))
 	assert.NoError(t, err, "loading the external call operands should not result in an error")
 
 	eq, err := handlers["mongo"]["eq"]("one", "two")
@@ -41,7 +40,6 @@ func Test_Operands_LoadExternal(t *testing.T) {
 }
 
 func Test_Operands_LoadNonExisting(t *testing.T) {
-	dirpath := "./does-not-exist"
-	_, err := LoadAllCallOperands(dummyDatastoreConf, &dirpath)
+	_, err := LoadAllCallOperands(dummyDatastoreConf, new("./does-not-exist"))
 	assert.NoError(t, err, "no errors should be thrown. default call operands should be loaded")
 }
