@@ -29,10 +29,8 @@ import (
 )
 
 type apiError struct {
-	Error struct {
-		Code    string `json:"code"`
-		Message string `json:"message,omitempty"`
-	} `json:"error"`
+	Code    string `json:"code"`
+	Message string `json:"message,omitempty"`
 }
 
 type patchImpl struct {
@@ -475,9 +473,9 @@ func (proxy *restProxy) abortWithBadRequest(ctx context.Context, engine *plugins
 
 func writeError(w http.ResponseWriter, status int, code string, err error) {
 	var resp apiError
-	resp.Error.Code = code
+	resp.Code = code
 	if err != nil {
-		resp.Error.Message = errors.Cause(err).Error()
+		resp.Message = errors.Cause(err).Error()
 	}
 	writeJSON(w, status, resp)
 }
