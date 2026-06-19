@@ -54,11 +54,8 @@ func Test_integration_policyCompiler(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		// redefining scope variable for to bypass parallel execution error
-		testConfig := tt.fields
-		testName := tt.name
 		t.Run(tt.name, func(t *testing.T) {
-			runPolicyCompilerTest(t, testName, &testConfig)
+			runPolicyCompilerTest(t, tt.name, &tt.fields)
 		})
 	}
 }

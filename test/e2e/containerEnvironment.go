@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
 	tc "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -94,11 +93,11 @@ func (env *ContainerEnvironment) Start(ctx context.Context) error {
 			"POSTGRES_USER":     "You",
 			"POSTGRES_PASSWORD": "SuperSecure",
 		},
-		Mounts: []tc.ContainerMount{
+		Files: []tc.ContainerFile{
 			{
-				Source:   tc.GenericBindMountSource{HostPath: postgresMntPath},
-				Target:   "/docker-entrypoint-initdb.d/Init-Postgres.sql",
-				ReadOnly: false,
+				HostFilePath:      postgresMntPath,
+				ContainerFilePath: "/docker-entrypoint-initdb.d/Init-Postgres.sql",
+				FileMode:          0o644,
 			},
 		},
 	}
@@ -126,11 +125,11 @@ func (env *ContainerEnvironment) Start(ctx context.Context) error {
 			"MYSQL_PASSWORD":      "SuperSecure",
 			"MYSQL_ROOT_PASSWORD": "root-beats-everything",
 		},
-		Mounts: []tc.ContainerMount{
+		Files: []tc.ContainerFile{
 			{
-				Source:   tc.GenericBindMountSource{HostPath: mysqlMntPath},
-				Target:   "/docker-entrypoint-initdb.d/Init-MySql.sql",
-				ReadOnly: false,
+				HostFilePath:      mysqlMntPath,
+				ContainerFilePath: "/docker-entrypoint-initdb.d/Init-MySql.sql",
+				FileMode:          0o644,
 			},
 		},
 	}
@@ -156,11 +155,11 @@ func (env *ContainerEnvironment) Start(ctx context.Context) error {
 			"MONGO_INITDB_ROOT_PASSWORD": "RootPwd",
 			"MONGO_INITDB_DATABASE":      "appstore",
 		},
-		Mounts: []tc.ContainerMount{
+		Files: []tc.ContainerFile{
 			{
-				Source:   tc.GenericBindMountSource{HostPath: mongoMntPath},
-				Target:   "/docker-entrypoint-initdb.d/init-mongo.js",
-				ReadOnly: false,
+				HostFilePath:      mongoMntPath,
+				ContainerFilePath: "/docker-entrypoint-initdb.d/init-mongo.js",
+				FileMode:          0o644,
 			},
 		},
 	}
@@ -207,12 +206,12 @@ func (env *ContainerEnvironment) Port(ctx context.Context, service ServiceID, po
 		return "", errors.Errorf("unable to find service [%s]", service)
 	}
 
-	p, err := c.MappedPort(ctx, nat.Port(port))
+	p, err := c.MappedPort(ctx, port)
 	if err != nil {
 		return "", err
 	}
 
-	return strings.Split(string(p), "/")[0], nil
+	return strings.Split(p.String(), "/")[0], nil
 }
 
 // startContainer starts a single container and exposes requested ports
