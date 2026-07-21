@@ -15,6 +15,7 @@ const (
 	TypePostgres = "postgres"
 	TypeMysql    = "mysql"
 	TypeMongo    = "mongo"
+	TypeSpicedb  = "spicedb"
 )
 
 // DatastoreQuery holds a prepared query statement and their parameters
