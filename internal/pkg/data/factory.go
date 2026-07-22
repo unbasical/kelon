@@ -30,6 +30,10 @@ func makeExecutingDatastores(config *configs.ExternalConfig) map[string]*data.Da
 			newDs := NewDatastore(NewMongoDatastoreTranslator(), NewMongoDatastoreExecuter())
 			logging.LogForComponent("factory").Infof("Init MongoDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
+		case data.TypeSpicedb:
+			newDs := NewDatastore(NewSpiceDBDatastoreTranslator(), NewSpiceDBDatastoreExecutor())
+			logging.LogForComponent("factory").Infof("Init SpiceDBDatastore of type [%s] with alias [%s]", ds.Type, dsName)
+			result[dsName] = &newDs
 		default:
 			logging.LogForComponent("factory").Fatalf("Unable to init datastore of type %q! Type is not supported yet!", ds.Type)
 		}
@@ -49,6 +53,10 @@ func makeLoggingDatastores(config *configs.ExternalConfig, dsLoggingWriter io.Wr
 		case data.TypeMongo:
 			newDs := NewDatastore(NewMongoDatastoreTranslator(), NewLoggingDatastoreExecutor(dsLoggingWriter))
 			logging.LogForComponent("factory").Infof("Init DryRun MongoDatastore of type [%s] with alias [%s]", ds.Type, dsName)
+			result[dsName] = &newDs
+		case data.TypeSpicedb:
+			newDs := NewDatastore(NewSpiceDBDatastoreTranslator(), NewLoggingDatastoreExecutor(dsLoggingWriter))
+			logging.LogForComponent("factory").Infof("Init DryRun SpiceDBDatastore of type [%s] with alias [%s]", ds.Type, dsName)
 			result[dsName] = &newDs
 		default:
 			logging.LogForComponent("factory").Fatalf("Unable to init datastore of type %q! Type is not supported yet!", ds.Type)

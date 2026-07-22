@@ -1,0 +1,5 @@
+call-operands:
+
+  # Relational operands
+  - op: eq
+    args: 2
