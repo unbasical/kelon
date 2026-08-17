@@ -1,0 +1,15 @@
+- name: "Envoy: Public app is accessible for everyone"
+  method: GET
+  url: "http://%s:%s/api/pure/apps/1"
+  statusCode: 200
+
+- name: "Envoy: Non-public app is denied"
+  method: GET
+  url: "http://%s:%s/api/pure/apps/2"
+  statusCode: 403
+
+- name: "Envoy: POST to public app is denied"
+  method: POST
+  url: "http://%s:%s/api/pure/apps/1"
+  body: '{"firstname": "foo", "lastname": "bar"}'
+  statusCode: 403

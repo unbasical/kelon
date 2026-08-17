@@ -1,0 +1,37 @@
+apis:
+  # Route all requests starting with /api/pure to no datastore without authentication
+  - path-prefix: /api/pure
+    authentication: false
+    mappings:
+      - path: /apps/.*
+        package: applications.pure
+
+# The policies used in the envoy E2E tests do not query any datastore, but kelon
+# requires at least one configured datastore to start up
+datastores:
+  pg:
+    type: postgres
+    connection:
+      host: ${KELON_E2E_PG_HOST}
+      port: ${KELON_E2E_PG_PORT}
+      database: appstore
+      user: You
+      password: SuperSecure
+      sslmode: disable
+
+entity_schemas:
+  pg:
+    appstore:
+      entities:
+        - name: users
+        - name: apps
+
+opa:
+  labels:
+    app: Kelon
+    environment: e2e
+
+  decision_logs:
+    console: true
+
+  default_decision: /http/authz/allow

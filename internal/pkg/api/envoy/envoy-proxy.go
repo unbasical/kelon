@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/unbasical/kelon/configs"
 	"github.com/unbasical/kelon/pkg/api"
+	"github.com/unbasical/kelon/pkg/constants"
 	"github.com/unbasical/kelon/pkg/constants/logging"
 	"github.com/unbasical/kelon/pkg/opa"
 	"google.golang.org/genproto/googleapis/rpc/code"
@@ -187,7 +188,7 @@ func (p *envoyExtAuthzGrpcServer) Check(ctx context.Context, req *extauthz.Check
 	inputBody["token"] = token
 	inputBody["payload"] = body
 
-	decision, err := (*p.compiler).Execute(ctx, inputBody)
+	decision, err := (*p.compiler).Execute(ctx, map[string]any{constants.Input: inputBody})
 	if err != nil {
 		proxyErr := errors.Wrap(err, "EnvoyProxy: Error during request compilation")
 		return nil, proxyErr
