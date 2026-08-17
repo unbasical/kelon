@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	extauthz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	extauthz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/unbasical/kelon/configs"
