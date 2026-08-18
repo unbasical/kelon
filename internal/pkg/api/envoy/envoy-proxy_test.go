@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	extauthz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	extauthz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/open-policy-agent/opa/v1/plugins"
 	"github.com/open-policy-agent/opa/v1/util"
 	"github.com/pkg/errors"
@@ -65,10 +65,22 @@ func (c mockCompiler) Configure(_ *configs.AppConfig, _ *opa.PolicyCompilerConfi
 	return nil
 }
 
-func (c mockCompiler) Execute(_ context.Context, _ map[string]any) (*opa.Decision, error) {
+func (c mockCompiler) Execute(_ context.Context, requestBody map[string]any) (*opa.Decision, error) {
 	if c.failOnProcess {
 		return &opa.Decision{Allow: false}, errors.Errorf("dummy error")
 	}
+
+	// Enforce the compiler's input contract (see policyCompiler.Execute)
+	input, ok := requestBody["input"].(map[string]any)
+	if !ok {
+		return nil, errors.Errorf("requestBody did not contain a nested object 'input'")
+	}
+	for _, field := range []string{"method", "path"} {
+		if _, ok := input[field]; !ok {
+			return nil, errors.Errorf("input did not contain field %q", field)
+		}
+	}
+
 	return &opa.Decision{Allow: true}, nil
 }
 
